@@ -1,3 +1,7 @@
+0.79.5
+- Trip widget: the compact view is now a 3 x 2 grid (6 tiles, new defaults add HV battery and Regen); pick each tile in Settings.
+- Trip widget: the Regen tile now counts only real regen while the car is moving (brake and standing still no longer count) and shows it as a share of moving time.
+
 0.79.4
 - Trip widget: HV battery % is now read from the car itself (range already was), so it works without the relay link or a Zeekr login. The relay value stays as the fallback, and 12V still needs the relay.
 

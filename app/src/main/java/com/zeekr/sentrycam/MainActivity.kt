@@ -731,12 +731,12 @@ class MainActivity : AppCompatActivity() {
                 tag = "sw"; text = "Regen pill"; isChecked = p.getBoolean("twRegen", true)
                 setOnCheckedChangeListener { _, on -> p.edit().putBoolean("twRegen", on).apply(); sync() }
             }, 8)
-        // The four tiles of the Glance (compact) grid: each slot picks any metric
-        body.addView(label("Glance tiles (the 2 x 2 grid)"))
+        // The six tiles of the Glance (compact) grid: each slot picks any metric
+        body.addView(label("Glance tiles (the 3 x 2 grid)"))
         val metricIds = listOf("eff", "avg", "dist", "rng", "top", "reg", "soc", "v12", "p0100", "pa", "pb", "p1000", "used", "stp")
         val metricNames = listOf("Wh/km", "Average speed", "Distance", "Range", "Top speed", "Regen share", "HV battery", "12V battery", "0-100 time", "Peak accel", "Peak brake", "100-0 distance", "Energy used", "Stopped time")
-        val defSlots = listOf("eff", "avg", "dist", "rng")
-        fun slots() = (p.getString("twSlots", null) ?: defSlots.joinToString(",")).split(",").filter { it in metricIds }.let { l -> (l + defSlots).take(4) }
+        val defSlots = listOf("eff", "avg", "dist", "rng", "soc", "reg")
+        fun slots() = (p.getString("twSlots", null) ?: defSlots.joinToString(",")).split(",").filter { it in metricIds }.let { l -> (l + defSlots.drop(l.size)).take(6) }
         fun slotBtn(i: Int) = Button(this).apply {
             tag = "seg"; isAllCaps = false
             fun show() { text = "Tile ${i + 1}: " + metricNames[metricIds.indexOf(slots()[i]).coerceAtLeast(0)] }
@@ -748,7 +748,7 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }
-        pair(slotBtn(0), slotBtn(1), 0); pair(slotBtn(2), slotBtn(3), 8)
+        pair(slotBtn(0), slotBtn(1), 0); pair(slotBtn(2), slotBtn(3), 8); pair(slotBtn(4), slotBtn(5), 8)
         fun colourBox(title: String, key: String, def: Int, auto: Boolean): View {
             fun cur() = p.getInt(key, def).let { if (it == 0) def else it }
             val dot = View(this); val hexT = TextView(this).apply { tag = "m"; gravity = Gravity.CENTER_VERTICAL; textSize = 13f }

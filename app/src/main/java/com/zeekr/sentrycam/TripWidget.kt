@@ -252,7 +252,7 @@ class TripWidget(private val ctx: Context) {
         val bgc = p.getInt("twBg", 0)
         return JSONObject()
             .put("regenPill", p.getBoolean("twRegen", true))
-            .put("slots", org.json.JSONArray((p.getString("twSlots", "eff,avg,dist,rng") ?: "eff,avg,dist,rng").split(",").filter { it.isNotEmpty() }))
+            .put("slots", org.json.JSONArray((p.getString("twSlots", "eff,avg,dist,rng,soc,reg") ?: "eff,avg,dist,rng,soc,reg").split(",").filter { it.isNotEmpty() }))
             .put("hdr", hdrDp())   // same header height as the other floating windows
             .put("acc", hex(acc)).put("bg", if (bgc == 0) JSONObject.NULL else hex(bgc))
             .put("orient", p.getString("twOrient", "v")).put("detail", p.getString("twDetail", "glance"))
