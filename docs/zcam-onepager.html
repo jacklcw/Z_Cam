@@ -1,0 +1,299 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Z_Cam One Pager</title>
+<style>
+/* Look: same tokens as ZDash and the Z_Cam app (ZTheme.kt): lime accent, monospace, 18px cards. Layout: visual-first single column. Icon tiles, one hub diagram, a step path, before/after chips. Minimal words. */
+:root{
+  --bg:#f5f5f7; --fg:#1d1d1f; --muted:#86868b; --line:#e8e8ed; --card:#ffffff; --accent:#4d7c0f; --accent-soft:#eaf4d2; --accent-fg:#10170a; --warn:#c4271c; --warn-soft:#fbe6e3;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --sans:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#000000;--fg:#f5f5f7;--muted:#98989d;--line:#2c2c2e;--card:#1c1c1e;--accent:#a3e635;--accent-soft:#222f0d;--accent-fg:#10170a;--warn:#ff453a;--warn-soft:#2c1613;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#000000;--fg:#f5f5f7;--muted:#98989d;--line:#2c2c2e;--card:#1c1c1e;--accent:#a3e635;--accent-soft:#222f0d;--accent-fg:#10170a;--warn:#ff453a;--warn-soft:#2c1613;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--sans);font-size:15px;line-height:1.45;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:40px 56px}
+main{max-width:860px;margin:0 auto;display:flex;flex-direction:column;gap:44px}
+svg.i{width:26px;height:26px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;flex:none}
+h1,h2{margin:0;text-wrap:balance}
+.eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--accent)}
+h1{font-family:var(--mono);font-size:clamp(40px,9vw,64px);letter-spacing:-.03em;line-height:1;margin-top:8px}
+.lead{font-size:19px;color:var(--muted);margin:12px 0 0}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:18px}
+.chip{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:12px;border:1px solid var(--line);background:var(--card);border-radius:999px;padding:5px 12px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:16px}
+.stat b{display:block;font-family:var(--mono);font-size:34px;line-height:1;color:var(--accent);letter-spacing:-.02em}
+.stat span{display:block;margin-top:6px;font-size:13px;color:var(--muted)}
+h2{font-family:var(--mono);font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:16px;display:flex;align-items:center;gap:12px}
+h2::after{content:"";flex:1;height:1px;background:var(--line)}
+/* feature tiles */
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px}
+.tile{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:16px 14px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.tile .ic{width:44px;height:44px;border-radius:18px;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center}
+.tile b{font-size:14px;font-weight:650}
+.tile span{font-size:12.5px;color:var(--muted);margin-top:-6px}
+/* diagram */
+.diagram{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:12px;overflow-x:auto}
+.diagram svg{display:block;width:100%;min-width:560px;height:auto}
+.diagram .box{fill:var(--bg);stroke:var(--line);stroke-width:1.5}
+.diagram .hub{fill:var(--accent-soft);stroke:var(--accent);stroke-width:2}
+.diagram .ln{stroke:var(--accent);stroke-width:1.8;fill:none}
+.diagram .dash{stroke-dasharray:5 5;stroke:var(--muted)}
+.diagram text{fill:var(--fg);font-family:var(--mono);font-size:13px;font-weight:600;text-anchor:middle}
+.diagram text.s{fill:var(--muted);font-weight:400;font-size:11px}
+.diagram .ico{color:var(--accent);stroke:var(--accent);fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.ring .rt{fill:var(--bg);stroke:var(--line);stroke-width:1.2}
+.ring .rf{fill:var(--accent);stroke:none}
+.ring .sc{fill:var(--bg);stroke:var(--muted);stroke-width:1.3}
+.ring .so{fill:var(--accent);stroke:var(--accent);stroke-width:1.3}
+.ring .bt{fill:var(--accent);stroke:var(--fg);stroke-width:1.5}
+.ring .kn{fill:var(--card);stroke:var(--fg);stroke-width:1.5}
+.ring text.nt{font-size:11px}
+.ring text.nt.on{fill:var(--accent-fg)}
+.ring text.al{font-size:10px;fill:var(--accent-fg);stroke:none}
+.ring text.lg{text-anchor:start;font-size:11.5px;font-weight:500}
+.ring text.lh{text-anchor:start;font-size:12.5px;fill:var(--accent)}
+.ring .lk{fill:var(--accent);font-weight:700}
+.ring svg{min-width:0}
+.legend{display:flex;flex-wrap:wrap;gap:16px;margin-top:10px;font-size:12px;color:var(--muted);font-family:var(--mono)}
+.legend i{display:inline-block;width:22px;height:0;border-top:2px solid var(--accent);vertical-align:middle;margin-right:6px}
+.legend i.d{border-top:2px dashed var(--muted)}
+/* steps */
+.steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;counter-reset:s}
+.step{position:relative;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:16px 14px;display:flex;flex-direction:column;gap:8px;min-width:0}
+.step .k{font-family:var(--mono);font-size:12px;color:var(--accent);font-weight:700}
+.step .ic{color:var(--accent)}
+.step b{font-size:14px}
+.step span{font-size:12.5px;color:var(--muted)}
+.step.opt{border-style:dashed}
+.step.opt .k::after{content:" optional";color:var(--muted);font-weight:400}
+/* before/after */
+.pairs{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px}
+.pair{display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:stretch}
+.pair div{border-radius:10px;padding:12px;font-size:13.5px;display:flex;align-items:center;min-width:0}
+.pair .b{background:var(--warn-soft);color:var(--warn)}
+.pair .a{background:var(--accent-soft);color:var(--fg)}
+.pair .m{padding:0;color:var(--accent);font-family:var(--mono);font-size:18px;background:none}
+.stack{display:flex;flex-direction:column;gap:36px;min-width:0}
+.cam{display:flex;flex-direction:column;gap:8px}
+.cr{display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px 12px;min-width:0}
+.cr .ic{width:34px;height:34px;border-radius:9px;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;flex:none}
+.cr .ic svg.i{width:20px;height:20px}
+.cr b{display:block;font-size:13.5px}
+.cr span{display:block;color:var(--muted);font-size:12px}
+.camnote{margin:10px 0 0;color:var(--muted);font-size:12px;font-family:var(--mono)}
+footer{color:var(--muted);font-size:12px;font-family:var(--mono)}
+/* wide screens: two-column landscape poster, same reading order (row by row) */
+@media(min-width:1100px){
+  body{padding-block:48px 56px}
+  main{max-width:1320px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:48px 56px;align-items:start}
+  main>*{min-width:0}
+  main>footer{grid-column:1/-1}
+  .stats{grid-template-columns:repeat(3,1fr);align-self:end}
+  .pairs{grid-template-columns:1fr}
+  .steps{grid-template-columns:repeat(auto-fit,minmax(110px,1fr))}
+}
+/* big landscape screens: everything fits one screen, no scrolling */
+@media(min-width:1280px) and (min-height:700px){
+  body{font-size:13px;padding-block:22px 18px}
+  main{max-width:1600px;grid-template-columns:minmax(0,1fr) minmax(0,1.5fr) minmax(0,1fr);grid-template-rows:auto auto auto auto;gap:18px 32px}
+  main>:nth-child(1){grid-column:1;grid-row:1}
+  main>:nth-child(2){grid-column:1;grid-row:2;align-self:start}
+  main>:nth-child(3){grid-column:2;grid-row:1/3}
+  main>:nth-child(4){grid-column:2;grid-row:3}
+  main>:nth-child(5){grid-column:1;grid-row:3}
+  main>:nth-child(6){grid-column:3;grid-row:1/4}
+  main>footer{grid-column:1/-1;grid-row:4}
+  h1{font-size:46px}
+  .lead{font-size:15px;margin-top:8px}
+  .chips{margin-top:12px;gap:6px}
+  .chip{font-size:11px;padding:3px 9px}
+  h2{margin-bottom:10px}
+  .stats{grid-template-columns:repeat(3,1fr);gap:8px}
+  .stat{padding:10px 12px;border-radius:14px}
+  .stat b{font-size:24px}
+  .stat span{font-size:11px;margin-top:3px}
+  .tiles{grid-template-columns:repeat(6,1fr);gap:8px}
+  .tile{padding:10px;gap:8px;border-radius:14px}
+  .tile .ic{width:34px;height:34px;border-radius:9px}
+  .tile .ic svg.i{width:20px;height:20px}
+  .tile b{font-size:12.5px}
+  .tile span{display:none}
+  .diagram{padding:8px}
+  .diagram svg{min-width:0}
+  .steps{grid-template-columns:1fr;gap:6px}
+  .step{flex-direction:row;align-items:center;gap:10px;padding:8px 12px;border-radius:14px}
+  .step .k{width:22px}
+  .step.opt .k::after{content:""}
+  .step b{font-size:13px;min-width:92px}
+  .step span:not(.k){font-size:12px}
+  .pairs{grid-template-columns:1fr;gap:8px}
+  .pair div{padding:10px 12px;font-size:12.5px}
+  .legend{margin-top:6px}
+}
+@media(min-width:1280px) and (min-height:700px){
+  body{font-size:12px}
+  main{gap:14px 28px}
+  .lead{font-size:13px}
+  .stack{gap:20px}
+  .stat{padding:8px 12px}
+  .cr{padding:6px 10px}
+  .cr span{font-size:11px}
+  .pair div{padding:7px 10px;font-size:11.5px}
+  .step{padding:6px 12px}
+  .step span:not(.k){font-size:11px}
+  .step b{min-width:84px}
+  .camnote{margin-top:6px}
+}
+@media(min-width:1280px) and (min-height:900px){
+  body{font-size:14px;padding-block:32px 24px}
+  main{gap:28px 40px}
+  .tile span{display:block;font-size:11px}
+  .step,.pair div{padding-block:12px}
+}
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></symbol>
+    <symbol id="grid" viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="4" rx="1.5"/><rect x="13" y="10" width="7" height="10" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/></symbol>
+    <symbol id="bolt" viewBox="0 0 24 24"><path d="M13 3 5 13h6l-1 8 8-10h-6z"/></symbol>
+    <symbol id="route" viewBox="0 0 24 24"><circle cx="6" cy="18" r="2"/><circle cx="18" cy="6" r="2"/><path d="M8 18h7a3 3 0 0 0 0-6H9a3 3 0 0 1 0-6h7"/></symbol>
+    <symbol id="auto" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/></symbol>
+    <symbol id="cam" viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></symbol>
+    <symbol id="watch" viewBox="0 0 24 24"><rect x="7" y="6" width="10" height="12" rx="3"/><path d="M9 6l1-3h4l1 3M9 18l1 3h4l1-3M12 10v3l2 1"/></symbol>
+    <symbol id="wrench" viewBox="0 0 24 24"><path d="M14.5 6.5a4 4 0 0 0 4.9 4.9L20 12l-8 8a2.1 2.1 0 0 1-3-3l8-8-.5-2.5a4 4 0 0 0-2.5-3z"/></symbol>
+    <symbol id="palette" viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 0 18c1.5 0 2-1 1.5-2s0-2 1.5-2h2a4 4 0 0 0 4-4c0-5-4.5-10-9-10z"/><circle cx="8" cy="11" r="1"/><circle cx="12" cy="7.5" r="1"/><circle cx="16" cy="11" r="1"/></symbol>
+    <symbol id="phone" viewBox="0 0 24 24"><rect x="7" y="3" width="10" height="18" rx="2.5"/><path d="M11 18h2"/></symbol>
+    <symbol id="cloud" viewBox="0 0 24 24"><path d="M7 18a4 4 0 0 1-.5-8 5.5 5.5 0 0 1 10.6 1.5A3.3 3.3 0 0 1 17 18z"/></symbol>
+    <symbol id="car" viewBox="0 0 24 24"><path d="M4 15v-3l2-5h12l2 5v3zM4 15v3h3v-3M17 15v3h3v-3"/><circle cx="8" cy="12.5" r=".6"/><circle cx="16" cy="12.5" r=".6"/></symbol>
+    <symbol id="key" viewBox="0 0 24 24"><circle cx="8" cy="14" r="4"/><path d="M11 11l8-8M16 6l3 3M14 8l2 2"/></symbol>
+    <symbol id="dl" viewBox="0 0 24 24"><path d="M12 4v11M7 11l5 5 5-5M5 20h14"/></symbol>
+    <symbol id="link" viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></symbol>
+    <symbol id="eye" viewBox="0 0 24 24"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></symbol>
+    <symbol id="film" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="14" rx="2"/><path d="M4 9h16M4 15h16M9 5v14"/></symbol>
+    <symbol id="bell"viewBox="0 0 24 24"><path d="M6 17V11a6 6 0 0 1 12 0v6l1.5 2h-15zM10 21h4"/></symbol>
+      <symbol id="globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/></symbol>
+    <symbol id="sound" viewBox="0 0 24 24"><path d="M4 10v4h4l5 4V6L8 10zM16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11"/></symbol>
+    <symbol id="windows" viewBox="0 0 24 24"><rect x="3" y="5" width="11" height="9" rx="1.5"/><rect x="10" y="10" width="11" height="9" rx="1.5"/></symbol>
+  </defs>
+</svg>
+
+<main>
+  <header>
+    <div class="eyebrow">Zeekr 7X car app</div>
+    <h1><span style="color:var(--accent)">Z</span>_Cam</h1>
+    <p class="lead">See around your car, even when you are not in it. Then put it on the HUD.</p>
+    <div class="chips">
+      <span class="chip"><svg class="i" style="width:16px;height:16px"><use href="#car"/></svg>Runs on the car</span>
+      <span class="chip"><svg class="i" style="width:16px;height:16px"><use href="#eye"/></svg>HUD + centre screen</span>
+      <span class="chip"><svg class="i" style="width:16px;height:16px"><use href="#film"/></svg>Sentry footage</span>
+      <span class="chip"><svg class="i" style="width:16px;height:16px"><use href="#cloud"/></svg>Your own relay</span>
+    </div>
+  </header>
+
+  <section class="stats" aria-label="At a glance">
+    <div class="stat"><b>4</b><span>cameras: left, right, rear, front</span></div>
+    <div class="stat"><b>3</b><span>screens: HUD, centre, remote</span></div>
+    <div class="stat"><b>$0</b><span>storage, clips stay on your USB</span></div>
+    <div class="stat"><b>13</b><span>engine sounds</span></div>
+    <div class="stat"><b>0</b><span>third parties see your video</span></div>
+  </section>
+
+  <section>
+    <h2>What you get</h2>
+    <div class="tiles">
+      <div class="tile"><div class="ic"><svg class="i"><use href="#eye"/></svg></div><b>Remote watch</b><span>Check the surroundings from anywhere</span></div>
+      <div class="tile"><div class="ic"><svg class="i"><use href="#film"/></svg></div><b>Sentry footage</b><span>Read dashcam clips from the USB drive</span></div>
+      <div class="tile"><div class="ic"><svg class="i"><use href="#cloud"/></svg></div><b>Live stream</b><span>Live camera on the HUD and centre screen</span></div>
+      <div class="tile"><div class="ic"><svg class="i"><use href="#car"/></svg></div><b>Blind-spot HUD</b><span>Indicator on, side camera on the HUD</span></div>
+      <div class="tile"><div class="ic"><svg class="i"><use href="#globe"/></svg></div><b>Browser on HUD</b><span>Less distraction on the centre screen</span></div>
+      <div class="tile"><div class="ic"><svg class="i"><use href="#windows"/></svg></div><b>Floating windows</b><span>All four cameras, drag, pinch, one button</span></div>
+      <div class="tile"><div class="ic"><svg class="i"><use href="#cam"/></svg></div><b>Camera tuning</b><span>Angle, tilt, turn, mirror, flip per camera</span></div>
+      <div class="tile"><div class="ic"><svg class="i"><use href="#sound"/></svg></div><b>Engine sound</b><span>13 sounds, in the cabin, outside or both, with gear-change effects</span></div>
+      <div class="tile"><div class="ic"><svg class="i"><use href="#route"/></svg></div><b>Driving profiles</b><span>Sound, light, regen and steering follow the drive mode</span></div>
+      <div class="tile"><div class="ic"><svg class="i"><use href="#bolt"/></svg></div><b>Rev bar</b><span>Throttle bar on the HUD, four colour schemes</span></div>
+      <div class="tile"><div class="ic"><svg class="i"><use href="#auto"/></svg></div><b>Floating ring</b><span>Hold the button: toggles, drive modes, volume arcs</span></div>
+      <div class="tile"><div class="ic"><svg class="i"><use href="#palette"/></svg></div><b>Themes, backup</b><span>Dark, black, light; settings kept on your relay</span></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>How it connects</h2>
+    <div class="diagram">
+      <svg viewBox="0 0 760 330" role="img" aria-label="The car cameras feed Z_Cam. Z_Cam shows them on the HUD and centre screen, and talks to your relay. Your phone and ZDash read from the relay and can ask for live view.">
+        <path class="ln" d="M170 100 H300"/>
+        <path class="ln" d="M460 100 H590"/>
+        <path class="ln" d="M380 140 V190"/>
+        <path class="ln" d="M460 230 H590"/>
+        <path class="ln dash" d="M650 190 V150 Q650 140 640 140 H470"/>
+        <rect class="box" x="50" y="60" width="120" height="80" rx="14"/>
+        <svg class="ico" x="98" y="68" width="24" height="24" viewBox="0 0 24 24"><use href="#cam"/></svg>
+        <text x="110" y="112">Car cameras</text><text class="s" x="110" y="128">surround view</text>
+        <rect class="hub" x="300" y="60" width="160" height="80" rx="14"/>
+        <svg class="ico" x="368" y="68" width="24" height="24" viewBox="0 0 24 24"><use href="#car"/></svg>
+        <text x="380" y="112">Z_Cam</text><text class="s" x="380" y="128">on the car screen</text>
+        <rect class="box" x="590" y="60" width="120" height="80" rx="14"/>
+        <svg class="ico" x="638" y="68" width="24" height="24" viewBox="0 0 24 24"><use href="#eye"/></svg>
+        <text x="650" y="112">HUD + screen</text><text class="s" x="650" y="128">live, browser</text>
+        <rect class="hub" x="300" y="190" width="160" height="80" rx="14"/>
+        <svg class="ico" x="368" y="198" width="24" height="24" viewBox="0 0 24 24"><use href="#cloud"/></svg>
+        <text x="380" y="242">Your relay</text><text class="s" x="380" y="258">clips, backup</text>
+        <rect class="box" x="590" y="190" width="120" height="80" rx="14"/>
+        <svg class="ico" x="638" y="198" width="24" height="24" viewBox="0 0 24 24"><use href="#phone"/></svg>
+        <text x="650" y="242">Phone</text><text class="s" x="650" y="258">ZDash dashboard</text>
+        <text class="s" x="10" y="310" style="text-anchor:start">Video stays between your car, your relay and you</text>
+        <text class="s" x="750" y="310" style="text-anchor:end">Relay: a free Cloudflare Worker you own</text>
+      </svg>
+    </div>
+    <div class="legend"><span><i></i>pictures and data</span><span><i class="d"></i>request live view</span></div>
+  </section>
+
+  <section>
+    <h2>Setup in 5 steps</h2>
+    <div class="steps">
+      <div class="step"><span class="k">01</span><svg class="i ic"><use href="#dl"/></svg><b>Install</b><span>Sideload the APK on the car through App Lab</span></div>
+      <div class="step"><span class="k">02</span><svg class="i ic"><use href="#link"/></svg><b>Link</b><span>Scan the setup QR from ZDash</span></div>
+      <div class="step"><span class="k">03</span><svg class="i ic"><use href="#key"/></svg><b>Allow</b><span>Display over other apps</span></div>
+      <div class="step"><span class="k">04</span><svg class="i ic"><use href="#windows"/></svg><b>Turn on</b><span>HUD, floating windows, web view</span></div>
+      <div class="step opt"><span class="k">05</span><svg class="i ic"><use href="#phone"/></svg><b>Watch away</b><span>ZDash dashboard, Cam tab</span></div>
+    </div>
+  </section>
+
+  <div class="stack">
+  <section>
+    <h2>Problems solved</h2>
+    <div class="pairs">
+      <div class="pair"><div class="b">Cannot see the car when away</div><div class="m">&rarr;</div><div class="a">Snapshots and live view</div></div>
+      <div class="pair"><div class="b">Sentry clips stuck on the USB</div><div class="m">&rarr;</div><div class="a">Pulled to your phone on request</div></div>
+      <div class="pair"><div class="b">Blind spot only in the mirror</div><div class="m">&rarr;</div><div class="a">Side camera on the HUD</div></div>
+      <div class="pair"><div class="b">Centre screen distracts</div><div class="m">&rarr;</div><div class="a">Browser on the HUD</div></div>
+      <div class="pair"><div class="b">Camera views scattered</div><div class="m">&rarr;</div><div class="a">Floating windows, one button</div></div>
+      <div class="pair"><div class="b">An EV is silent</div><div class="m">&rarr;</div><div class="a">Pick an engine sound</div></div>
+      <div class="pair"><div class="b">Settings buried in menus</div><div class="m">&rarr;</div><div class="a">Floating ring: hold, slide, lift</div></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>The floating ring</h2>
+    <div class="diagram ring">
+      <svg viewBox="35 35 420 225" role="img" aria-label="The floating ring: a button that opens a ring of eight sectors. Hover one to open a second layer of switches or drive modes, and the volume arcs for the engine sound and web page.">
+        <path class="rt" d="M156.7 61.8A84 84 0 0 1 211.2 196.7L197.0 185.6A66 66 0 0 0 154.2 79.6Z"/><path class="rf" d="M156.7 61.8A84 84 0 0 1 228.9 147.9L211.0 147.3A66 66 0 0 0 154.2 79.6Z"/><path id="va0" d="M160.6 71.6A75.0 75.0 0 0 1 207.2 186.9" fill="none"/><text class="al"><textPath href="#va0" startOffset="16%">CABIN</textPath></text><circle class="kn" cx="220.0" cy="147.6" r="8"/><path class="rt" d="M159.6 41.0A105 105 0 0 1 227.7 209.6L213.6 198.6A87 87 0 0 0 157.1 58.8Z"/><path class="rf" d="M159.6 41.0A105 105 0 0 1 242.4 105.7L225.7 112.4A87 87 0 0 0 157.1 58.8Z"/><path id="va1" d="M165.0 51.1A96.0 96.0 0 0 1 224.6 198.7" fill="none"/><text class="al"><textPath href="#va1" startOffset="16%">WEB</textPath></text><circle class="kn" cx="234.0" cy="109.0" r="8"/><path class="sc" d="M104.4 234.2A98 98 0 0 1 76.3 214.9L98.7 192.1A66 66 0 0 0 117.6 205.1Z"/><text class="nt" x="98.6" y="216.6">C</text><path class="sc" d="M73.9 212.5A98 98 0 0 1 55.1 184.1L84.5 171.3A66 66 0 0 0 97.1 190.4Z"/><text class="nt" x="76.6" y="194.3">St</text><path class="so" d="M53.8 180.9A98 98 0 0 1 47.0 147.6L79.0 146.7A66 66 0 0 0 83.6 169.2Z"/><text class="nt on" x="64.6" y="165.3">Sp</text><path class="sc" d="M47.0 144.1A98 98 0 0 1 53.2 110.7L83.2 121.9A66 66 0 0 0 79.0 144.4Z"/><text class="nt" x="64.4" y="134.1">Sn</text><path class="so" d="M146.1 83.0A62 62 0 0 1 188.1 100.4L161.0 128.5A23 23 0 0 0 145.4 122.0Z"/><text class="nt on" x="161.5" y="109.3">1</text><path class="sc" d="M189.6 101.9A62 62 0 0 1 207.0 143.9L168.0 144.6A23 23 0 0 0 161.5 129.0Z"/><text class="nt" x="184.7" y="132.5">2</text><path class="sc" d="M207.0 146.1A62 62 0 0 1 189.6 188.1L161.5 161.0A23 23 0 0 0 168.0 145.4Z"/><text class="nt" x="184.7" y="165.5">3</text><path class="sc" d="M188.1 189.6A62 62 0 0 1 146.1 207.0L145.4 168.0A23 23 0 0 0 161.0 161.5Z"/><text class="nt" x="161.5" y="188.7">4</text><path class="sc" d="M143.9 207.0A62 62 0 0 1 101.9 189.6L129.0 161.5A23 23 0 0 0 144.6 168.0Z"/><text class="nt" x="128.5" y="188.7">5</text><path class="sc" d="M100.4 188.1A62 62 0 0 1 83.0 146.1L122.0 145.4A23 23 0 0 0 128.5 161.0Z"/><text class="nt" x="105.3" y="165.5">6</text><path class="sc" d="M83.0 143.9A62 62 0 0 1 100.4 101.9L128.5 129.0A23 23 0 0 0 122.0 144.6Z"/><text class="nt" x="105.3" y="132.5">7</text><path class="sc" d="M101.9 100.4A62 62 0 0 1 143.9 83.0L144.6 122.0A23 23 0 0 0 129.0 128.5Z"/><text class="nt" x="128.5" y="109.3">8</text><circle class="bt" cx="145" cy="145" r="18"/><text class="nt on" x="145" y="149">Z</text>
+        <text class="lh" x="272" y="54">Hold, slide, lift</text>
+        <text class="lg" x="272" y="82"><tspan class="lk">1</tspan> Engine sound</text><text class="lg" x="272" y="104"><tspan class="lk">2</tspan> Volume</text><text class="lg" x="272" y="126"><tspan class="lk">3</tspan> Sound direction</text><text class="lg" x="272" y="148"><tspan class="lk">4</tspan> HUD</text><text class="lg" x="272" y="170"><tspan class="lk">5</tspan> HUD camera feed</text><text class="lg" x="272" y="192"><tspan class="lk">6</tspan> Acceleration mode</text><text class="lg" x="272" y="214"><tspan class="lk">7</tspan> Live view windows</text><text class="lg" x="272" y="236"><tspan class="lk">8</tspan> Open Z_Cam</text>
+      </svg>
+    </div>
+    <p class="camnote">One floating button opens it from any screen. Slide to a sector and lift to flip it.</p>
+  </section>
+  </div>
+
+  <footer>Z_Cam v0.64.0 &middot; unofficial, not affiliated with Zeekr &middot; engine sound code ported from Zeekr Shortcut (GPL-3.0)</footer>
+</main>
+</body>
+</html>
