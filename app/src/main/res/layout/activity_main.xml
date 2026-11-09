@@ -1,0 +1,439 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Styling (colours, fonts, sizes) is applied at runtime by ZTheme using the android:tag values. -->
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/scroll"
+    android:layout_width="match_parent" android:layout_height="match_parent"
+    android:tag="root" android:fillViewport="true">
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:orientation="vertical" android:padding="20dp">
+
+        <!-- Header: logo, version, theme switcher -->
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:orientation="horizontal" android:gravity="center_vertical"
+            android:layout_marginBottom="12dp">
+            <LinearLayout android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"
+                android:orientation="vertical">
+                <TextView android:id="@+id/logo" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:text="Z_Cam" android:tag="t" android:textSize="26sp" android:textStyle="bold"/>
+                <TextView android:id="@+id/ver" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:tag="m" android:text=""/>
+            </LinearLayout>
+            <Button android:id="@+id/themeDark" android:tag="seg" android:text="Dark"
+                android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="8dp"/>
+            <Button android:id="@+id/themeBlack" android:tag="seg" android:text="Black"
+                android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="8dp"/>
+            <Button android:id="@+id/themeLight" android:tag="seg" android:text="Light"
+                android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="8dp"/>
+        </LinearLayout>
+
+        <!-- Update banner: hidden until checkForUpdate() finds a newer version. -->
+        <LinearLayout android:id="@+id/updateBox" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:orientation="vertical"
+            android:tag="card" android:layout_marginBottom="10dp" android:visibility="gone">
+            <TextView android:id="@+id/updateMsg" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:tag="accent" android:textStyle="bold"/>
+            <Button android:id="@+id/updateNow" android:tag="btn" android:text="Update now"
+                android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp"/>
+        </LinearLayout>
+
+        <!-- STEP 0: Relay URL (shown first, until configured) -->
+        <LinearLayout android:id="@+id/relayBox" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:orientation="vertical" android:tag="card">
+            <TextView android:tag="h" android:text="Relay" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+            <TextView android:tag="m" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="Link to your ZDash relay for remote snapshots, live view and clips, or use Z Cam on its own (blind-spot HUD, floating cameras, web). You can link later."
+                android:paddingBottom="14dp"/>
+            <ImageView android:id="@+id/setupQr" android:layout_width="260dp" android:layout_height="260dp"
+                android:layout_gravity="center_horizontal" android:background="#FFFFFF" android:padding="8dp"/>
+            <Button android:id="@+id/setupQrNew" android:tag="btn2" android:text="Show a new setup QR"
+                android:layout_width="match_parent" android:layout_height="wrap_content" android:visibility="gone"/>
+            <TextView android:id="@+id/setupQrNote" android:tag="m" android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:gravity="center" android:paddingTop="8dp" android:paddingBottom="8dp"
+                android:text="Scan this QR in the ZDash app (App settings, Z_Cam, Scan QR from car) to send your relay here, then confirm it on this screen. Privacy: the relay address passes through the public ntfy.sh service (kept about 12 hours, visible to anyone holding this QR). The QR expires after 10 minutes. Or type the address below."/>
+            <androidx.appcompat.widget.SwitchCompat android:id="@+id/setupQrOn" android:tag="sw"
+                android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Enable setup QR (uses ntfy.sh)"
+                android:paddingBottom="12dp"/>
+            <EditText android:id="@+id/relayUrl" android:tag="in" android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:hint="https://your-worker.workers.dev" android:inputType="textUri"/>
+            <Button android:id="@+id/relaySave" android:tag="btn" android:text="Use this relay"
+                android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="14dp"/>
+            <Button android:id="@+id/standaloneBtn" android:tag="btn2" android:text="Use without Z app (standalone)"
+                android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="10dp"/>
+        </LinearLayout>
+
+        <!-- STEP 1: Identify cameras (shown first, until linked) -->
+        <LinearLayout android:id="@+id/identifyBox" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:orientation="vertical" android:tag="card">
+            <TextView android:tag="h" android:text="Cameras" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+            <TextView android:id="@+id/camCount" android:tag="t" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="Finding cameras..." android:textStyle="bold"/>
+            <TextView android:tag="m" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="Tick the cameras to capture. Previews help you tell them apart."
+                android:paddingTop="4dp" android:paddingBottom="10dp"/>
+            <LinearLayout android:id="@+id/previewList" android:layout_width="match_parent"
+                android:layout_height="wrap_content" android:orientation="vertical"/>
+            <Button android:id="@+id/refresh" android:tag="btn2" android:text="Refresh previews"
+                android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="10dp"/>
+            <Button android:id="@+id/toCode" android:tag="btn" android:text="Get pairing code"
+                android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp"/>
+        </LinearLayout>
+
+        <!-- STEP 2: Pairing code (centered QR) -->
+        <LinearLayout android:id="@+id/codeBox" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:orientation="vertical"
+            android:gravity="center_horizontal" android:tag="card" android:visibility="gone">
+            <TextView android:tag="m" android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:text="Scan this QR with the ZDash app on your phone (Cam tab, Link a car app). Pairing is automatic. You can also type the code."
+                android:gravity="center"/>
+            <ImageView android:id="@+id/qr" android:layout_width="300dp" android:layout_height="300dp"
+                android:layout_marginTop="18dp" android:layout_gravity="center_horizontal" android:background="#FFFFFF"/>
+            <TextView android:id="@+id/code" android:tag="accent" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:textSize="40sp" android:textStyle="bold" android:letterSpacing="0.3" android:paddingTop="14dp"
+                android:layout_gravity="center_horizontal"/>
+            <Button android:id="@+id/backToId" android:tag="btn2" android:text="Back"
+                android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:layout_marginTop="18dp" android:layout_gravity="center_horizontal"/>
+        </LinearLayout>
+
+        <!-- STEP 3: Operational (shown once linked). Two columns on wide screens (see MainActivity). -->
+        <LinearLayout android:id="@+id/opBox" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:orientation="horizontal" android:visibility="gone">
+
+            <!-- service column (now on the left) -->
+            <LinearLayout android:id="@+id/colRight" android:layout_width="0dp" android:layout_weight="28"
+                android:layout_height="wrap_content" android:orientation="vertical">
+                <Button android:id="@+id/checkUpdate" android:tag="btn2" android:text="Check for update"
+                    android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginBottom="10dp"/>
+
+                <Button android:id="@+id/backupCard" android:tag="btn2" android:text="Back up or restore settings"
+                    android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginBottom="10dp"/>
+
+                <Button android:id="@+id/dataUsage" android:tag="btn2" android:text="Data usage"
+                    android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginBottom="10dp"/>
+
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:orientation="horizontal" android:layout_marginBottom="10dp">
+                    <Button android:id="@+id/viewLog" android:tag="btn2" android:text="View log"
+                        android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"/>
+                    <Button android:id="@+id/unlink" android:tag="bad" android:text="Unlink ZDash"
+                        android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"
+                        android:layout_marginStart="12dp"/>
+                </LinearLayout>
+                <Button android:id="@+id/whatsNew" android:tag="btn2" android:text="What's new"
+                    android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginBottom="10dp"/>
+                <Button android:id="@+id/restartApp" android:tag="btn2" android:text="Force close app"
+                    android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginBottom="10dp"/>
+                <Button android:id="@+id/credits" android:tag="btn2" android:text="Credits"
+                    android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginBottom="10dp"/>
+                <Button android:id="@+id/resetAll" android:tag="bad" android:text="Reset all settings to default"
+                    android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginBottom="10dp"/>
+            </LinearLayout>
+            <!-- display column (now on the right, nearest the driver) -->
+            <LinearLayout android:id="@+id/colLeft" android:layout_width="0dp" android:layout_weight="72"
+                android:layout_height="wrap_content" android:orientation="vertical" android:layout_marginStart="10dp">
+                <LinearLayout android:id="@+id/profCard" android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:orientation="vertical" android:tag="card" android:layout_marginBottom="10dp">
+                    <TextView android:tag="h" android:text="Driving profiles" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+                    <androidx.appcompat.widget.SwitchCompat android:id="@+id/pfOn" android:tag="sw"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:text="Ambient light and engine sound follow the drive mode"/>
+                    <LinearLayout android:id="@+id/pfBody" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical"/>
+                </LinearLayout>
+
+                <LinearLayout android:id="@+id/campCard" android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:orientation="vertical" android:tag="card" android:layout_marginBottom="10dp">
+                    <TextView android:tag="h" android:text="Camping mode" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+                    <androidx.appcompat.widget.SwitchCompat android:id="@+id/campOff" android:tag="sw"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:text="Turn camping off when nobody is in the car (seats empty, car locked, not charging)"/>
+                    <TextView android:id="@+id/campMinLabel" android:tag="m" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:text="Wait: 15 min" android:paddingTop="6dp"/>
+                    <SeekBar android:id="@+id/campMin" android:tag="seek" android:layout_width="match_parent" android:layout_height="wrap_content" android:max="55"/>
+                </LinearLayout>
+                <LinearLayout android:id="@+id/engCard" android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:orientation="vertical" android:tag="card" android:layout_marginBottom="10dp">
+                    <TextView android:tag="h" android:text="Engine sound" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+                    <androidx.appcompat.widget.SwitchCompat android:id="@+id/engOn" android:tag="sw"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:text="Simulated engine sound while driving (every drive mode)"/>
+                    <LinearLayout android:id="@+id/engBody" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical"/>
+                </LinearLayout>
+
+                <LinearLayout android:id="@+id/arrCard" android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:orientation="vertical" android:tag="card" android:layout_marginBottom="10dp">
+                    <TextView android:tag="h" android:text="HUD" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+                    <TextView android:tag="accent" android:text="SHOW ON HUD" android:textStyle="bold" android:letterSpacing="0.08"
+                        android:layout_width="wrap_content" android:layout_height="wrap_content" android:paddingTop="10dp" android:paddingBottom="4dp"/>
+                    <androidx.appcompat.widget.SwitchCompat android:id="@+id/bsHud" android:tag="sw"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:text="Side camera when indicating"/>
+                    <androidx.appcompat.widget.SwitchCompat android:id="@+id/bsSignal" android:tag="sw"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:text="Turn signal arrow"/>
+                    <androidx.appcompat.widget.SwitchCompat android:id="@+id/webOn" android:tag="sw"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:text="Web page (yields to the side camera)"/>
+                    <TextView android:tag="m" android:text="The rev bar is switched on or off per drive mode, under Rev bar below."
+                        android:layout_width="wrap_content" android:layout_height="wrap_content" android:paddingTop="4dp"/>
+                    <View android:tag="chip" android:layout_width="match_parent" android:layout_height="1dp" android:layout_marginTop="18dp"/>
+                    <TextView android:tag="accent" android:text="LAYOUT" android:textStyle="bold" android:letterSpacing="0.08"
+                        android:layout_width="wrap_content" android:layout_height="wrap_content" android:paddingTop="14dp" android:paddingBottom="4dp"/>
+                    <TextView android:tag="m" android:text="Touch an item on the pad, drag to move it, pinch to resize it (the rev bar snaps to an edge). The HUD shows it while you edit. Use the chips to hide items that are in the way."
+                        android:layout_width="wrap_content" android:layout_height="wrap_content" android:paddingBottom="8dp"/>
+                    <LinearLayout android:id="@+id/arrHost" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical"/>
+                    <Button android:id="@+id/arrReset" android:tag="btn2" android:text="Reset HUD layout to default"
+                        android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp"/>
+                    <View android:tag="chip" android:layout_width="match_parent" android:layout_height="1dp" android:layout_marginTop="18dp"/>
+                    <TextView android:tag="accent" android:text="TURN ARROW LOOK" android:textStyle="bold" android:letterSpacing="0.08"
+                        android:layout_width="wrap_content" android:layout_height="wrap_content" android:paddingTop="14dp" android:paddingBottom="4dp"/>
+                    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:orientation="horizontal" android:paddingTop="6dp" android:paddingBottom="6dp">
+                        <Button android:id="@+id/arrSideL" android:tag="seg" android:text="Left arrow"
+                            android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"/>
+                        <Button android:id="@+id/arrSideR" android:tag="seg" android:text="Right arrow"
+                            android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:layout_marginStart="8dp"/>
+                    </LinearLayout>
+                    <LinearLayout android:id="@+id/arrStyleHost" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical"/>
+                    <View android:tag="chip" android:layout_width="match_parent" android:layout_height="1dp" android:layout_marginTop="18dp"/>
+                    <TextView android:tag="accent" android:text="REV BAR" android:textStyle="bold" android:letterSpacing="0.08"
+                        android:layout_width="wrap_content" android:layout_height="wrap_content" android:paddingTop="14dp" android:paddingBottom="4dp"/>
+                    <LinearLayout android:id="@+id/revBody" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical"/>
+                    <View android:tag="chip" android:layout_width="match_parent" android:layout_height="1dp" android:layout_marginTop="18dp"/>
+                    <TextView android:tag="accent" android:text="EXIT ANIMATION" android:textStyle="bold" android:letterSpacing="0.08"
+                        android:layout_width="wrap_content" android:layout_height="wrap_content" android:paddingTop="14dp" android:paddingBottom="4dp"/>
+                                        <Button android:id="@+id/bsExitAnim" android:tag="btn2" android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:text="Cut" android:textAllCaps="false"/>
+                    <TextView android:id="@+id/bsExitMsLabel" android:tag="m" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:text="Exit speed: 500 ms" android:paddingTop="6dp"/>
+                    <SeekBar android:id="@+id/bsExitMs" android:tag="seek" android:layout_width="match_parent" android:layout_height="wrap_content" android:max="1300"/>
+                    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:paddingTop="6dp">
+                        <Button android:id="@+id/bsExitPrevApp" android:tag="btn2" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"
+                            android:text="Preview in app" android:textAllCaps="false"/>
+                        <Button android:id="@+id/bsExitPrevHud" android:tag="btn2" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"
+                            android:layout_marginStart="8dp" android:text="Preview on HUD" android:textAllCaps="false"/>
+                    </LinearLayout>
+                </LinearLayout>
+
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:orientation="vertical" android:tag="card" android:layout_marginBottom="10dp">
+                    <TextView android:tag="h" android:text="Live view" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+                    <TextView android:tag="m" android:text="Pick a camera. Its settings apply to its floating window (and the HUD for left and right)."
+                        android:layout_width="wrap_content" android:layout_height="wrap_content" android:paddingTop="6dp"/>
+                    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:orientation="horizontal" android:paddingTop="8dp" android:paddingBottom="6dp">
+                        <Button android:id="@+id/bsSideL" android:tag="seg" android:text="Left"
+                            android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"/>
+                        <Button android:id="@+id/bsSideR" android:tag="seg" android:text="Right"
+                            android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:layout_marginStart="8dp"/>
+                        <Button android:id="@+id/bsSideB" android:tag="seg" android:text="Rear"
+                            android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:layout_marginStart="8dp"/>
+                        <Button android:id="@+id/bsSideF" android:tag="seg" android:text="Front"
+                            android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:layout_marginStart="8dp"/>
+                    </LinearLayout>
+                    <LinearLayout android:id="@+id/stitchPick" android:visibility="gone" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
+                    <TextView android:tag="m" android:text="Stitch (rear + side): pick a half to tune it, the picture below shows both"
+                        android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+                    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:orientation="horizontal" android:paddingTop="4dp" android:paddingBottom="6dp">
+                        <Button android:id="@+id/bsSideXLs" android:tag="seg" android:text="L side" android:textAllCaps="false"
+                            android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"/>
+                        <Button android:id="@+id/bsSideXLr" android:tag="seg" android:text="L rear" android:textAllCaps="false"
+                            android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:layout_marginStart="8dp"/>
+                        <Button android:id="@+id/bsSideXRs" android:tag="seg" android:text="R side" android:textAllCaps="false"
+                            android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:layout_marginStart="8dp"/>
+                        <Button android:id="@+id/bsSideXRr" android:tag="seg" android:text="R rear" android:textAllCaps="false"
+                            android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:layout_marginStart="8dp"/>
+                    </LinearLayout>
+                    </LinearLayout>
+                    <TextView android:tag="m" android:text="Drag = turn / tilt, pinch = zoom, two-finger twist = rotate"
+                        android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+                    <TextureView android:id="@+id/bsLive" android:layout_width="340dp" android:layout_height="340dp"
+                        android:layout_gravity="center_horizontal" android:layout_marginTop="6dp" android:layout_marginBottom="6dp"/>
+                    <Button android:id="@+id/bsPop" android:tag="btn2" android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:text="Adjust in a pop-up" android:textAllCaps="false"/>
+                    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
+                        <androidx.appcompat.widget.SwitchCompat android:id="@+id/bsMirror" android:tag="sw"
+                            android:layout_width="match_parent" android:layout_height="wrap_content"
+                            android:text="Mirror picture"/>
+                        <androidx.appcompat.widget.SwitchCompat android:id="@+id/bsFlip" android:tag="sw" android:visibility="gone"
+                            android:layout_width="match_parent" android:layout_height="wrap_content"
+                            android:text="Flip upside down"/>
+                        <LinearLayout android:id="@+id/bsSizeBox" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
+                        <TextView android:id="@+id/bsSizeLabel" android:tag="m" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                            android:text="HUD picture size: 80%" android:paddingTop="6dp"/>
+                        <SeekBar android:id="@+id/bsSize" android:tag="seek" android:layout_width="match_parent" android:layout_height="wrap_content" android:max="60"/>
+                        <TextView android:id="@+id/bsAspectLabel" android:tag="m" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                            android:text="HUD picture width: 100%" android:paddingTop="6dp"/>
+                        <SeekBar android:id="@+id/bsAspect" android:tag="seek" android:layout_width="match_parent" android:layout_height="wrap_content" android:max="210"/>
+                        </LinearLayout>
+                        <LinearLayout android:id="@+id/bsStitchBox" android:visibility="gone" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
+                            <TextView android:id="@+id/stSeamLabel" android:tag="m" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                                android:text="Seam position: 50%" android:paddingTop="6dp"/>
+                            <SeekBar android:id="@+id/stSeam" android:tag="seek" android:layout_width="match_parent" android:layout_height="wrap_content" android:max="40"/>
+                            <TextView android:id="@+id/stBlendLabel" android:tag="m" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                                android:text="Seam blend: 12%" android:paddingTop="6dp"/>
+                            <SeekBar android:id="@+id/stBlend" android:tag="seek" android:layout_width="match_parent" android:layout_height="wrap_content" android:max="40"/>
+                            <Button android:id="@+id/stCopy" android:tag="btn2" android:layout_width="match_parent" android:layout_height="wrap_content"
+                                android:layout_marginTop="8dp" android:text="Copy from the other side" android:textAllCaps="false"/>
+                        </LinearLayout>
+                        <TextView android:id="@+id/bsFovLabel" android:tag="m" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                            android:text="View angle: 90" android:paddingTop="6dp"/>
+                        <SeekBar android:id="@+id/bsFov" android:tag="seek" android:layout_width="match_parent" android:layout_height="wrap_content" android:max="70"/>
+                        <TextView android:id="@+id/bsTiltLabel" android:tag="m" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                            android:text="View tilt up: 30" android:paddingTop="6dp"/>
+                        <SeekBar android:id="@+id/bsTilt" android:tag="seek" android:layout_width="match_parent" android:layout_height="wrap_content" android:max="60"/>
+                        <TextView android:id="@+id/bsYawLabel" android:tag="m" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                            android:text="View turn: 30" android:paddingTop="6dp"/>
+                        <SeekBar android:id="@+id/bsYaw" android:tag="seek" android:layout_width="match_parent" android:layout_height="wrap_content" android:max="60"/>
+                        <TextView android:id="@+id/bsRollLabel" android:tag="m" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                            android:text="View rotate: 0" android:paddingTop="6dp"/>
+                        <SeekBar android:id="@+id/bsRoll" android:tag="seek" android:layout_width="match_parent" android:layout_height="wrap_content" android:max="90"/>
+                    </LinearLayout>
+                    <Button android:id="@+id/bsReset" android:tag="btn2" android:text="Reset this camera to default"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"/>
+                </LinearLayout>
+
+                <LinearLayout android:id="@+id/webCard" android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:orientation="vertical" android:tag="card" android:layout_marginBottom="10dp">
+                    <TextView android:tag="h" android:text="Web view" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+                    <androidx.appcompat.widget.SwitchCompat android:id="@+id/webFloatAlways" android:tag="sw"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:text="Keep floating web window while blind-spot shows on HUD"/>
+                    <TextView android:id="@+id/webVolLabel" android:tag="m" android:text="Web volume: 100%"
+                        android:layout_width="wrap_content" android:layout_height="wrap_content" android:paddingTop="6dp"/>
+                    <SeekBar android:id="@+id/webVol" android:tag="seek" android:layout_width="match_parent" android:layout_height="wrap_content" android:max="100"/>
+                    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:orientation="horizontal" android:paddingTop="8dp">
+                        <Button android:id="@+id/webBookmarks" android:tag="btn2" android:text="Bookmarks"
+                            android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"/>
+                        <Button android:id="@+id/webHistory" android:tag="btn2" android:text="History"
+                            android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:layout_marginStart="12dp"/>
+                    </LinearLayout>
+                </LinearLayout>
+
+                <LinearLayout android:id="@+id/twBody" android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:orientation="vertical" android:tag="card" android:layout_marginBottom="10dp">
+                    <TextView android:tag="h" android:text="Trip widget" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+                </LinearLayout>
+
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:orientation="vertical" android:tag="card" android:layout_marginBottom="10dp">
+                    <TextView android:tag="h" android:text="Floating windows" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+                    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
+                    <androidx.appcompat.widget.SwitchCompat android:id="@+id/flMaster" android:tag="sw"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:text="Quick-hide button (hide / show all windows, pinch to resize)"/>
+                    <androidx.appcompat.widget.SwitchCompat android:id="@+id/flBlackBg" android:tag="sw"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:text="Solid background behind windows (black, white on Light theme)"/>
+                    <androidx.appcompat.widget.SwitchCompat android:id="@+id/flBlinkCenter" android:tag="sw"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:text="Left / Right: centre on screen while the blinker is on"/>
+                    <TextView android:id="@+id/bsHoldLabel" android:tag="m" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:text="Blinker view stays after blinker off: 1.5 s" android:paddingTop="6dp"/>
+                    <SeekBar android:id="@+id/bsHold" android:tag="seek" android:layout_width="match_parent" android:layout_height="wrap_content" android:max="19"/>
+                    <TextView android:id="@+id/flHdrLabel" android:tag="m" android:text="Window header height: 56"
+                        android:layout_width="wrap_content" android:layout_height="wrap_content" android:paddingTop="6dp"/>
+                    <SeekBar android:id="@+id/flHdr" android:tag="seek" android:layout_width="match_parent" android:layout_height="wrap_content" android:max="60"/>
+                    <TextView android:id="@+id/flCornerLabel" android:tag="m" android:text="Window corner radius: 16"
+                        android:layout_width="wrap_content" android:layout_height="wrap_content" android:paddingTop="6dp"/>
+                    <SeekBar android:id="@+id/flCorner" android:tag="seek" android:layout_width="match_parent" android:layout_height="wrap_content" android:max="40"/>
+                    <TextView android:id="@+id/flFadeLabel" android:tag="m" android:text="Window edge fade: off"
+                        android:layout_width="wrap_content" android:layout_height="wrap_content" android:paddingTop="6dp"/>
+                    <SeekBar android:id="@+id/flFade" android:tag="seek" android:layout_width="match_parent" android:layout_height="wrap_content" android:max="30"/>
+                    <Button android:id="@+id/flAnimBtn" android:tag="seg" android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp" android:textAllCaps="false" android:text="Blinker window animation: Fade"/>
+                    <TextView android:id="@+id/flAnimMsLabel" android:tag="m" android:text="Blinker animation speed: 320 ms"
+                        android:layout_width="wrap_content" android:layout_height="wrap_content" android:paddingTop="6dp"/>
+                    <SeekBar android:id="@+id/flAnimMs" android:tag="seek" android:layout_width="match_parent" android:layout_height="wrap_content" android:max="92"/>
+                    <Button android:id="@+id/flMinAnim" android:tag="seg" android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp" android:textAllCaps="false" android:text="Minimize animation: Fade"/>
+                    <TextView android:id="@+id/flMinMsLabel" android:tag="m" android:text="Minimize speed: 200 ms"
+                        android:layout_width="wrap_content" android:layout_height="wrap_content" android:paddingTop="6dp"/>
+                    <SeekBar android:id="@+id/flMinMs" android:tag="seek" android:layout_width="match_parent" android:layout_height="wrap_content" android:max="90"/>
+                    <TextView android:tag="m" android:text="Drag the top bar to move, the bottom-right corner to resize"
+                        android:layout_width="wrap_content" android:layout_height="wrap_content" android:paddingTop="6dp"/>
+                    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:paddingTop="12dp">
+                        <LinearLayout android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:orientation="vertical">
+                            <TextView android:tag="m" android:text="LEFT CAMERA" android:textStyle="bold"
+                                android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+                            <androidx.appcompat.widget.SwitchCompat android:id="@+id/flLeft" android:tag="sw"
+                                android:layout_width="match_parent" android:layout_height="wrap_content"
+                                android:text="Show window"/>
+                            <androidx.appcompat.widget.SwitchCompat android:id="@+id/flOnlyL" android:tag="sw"
+                                android:layout_width="match_parent" android:layout_height="wrap_content"
+                                android:text="Only when blinking"/>
+                        </LinearLayout>
+                        <LinearLayout android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:orientation="vertical" android:layout_marginStart="12dp">
+                            <TextView android:tag="m" android:text="RIGHT CAMERA" android:textStyle="bold"
+                                android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+                            <androidx.appcompat.widget.SwitchCompat android:id="@+id/flRight" android:tag="sw"
+                                android:layout_width="match_parent" android:layout_height="wrap_content"
+                                android:text="Show window"/>
+                            <androidx.appcompat.widget.SwitchCompat android:id="@+id/flOnlyR" android:tag="sw"
+                                android:layout_width="match_parent" android:layout_height="wrap_content"
+                                android:text="Only when blinking"/>
+                        </LinearLayout>
+                    </LinearLayout>
+                    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:paddingTop="8dp">
+                        <LinearLayout android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:orientation="vertical">
+                            <TextView android:tag="m" android:text="REAR CAMERA" android:textStyle="bold"
+                                android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+                            <androidx.appcompat.widget.SwitchCompat android:id="@+id/flRear" android:tag="sw"
+                                android:layout_width="match_parent" android:layout_height="wrap_content"
+                                android:text="Show window"/>
+                        </LinearLayout>
+                        <LinearLayout android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:orientation="vertical" android:layout_marginStart="12dp">
+                            <TextView android:tag="m" android:text="FRONT CAMERA" android:textStyle="bold"
+                                android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+                            <androidx.appcompat.widget.SwitchCompat android:id="@+id/flFront" android:tag="sw"
+                                android:layout_width="match_parent" android:layout_height="wrap_content"
+                                android:text="Show window"/>
+                        </LinearLayout>
+                    </LinearLayout>
+                    </LinearLayout>
+                </LinearLayout>
+
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:orientation="vertical" android:tag="card" android:layout_marginBottom="10dp">
+                    <TextView android:tag="h" android:text="Sentry" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+                    <TextView android:tag="accent" android:text="Linked" android:textStyle="bold"
+                        android:layout_width="wrap_content" android:layout_height="wrap_content" android:paddingBottom="8dp"/>
+                    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+                        <Button android:id="@+id/start" android:tag="btn" android:text="Start"
+                            android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"/>
+                        <Button android:id="@+id/stop" android:tag="bad" android:text="Stop"
+                            android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"
+                            android:layout_marginStart="12dp"/>
+                        <Button android:id="@+id/test" android:tag="btn2" android:text="Test capture"
+                            android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"
+                            android:layout_marginStart="12dp"/>
+                    </LinearLayout>
+                    <TextView android:id="@+id/svcStatus" android:tag="m" android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:paddingTop="8dp" android:visibility="gone" android:text=""/>
+                    <androidx.appcompat.widget.SwitchCompat android:id="@+id/parkCut" android:tag="sw"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:text="Cut cameras when parked (screen off, or 5 min still)"/>
+                    <TextView android:tag="m" android:text="Cameras to capture" android:layout_width="wrap_content" android:layout_height="wrap_content" android:paddingTop="10dp"/>
+                    <LinearLayout android:id="@+id/camGrid" android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:orientation="vertical"/>
+                    <!-- Sentry incident clips live in dated subfolders on the USB drive, which MediaStore
+                         does not index, so the folder is located by direct filesystem scan. -->
+                    <TextView android:tag="m" android:text="Sentry USB" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+                    <TextView android:id="@+id/sentryFolderStatus" android:tag="m" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:text="Sentry folder: not selected" android:paddingBottom="8dp"/>
+                    <Button android:id="@+id/pickSentryFolder" android:tag="btn2" android:text="Select SentryMode folder"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"/>
+                </LinearLayout>
+
+            </LinearLayout>
+
+        </LinearLayout>
+
+        <TextView android:id="@+id/queueInfo" android:tag="m" android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:paddingTop="8dp" android:visibility="gone" android:text=""/>
+        <TextView android:id="@+id/status" android:tag="m" android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:paddingTop="8dp" android:text=""/>
+    </LinearLayout>
+</ScrollView>

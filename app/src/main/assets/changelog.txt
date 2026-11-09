@@ -1,0 +1,91 @@
+0.79.0
+- New Trip widget (settings: "Trip widget" card, gauge icon). A floating window like the cameras: drag it anywhere, resize to any shape with the edge holders, the corner grip or a pinch, hide it into the top dock (speedometer chip), hide it with the floating button, and toggle it from the floating ring (Floating windows group).
+- Shows speed, throttle / brake / regen pills (red / light red / green), gear, drive mode, HV battery %, a 60 s chart and trip tiles. Glance shows 4 tiles you pick from 14 metrics (Wh/km, average, distance, range, top speed, regen share, HV and 12V battery, 0-100, peak accel, peak brake, 100-0, energy used, stopped time); Full shows them all. Tiles draw a small chart along their bottom while their value changes.
+- Chart lines: load, speed, G force and battery, any combination; braking turns the line red.
+- Look: vertical, horizontal or auto layout, font (Inter, JetBrains Mono, Orbitron, Condensed, Rajdhani), theme, accent and background colour with the app colour picker, edge fade, opacity, km or miles, battery size for Wh/km. Header height matches the other windows. Needs the relay updated (ZDash 0.98.0) for battery, range and 12V.
+- Camera windows after a drive: the car moving now counts as "not parked" straight away, and a 15 minute watchdog restarts the service if the system killed it or refused the start at boot, so you no longer have to open the app once.
+- Data usage: the app counts what it sends and receives (new Data usage button with a daily graph, also uploaded to the dashboard). The on-device log now keeps 3 days.
+- Live view saves mobile data: no capture while nobody watches, a stream ends after 60 s without viewers or at 6 min / 120 MB, and a failing queued snapshot upload backs off (up to 30 min) instead of retrying on every poll.
+
+0.78.0
+- Floating button: tap now minimizes all floating windows (cameras and web) into the top dock, tap again restores them. Double tap removed.
+- New minimize / restore animation setting (Cut, Fade, Dissolve, Wipes, TV off, Shrink) with a speed slider.
+- Top dock no longer flickers when buttons are added or removed, and new buttons pop in.
+- Floating windows now sit above the black backdrop, including the web window. The backdrop is always black, 99% opaque, and clears immediately when windows are minimized.
+- Floating ring: new Web window on/off button, "Live view" group renamed Floating windows, HUD camera feed merged into the HUD group, new engine sound icon, left/right window icons fixed.
+- Sharper picture at wide view angles (sharpening scales with the angle).
+- Removed the Stitch (rear + side) section from Live view settings.
+
+0.77.0
+- Civic Type R engine sound retuned from real FL5 recordings: fuller idle, darker revs at high rpm, no turbo whistle, no hiss.
+- Key-on like the real car: short crank, a louder burst, then a fast idle (~1500 rpm) that holds for a few seconds. The Civic now actually cranks.
+- Faster pedal response (the engine reacts almost instantly; the car's throttle read is also lighter).
+- Smoother gear shifts: the sound no longer drops out while the rpm falls, and the shift bang is a soft thump instead of a crack. No more pops and crackle when you lift off.
+- Play welcome sound now plays the whole start-up (it used to be cut after a few seconds).
+- Web HUD: the floating window has its own switch; turning the HUD on brings it along, and hiding the HUD page leaves it up.
+- Removed the Camping change diagnostic button.
+
+0.76.0
+- Floating windows: new "Solid background" option. Covers the screen behind the windows with black (white on the Light theme) so nothing distracts you; follows the theme.
+- Removed the stitch rear + side camera feature from the HUD and floating windows.
+
+0.75.0
+- Camping: ZDash can now turn Camping mode OFF remotely (if you forgot it on). Starting Camping still has to be done on the car screen, because the car needs your confirmation. The Camping auto-off setting still works as before.
+- Z_Cam now tells ZDash the car's real Camping state and whether the car is parked. Auto Sentry waits for "parked", so it does not arm while you are creeping in a car park.
+- Remote Camping off also works while Z_Cam is paused for low battery, and the car reading can no longer stall the connection to ZDash.
+- Floating windows: new sliders for corner radius (0 = sharp) and edge fade (soft fading edge, no frame).
+- Floating windows now fade in when they open. Blinker windows: choose the animation (none, fade, slide in from the edge, zoom) and speed; they animate out when the blinker turns off.
+- Blinker side camera: the background behind it is darker (90%).
+- Car cam log: much bigger text, with A- / A+ buttons.
+- New diagnostic button: Watch Camping changes (logs the car settings that change while you start Camping on the screen).
+- Includes 0.74.0 and 0.74.1: lock sound on the outside speaker, with seven styles to pick from.
+
+0.74.1
+- Lock sound: pick a style (double chirp, single beep, triple beep, key fob, soft chime, horn honk, rising sweep). Picking one plays it.
+
+0.74.0
+- Lock sound: a double chirp on the outside speaker when the car locks (Off by default, Sound card setting "Lock sound"). Skipped when locked from the driver seat.
+
+0.73.0
+- New slider in Floating windows: how long the blinker view stays after the blinker goes off (0.5 to 10 s, default 1.5 s). It applies to the HUD too.
+- Camera: no more stacked open calls while the car's camera service is not answering (retry after 60 s, 5 s backoff in live view). Meant to lower the load on App Lab.
+
+0.72.1
+- What's new button in the left column. The left column is fixed on the car screen; only the right column scrolls, with a gap between them.
+
+0.72.0
+- Stitch rear + side camera for the left/right blinker, on the HUD and/or the floating windows. Tune each half, with a full-screen adjust pop-up, seam, shift and copy from the other side.
+- Welcome sound idles after you unlock from outside until you are seated. Not played when unlocking from inside.
+- Backup is one button with a Back up / Restore pop-up. HUD exit animation moved to the HUD section.
+- Radar and Speedo guides are fixed. Force close app replaces Restart app.
+- ZDash look: Inter font, ZDash sliders, uniform larger buttons.
+
+0.71.1
+- HUD pad: Radar and Speedo guide rectangles.
+
+0.71.0
+- HUD camera exit animations, free HUD/window dimensions, icon dock for minimized windows, minimize memory, blinker black-window fix.
+
+0.70.0
+- Camping auto-off, with a push notification when it fires.
+
+0.69.1
+- Live view no longer reports camera busy; camera released after leaving the car.
+
+0.69.0
+- Browser tabs, activity-based full screen, smooth ambient fades, colour copy, restyled pop-ups.
+
+0.68.0
+- Full-screen web browser with dock controls.
+
+0.67.0
+- Ambient colour while regen braking, daily update check with a lit Update available button.
+
+0.66.0
+- Unified HUD section with layout pad (cameras, web, arrows, rev bar), floating header icons, 2x2 camera grid.
+
+0.65.0
+- HUD turn arrow editor: drag/resize per side, live preview, 5 icons, colour.
+
+0.64.0
+- Credits button, Civic Type R gear-change effects, volume arcs follow sound direction.

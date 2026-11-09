@@ -1,0 +1,12 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <!-- white "Z" (same family as the ZDash phone app icon) -->
+    <path android:strokeColor="#FFFFFF" android:strokeWidth="7"
+        android:strokeLineCap="round" android:strokeLineJoin="round"
+        android:pathData="M33,40 H55 L33,64 H55"/>
+    <!-- red "recording" underscore -->
+    <path android:strokeColor="#FF3B30" android:strokeWidth="6"
+        android:strokeLineCap="round"
+        android:pathData="M64,64 H78"/>
+</vector>
