@@ -65,6 +65,7 @@ class WebHud(private val ctx: Context) {
     private var curUrl: String? = null         // what the page is showing now (follows links)
     private var curTitle = ""
     private var loadPct = 0
+    private var navAt = 0L   // when the current page load started: the floating picture keeps the old page until the new one has painted
     private var navUi: (() -> Unit)? = null    // refreshes the floating window's address / star / progress
 
     // Pause playing media when the car goes to sleep (screen off) or a phone drops off Bluetooth.
@@ -113,7 +114,6 @@ class WebHud(private val ctx: Context) {
                 } else screenOffSince = 0L
                 if (now < failedUntil) { main.postDelayed(this, TICK_MS); return }
                 val on = p.getBoolean("webHudOn", false)
-                if (on && !p.getBoolean("webFloatOn", false)) p.edit().putBoolean("webFloatOn", true).apply()   // HUD on always brings the floating window with it
                 val fl = p.getBoolean("webFloatOn", false)   // the floating window has its own switch: hiding the HUD page leaves it up
                 val floatOnly = fl && !on
                 val covered = BlindSpotHud.activePanel == 2 || (BlindSpotHud.activePanel == 3 && !p.getBoolean("bsRightPos", false))   // a right camera on the right edge leaves the web box alone
@@ -298,6 +298,7 @@ class WebHud(private val ctx: Context) {
                 override fun onRenderProcessGone(v: WebView, d: android.webkit.RenderProcessGoneDetail): Boolean {
                     Logger.log(ctx, "webhud: render process gone (crashed=${d.didCrash()})"); return false
                 }
+                override fun onPageStarted(v: WebView, u: String?, f: android.graphics.Bitmap?) { if (v === web) navAt = System.currentTimeMillis() }
                 override fun onPageFinished(v: WebView, u: String?) {
                     applyZoom(); applyVolume()
                     // tapping a text field on the floating window pops the typing bar (focus, and a tap on a field that is already focused)
@@ -451,7 +452,8 @@ class WebHud(private val ctx: Context) {
     private val floatDraw = object : Runnable {
         override fun run() {
             val sf = floatSurface; val pad = floatPad
-            if (sf != null && pad != null && pad.visibility == View.VISIBLE && pad.width > 0) {
+            val loading = loadPct in 0..24 && System.currentTimeMillis() - navAt < 4000L
+            if (sf != null && pad != null && pad.visibility == View.VISIBLE && pad.width > 0 && !loading) {
                 try {
                     val c = sf.lockHardwareCanvas()
                     try { drawTo(c, pad.width, pad.height) } finally { sf.unlockCanvasAndPost(c) }

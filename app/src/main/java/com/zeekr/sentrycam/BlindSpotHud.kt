@@ -176,7 +176,7 @@ class BlindSpotHud(private val ctx: Context) {
         val now = System.currentTimeMillis()
         if (raw != 0 && raw != -1) Park.poke()
         // The car moving also counts as "not parked", straight away: after a long stop the GPS needs a while for a fix, and the camera views should be ready by the first blinker, not opened by it
-        if (now - speedAt > 1000) { speedAt = now; if ((readSpeed() ?: 0f) > 0.5f) Park.poke() }
+        if (now - speedAt > 1000) { speedAt = now; if ((readSpeed() ?: 0f) > 0.5f || inDriveOrReverse()) Park.poke() }
         if (raw == 1) sideUntil[PANEL_LEFT] = now + holdMs(p)
         if (raw == 2) sideUntil[PANEL_RIGHT] = now + holdMs(p)
         val hudOn = p.getBoolean("bsHud", false)   // the poller also runs just for the floating windows
@@ -210,9 +210,16 @@ class BlindSpotHud(private val ctx: Context) {
         if (speedFn == null) { val c = carCache; speedMgr = c?.javaClass?.getMethod("getSensorManager")?.invoke(c); speedFn = speedMgr?.javaClass?.getMethod("getSensorLatestValue", Int::class.javaPrimitiveType) }
         (speedFn?.invoke(speedMgr, 0x00100100) as? Number)?.toFloat()?.takeIf { !it.isNaN() && it != 255f && it != -65535f }
     } catch (_: Throwable) { speedFn = null; null }
+    private var gearFn: java.lang.reflect.Method? = null
+    /** In D or R: the car is in use even when stopped (red light, queue), so the camera views must not count it as parked. */
+    private fun inDriveOrReverse(): Boolean = try {
+        if (gearFn == null) { val c = carCache; speedMgr = speedMgr ?: c?.javaClass?.getMethod("getSensorManager")?.invoke(c); gearFn = speedMgr?.javaClass?.getMethod("getSensorEvent", Int::class.javaPrimitiveType) }
+        val g = (gearFn?.invoke(speedMgr, 0x00200200) as? Number)?.toInt()
+        g == 0x00200220 || g == 0x00200240
+    } catch (_: Throwable) { gearFn = null; false }
     private fun releaseCar() {
         val c = carCache ?: return
-        carCache = null; speedFn = null; speedMgr = null
+        carCache = null; speedFn = null; gearFn = null; speedMgr = null
         for (m in arrayOf("release", "disconnect", "destroy")) {
             try { c.javaClass.getMethod(m).invoke(c); break } catch (_: Throwable) {}
         }

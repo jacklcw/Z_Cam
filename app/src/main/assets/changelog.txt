@@ -1,3 +1,8 @@
+0.79.1
+- Camera windows no longer hide as "parked" while the car is in D or R, even when stopped for 5+ minutes (red light, queue).
+- Web window: turning it off in the floating ring now stays off (the HUD no longer switches it back on). Turning Web on HUD off also closes the window.
+- Web window keeps the old page picture until the new page starts painting, so it no longer goes blank when the URL changes.
+
 0.79.0
 - New Trip widget (settings: "Trip widget" card, gauge icon). A floating window like the cameras: drag it anywhere, resize to any shape with the edge holders, the corner grip or a pinch, hide it into the top dock (speedometer chip), hide it with the floating button, and toggle it from the floating ring (Floating windows group).
 - Shows speed, throttle / brake / regen pills (red / light red / green), gear, drive mode, HV battery %, a 60 s chart and trip tiles. Glance shows 4 tiles you pick from 14 metrics (Wh/km, average, distance, range, top speed, regen share, HV and 12V battery, 0-100, peak accel, peak brake, 100-0, energy used, stopped time); Full shows them all. Tiles draw a small chart along their bottom while their value changes.

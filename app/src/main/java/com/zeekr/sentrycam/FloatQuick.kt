@@ -312,7 +312,7 @@ object FloatQuick {
             if (lockBand >= 0) { setVol(lockBand, x, y); lockBand = -1; invalidate(); return true }
             val h = at(x, y)
             if (grp(h) != null) { gopen = h; open = false; vopen = false; hover = h; invalidate(); return true }
-            if (h >= 2000) { val k = grp(gopen)!![h - 2000].key; p.edit().putBoolean(k, !p.getBoolean(k, false)).apply(); if (k == "webHudOn" && p.getBoolean(k, false)) p.edit().putBoolean("webFloatOn", true).apply(); syncSoon(); invalidate(); return true }
+            if (h >= 2000) { val k = grp(gopen)!![h - 2000].key; p.edit().putBoolean(k, !p.getBoolean(k, false)).apply(); if (k == "webHudOn") p.edit().putBoolean("webFloatOn", p.getBoolean(k, false)).apply(); syncSoon(); invalidate(); return true }
             if (h == driveIdx) { open = true; vopen = false; gopen = -1; hover = driveIdx; invalidate(); return true }
             if (h == volIdx) { vopen = true; open = false; gopen = -1; hover = volIdx; invalidate(); return true }
             if (h in 1000 until 2000) { setVol(h - 1000, x, y); return true }
