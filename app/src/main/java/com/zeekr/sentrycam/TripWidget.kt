@@ -38,6 +38,8 @@ class TripWidget(private val ctx: Context) {
         private const val SPEED = 0x00100100; private const val THROTTLE = 0x00101400; private const val BRAKE = 0x00101300
         private const val GEAR = 0x00200200; private const val DRIVE_MODE = 0x22010100; private const val POWER_FLOW = 0x24010100
         private const val BRAKE_FULL = 44f
+        private const val BATT_PCT = 0x00404000   // HV battery %, found in another open-source Zeekr head-unit app (our own sweep stopped short of it)
+        private const val RANGE_KM = 0x00100800   // ISensor ENDURANCE_MILEAGE, verified against the relay's rangeKm
         private val REGEN_FLOWS = setOf(0x24010115, 0x24010116, 0x24010117, 0x2401010a, 0x2401010b, 0x2401010c)   // same set as the driving profiles use
     }
 
@@ -70,6 +72,7 @@ class TripWidget(private val ctx: Context) {
     @Volatile private var batt: Double? = null; @Volatile private var range: Double? = null
     @Volatile private var aux: Double? = null; @Volatile private var auxPct: Double? = null
     @Volatile private var relayAt = 0L
+    @Volatile private var relayWhy = ""   // short reason the relay values are missing ("" = fine)
     @Volatile private var relayBusy = false; private var relayTry = 0L
 
     private val dm get() = ctx.resources.displayMetrics
@@ -194,9 +197,14 @@ class TripWidget(private val ctx: Context) {
             }
         }
         o.put("gear", gear); o.put("mode", mode); o.put("regen", regen)
-        batt?.let { o.put("batt", it) }; range?.let { o.put("range", it) }
+        // range: the car's own sensor first (works without the relay), the relay value as fallback
+        val carRange = if (latest != null) num(RANGE_KM)?.takeIf { it > 0f }?.toDouble() else null
+        val carBatt = if (latest != null) num(BATT_PCT)?.takeIf { it in 0f..100f }?.toDouble() else null
+        (carBatt ?: batt)?.let { o.put("batt", it) }; (carRange ?: range)?.let { o.put("range", it) }
+        if (carBatt != null) o.put("battSrc", "car")
         aux?.let { o.put("aux", it) }; auxPct?.let { o.put("auxPct", it) }
         if (relayAt > 0) o.put("age", (System.currentTimeMillis() - relayAt) / 1000.0)
+        if (relayWhy.isNotEmpty() && carBatt == null) o.put("why", relayWhy)   // battery from the car needs no relay: say nothing then
         return o.toString()
     }
 
@@ -205,7 +213,7 @@ class TripWidget(private val ctx: Context) {
         val now = System.currentTimeMillis()
         if (relayBusy || now - relayTry < 20_000) return
         val base = p.getString("url", "").orEmpty().trimEnd('/'); val token = p.getString("token", "")
-        if (base.isEmpty() || token.isNullOrEmpty()) return
+        if (base.isEmpty() || token.isNullOrEmpty()) { relayWhy = "not linked"; return }
         relayBusy = true; relayTry = now
         Thread {
             try {
@@ -213,8 +221,21 @@ class TripWidget(private val ctx: Context) {
                 if (r != null && r.optBoolean("ok", false)) {
                     fun d(k: String) = if (r.has(k) && !r.isNull(k)) r.optDouble(k) else null
                     batt = d("battery"); range = d("rangeKm"); aux = d("auxVoltage"); auxPct = d("auxPercent"); relayAt = System.currentTimeMillis()
+                    relayWhy = if (batt == null && range == null && aux == null) "car sent no data" else ""
+                } else {
+                    val code = r?.optInt("_status", 0) ?: 0
+                    relayWhy = when {
+                        r == null -> "no internet"
+                        code == 401 || code == 403 -> "relay rejected token"
+                        r.optString("reason") == "no_session" -> "no Zeekr login on relay"
+                        r.optString("reason") == "status_failed" -> "Zeekr login expired"
+                        code in 500..599 -> "relay error $code"
+                        code != 200 -> "relay http $code"
+                        else -> "relay has no status"
+                    }
                 }
-            } catch (_: Throwable) {} finally { relayBusy = false }
+                if (relayWhy.isNotEmpty()) Logger.log(ctx, "tripwidget: relay values missing: $relayWhy")
+            } catch (_: Throwable) { relayWhy = "no internet" } finally { relayBusy = false }
         }.start()
     }
 

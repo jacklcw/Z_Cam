@@ -384,7 +384,8 @@ class FloatCam(private val ctx: Context) {
         val open = all.filter { it.root != null }
         if (open.isNotEmpty()) emptySince = 0L else if (emptySince == 0L) emptySince = System.currentTimeMillis()
         // a window gone for a moment (camera hand-over, rebuild) must not drop and re-add the backdrop: that cycles the web window above it
-        if (!p.getBoolean("flBlackBg", false) || (open.isEmpty() && (FloatMaster.hidden || all.any { it.hidden } || System.currentTimeMillis() - emptySince > 3000L))) {
+        // a capture lets the windows go for ~6 s: keep the backdrop through it, or it is re-added after and every window (cams, web, trip) re-stacks
+        if (!p.getBoolean("flBlackBg", false) || (open.isEmpty() && (FloatMaster.hidden || all.any { it.hidden } || System.currentTimeMillis() - emptySince > (if (Park.yieldCam) 15_000L else 3000L)))) {
             bgScrim?.let { try { wm.removeView(it) } catch (_: Throwable) {} }; bgScrim = null; return
         }
         val c = 0xFC000000.toInt()   // 99% black

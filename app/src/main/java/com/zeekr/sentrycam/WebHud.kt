@@ -504,9 +504,10 @@ class WebHud(private val ctx: Context) {
         val pad = TextureView(ctx).apply {
             layoutParams = LinearLayout.LayoutParams(padW, padH)
             surfaceTextureListener = object : TextureView.SurfaceTextureListener {
-                override fun onSurfaceTextureAvailable(st: android.graphics.SurfaceTexture, w: Int, h: Int) { floatSurface = Surface(st) }
+                private var mine: Surface? = null   // this view's own surface: a rebuilt window's old view is destroyed AFTER the new one is created, so it must not release the new surface
+                override fun onSurfaceTextureAvailable(st: android.graphics.SurfaceTexture, w: Int, h: Int) { mine = Surface(st); floatSurface = mine }
                 override fun onSurfaceTextureSizeChanged(st: android.graphics.SurfaceTexture, w: Int, h: Int) {}
-                override fun onSurfaceTextureDestroyed(st: android.graphics.SurfaceTexture): Boolean { floatSurface?.release(); floatSurface = null; return true }
+                override fun onSurfaceTextureDestroyed(st: android.graphics.SurfaceTexture): Boolean { mine?.release(); if (floatSurface === mine) floatSurface = null; mine = null; return true }
                 override fun onSurfaceTextureUpdated(st: android.graphics.SurfaceTexture) {}
             }
             setOnTouchListener { v, e -> padTouch(e, v); if (e.actionMasked == MotionEvent.ACTION_UP) main.post { raiseFloat() }; true }

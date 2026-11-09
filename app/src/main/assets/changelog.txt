@@ -1,3 +1,15 @@
+0.79.4
+- Trip widget: HV battery % is now read from the car itself (range already was), so it works without the relay link or a Zeekr login. The relay value stays as the fallback, and 12V still needs the relay.
+
+0.79.3
+- Web floating window: fixed the picture going blank after lifting your finger (scroll, scrub) while the window overlaps another one.
+- Camera windows, web window and Trip widget no longer all flicker and re-stack when the camera windows come back after a snapshot or live view.
+- Data usage dialog: the Hourly / Daily tab that is showing is now highlighted.
+
+0.79.2
+- Trip widget: range now comes from the car itself, so it works without the relay link or a Zeekr login (relay value is the fallback).
+- Trip widget: when battery %, 12V or range can't be loaded, the tile and footer now say why (not linked, no internet, relay rejected token, no Zeekr login on relay, login expired, car sent no data).
+
 0.79.1
 - Camera windows no longer hide as "parked" while the car is in D or R, even when stopped for 5+ minutes (red light, queue).
 - Web window: turning it off in the floating ring now stays off (the HUD no longer switches it back on). Turning Web on HUD off also closes the window.

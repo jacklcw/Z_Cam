@@ -1243,16 +1243,19 @@ class MainActivity : AppCompatActivity() {
         val box = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         val tot = TextView(this).apply { tag = "m"; setPadding(0, (8 * d).toInt(), 0, 0) }
         val holder = FrameLayout(this)
+        val tabs = ArrayList<Button>()
         fun show(daily: Boolean) {
+            tabs.forEachIndexed { i, b -> b.isSelected = (i == 1) == daily; ZTheme.style(b, ZTheme.palette(mode)) }   // lime = the active tab ("seg" styling is set when styled, so restyle on every switch)
             val g = DataGraph(this, daily); holder.removeAllViews()
             holder.addView(g, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, (220 * d).toInt()))
             tot.text = (if (daily) "Last 14 days: " else "Last 24 hours: ") + g.totals() + "  (lime = sent, grey = received)"
         }
         val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        row.addView(Button(this).apply { tag = "btn"; text = "Hourly"; setOnClickListener { show(false) } }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-        row.addView(Button(this).apply { tag = "btn2"; text = "Daily"; setOnClickListener { show(true) } }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { marginStart = (12 * d).toInt() })
-        box.addView(row); box.addView(holder); box.addView(tot); show(false)
+        row.addView(Button(this).apply { tag = "seg"; text = "Hourly"; tabs.add(this); setOnClickListener { show(false) } }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        row.addView(Button(this).apply { tag = "seg"; text = "Daily"; tabs.add(this); setOnClickListener { show(true) } }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { marginStart = (12 * d).toInt() })
+        box.addView(row); box.addView(holder); box.addView(tot)
         ZDialog.custom(this, box, "Close")
+        show(false)   // after the dialog styled the buttons
     }
 
     private fun setupWebHud() {
