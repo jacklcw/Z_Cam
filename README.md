@@ -4,9 +4,9 @@ An Android app that runs **on the Zeekr 7X head unit** (sideloaded through App L
 uses the car's own cameras through standard **Camera2** and talks only to **your own
 deployed relay** over a paired token. Current version: see `app/build.gradle.kts`.
 
-One-pager: [docs/zcam-onepager.html](../docs/zcam-onepager.html) (download and open in a browser).
+One-pager: [docs/zcam-onepager.html](docs/zcam-onepager.html) (download and open in a browser).
 
-![Z_Cam one-pager](../docs/zcam-onepager.png)
+![Z_Cam one-pager](docs/zcam-onepager.png)
 
 ## What it does
 
@@ -22,6 +22,13 @@ One-pager: [docs/zcam-onepager.html](../docs/zcam-onepager.html) (download and o
   one **Live view** section (angle, tilt, turn, rotate, mirror, flip) and shown as floating
   windows; a floating button hides or shows them all. **Web view** is a small browser with
   bookmarks and history. Settings can be backed up to the relay.
+- **Trip widget.** A floating window with your current trip: speed, throttle, brake and regen
+  pedals, battery, range, 12 V, efficiency and a live chart. Drag and resize it like the camera
+  windows. Vertical, horizontal or auto layout, Glance (4 tiles you pick) or Full, six fonts,
+  accent and background colour, edge fade. Needs the relay for HV battery, range and 12 V.
+
+  ![Trip widget: glance (left) and full (right)](docs/trip-widget.png)
+
 - **Rev bar.** A throttle-pedal bar on the HUD (top, bottom, or a funnel on the right), with
   smooth / segmented / slanted styles, four colour schemes, size and edge-gap sliders and a live
   in-app preview. Press and hold the floating button for quick toggles (engine sound, rev bar,
