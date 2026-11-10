@@ -25,12 +25,6 @@ final class AppConfig {
     static final String DRIVE_SOUND_STYLE_TURBO4 = "turbo4";
     static final String DRIVE_SOUND_STYLE_ELECTRIC = "electric";
     static final String DRIVE_SOUND_STYLE_TYPE_R = "typer";
-    static final String DRIVE_SOUND_STYLE_GTR = "gtr";
-    static final String DRIVE_SOUND_STYLE_FERRARI = "ferrari";
-    static final String DRIVE_SOUND_STYLE_LAMBO = "lambo";
-    static final String DRIVE_SOUND_STYLE_PORSCHE = "porsche";
-    static final String DRIVE_SOUND_STYLE_SUPRA = "supra";
-    static final String DRIVE_SOUND_STYLE_TAYCAN = "taycan";
     static final String DRIVE_SOUND_VIEW_OUTSIDE = "outside";
     static final String DRIVE_SOUND_VIEW_CABIN = "cabin";
     static final String DRIVE_SOUND_OUTPUT_CABIN = "cabin";

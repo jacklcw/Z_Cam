@@ -16,15 +16,7 @@ enum SoundStyle {
     TURBO4(AppConfig.DRIVE_SOUND_STYLE_TURBO4),
     ELECTRIC(AppConfig.DRIVE_SOUND_STYLE_ELECTRIC),
     /** Z_Cam: Civic Type R flavoured turbo four ({@link CivicTypeRVoice}), manual 6-speed. */
-    TYPE_R(AppConfig.DRIVE_SOUND_STYLE_TYPE_R),
-    /** Z_Cam: twin-turbo V6 (GT-R), flat-plane V8 (Ferrari), V10 (Lamborghini), flat-six (Porsche), turbo inline-six (Supra): {@link EngineVoice} with their own {@link SoundProfile}. */
-    GTR(AppConfig.DRIVE_SOUND_STYLE_GTR),
-    FERRARI(AppConfig.DRIVE_SOUND_STYLE_FERRARI),
-    LAMBO(AppConfig.DRIVE_SOUND_STYLE_LAMBO),
-    PORSCHE(AppConfig.DRIVE_SOUND_STYLE_PORSCHE),
-    SUPRA(AppConfig.DRIVE_SOUND_STYLE_SUPRA),
-    /** Porsche Taycan Turbo S with Electric Sport Sound: a smooth gliding chord of motor harmonics, no combustion pulses. */
-    TAYCAN(AppConfig.DRIVE_SOUND_STYLE_TAYCAN);
+    TYPE_R(AppConfig.DRIVE_SOUND_STYLE_TYPE_R);
 
     final String key;
 
@@ -57,18 +49,12 @@ enum SoundStyle {
     SoundProfile profile() {
         switch (this) {
             case TYPE_R: return SoundProfile.TYPE_R;
-            case GTR: return SoundProfile.GTR;
-            case FERRARI: return SoundProfile.FERRARI;
-            case LAMBO: return SoundProfile.LAMBO;
-            case PORSCHE: return SoundProfile.PORSCHE;
-            case SUPRA: return SoundProfile.SUPRA;
-            case TAYCAN: return SoundProfile.TAYCAN;
             default: return SoundProfile.V8;
         }
     }
 
     Gearbox gearbox(Gearbox chosen) {
-        if (this == TYPE_R || this == SUPRA) {
+        if (this == TYPE_R) {
             return Gearbox.MANUAL6;
         }
         return choosesGearbox() ? chosen : Gearbox.AUTO8;
@@ -96,13 +82,6 @@ enum SoundStyle {
                 return new ElectricVoice(sampleRate);
             case TYPE_R:
                 return new CivicTypeRVoice(sampleRate);
-            case GTR:
-            case FERRARI:
-            case LAMBO:
-            case PORSCHE:
-            case SUPRA:
-            case TAYCAN:
-                return new EngineVoice(profile(), sampleRate);
             default:
                 return new PulseVoice(PulseProfile.SUPERCHARGED_V8, sampleRate, cabin);
         }

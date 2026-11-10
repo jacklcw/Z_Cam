@@ -789,8 +789,8 @@ class MainActivity : AppCompatActivity() {
                 ZDialog.choose(this@MainActivity, title, names, values.indexOf(p.getString(key, def)).coerceAtLeast(0)) { i -> p.edit().putString(key, values[i]).apply(); show(); onChange?.invoke() }
             }
         }
-        val styleKeys = listOf("", "off", "american", "prototype", "jet", "jet_old", "turbo4", "electric", "typer", "gtr", "ferrari", "lambo", "porsche", "supra", "taycan")
-        val styleNames = listOf("Keep current", "Silent (no engine sound)", "American V8", "Prototype V8", "Jet", "Jet (old)", "Turbo four", "Electric concept", "Civic Type R", "Nissan GT-R", "Ferrari V8", "Lamborghini V10", "Porsche flat-six", "Toyota Supra", "Porsche Taycan")
+        val styleKeys = listOf("", "off", "american", "prototype", "jet", "jet_old", "turbo4", "electric", "typer")
+        val styleNames = listOf("Keep current", "Silent (no engine sound)", "American V8", "Prototype V8", "Jet", "Jet (old)", "Turbo four", "Electric concept", "Civic Type R")
         // one tab per drive mode, so only one mode's settings are on screen at a time
         val panels = ArrayList<LinearLayout>()
         val tabBtns = ArrayList<Button>()
@@ -1002,11 +1002,11 @@ class MainActivity : AppCompatActivity() {
         chips("welcomeOn", listOf("off", "on"), listOf("Off", "Play on unlock"), 2)
         body.addView(View(this), LinearLayout.LayoutParams(1, dp(8)))
         run {
-            val keys = listOf("ferrari", "american", "prototype", "jet", "jet_old", "turbo4", "electric", "typer", "gtr", "lambo", "porsche", "supra", "taycan")
-            val names = listOf("Ferrari V8", "American V8", "Prototype V8", "Jet", "Jet (old)", "Turbo four", "Electric concept", "Civic Type R", "Nissan GT-R", "Lamborghini V10", "Porsche flat-six", "Toyota Supra", "Porsche Taycan")
+            val keys = listOf("american", "prototype", "jet", "jet_old", "turbo4", "electric", "typer")
+            val names = listOf("American V8", "Prototype V8", "Jet", "Jet (old)", "Turbo four", "Electric concept", "Civic Type R")
             body.addView(Button(this).apply {
                 tag = "btn2"; isAllCaps = false
-                fun cur() = keys.indexOf(p.getString("welcomeStyle", "ferrari")).coerceAtLeast(0)
+                fun cur() = keys.indexOf(p.getString("welcomeStyle", "american")).coerceAtLeast(0)
                 fun show() { text = "Sound: " + names[cur()] }
                 show()
                 setOnClickListener { ZDialog.choose(this@MainActivity, "Welcome sound", names, cur()) { i -> p.edit().putString("welcomeStyle", keys[i]).apply(); show() } }

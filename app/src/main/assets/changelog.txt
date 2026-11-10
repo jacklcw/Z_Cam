@@ -1,3 +1,8 @@
+0.81.0
+- Civic Type R engine sound reworked: deeper, darker and thicker at full pedal, slightly higher pitch, and a lower free-rev pitch in P.
+- Civic Type R gearbox uses real Civic ratios: 1st is shorter, the 1-2 shift at full pedal is around 40 km/h, and downshifts glide smoothly at a lower rpm instead of jumping.
+- Removed the BMW M5, Toyota Supra, Ferrari V8, Nissan GT-R, Porsche flat-six, Lamborghini V10 and Porsche Taycan engine sounds. Saved choices of these fall back to American V8, which is also the new welcome sound default.
+
 0.80.1
 - Trip widget: "Accent follows the drive mode" now uses the ambient light colour you set for each mode (no preset colours).
 - Trip widget: the Regen tile now shows an estimate of the battery % put back by regen (energy shed while regenerating, scaled by your battery size).

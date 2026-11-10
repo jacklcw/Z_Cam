@@ -9,7 +9,7 @@ package com.zeekr.sentrycam.sound;
 
 enum Gearbox {
     AUTO8(2.62f, 3.30f, 0.22f, 4.71f, 3.14f, 2.10f, 1.67f, 1.29f, 1.00f, 0.84f, 0.67f),
-    MANUAL6(3.70f, 2.90f, 0.35f, 2.26f, 1.58f, 1.19f, 1.00f, 0.77f, 0.63f);
+    MANUAL6(4.11f, 2.90f, 0.35f, 3.63f, 2.12f, 1.53f, 1.13f, 0.91f, 0.74f);
 
     static final float ROLLING_M = 2.22f;
 

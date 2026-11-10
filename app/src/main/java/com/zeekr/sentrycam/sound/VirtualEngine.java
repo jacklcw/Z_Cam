@@ -112,6 +112,7 @@ final class VirtualEngine {
     static final float SHIFT_LOAD_HOLD_SEC = 3f;
     static final float KICKDOWN_STAB = 0.5f;
     static final float KICKDOWN_ROOM = 0.8f;
+    static final float LIFT_LAND = 1.6f;
     static final float KICKDOWN_PEDAL_PCT = 90f;
     static final float NO_UPSHIFT_DECEL = 0.1f;
 
@@ -571,7 +572,7 @@ final class VirtualEngine {
     }
 
     private void stepStart(float dt, float v, Input in) {
-        float crankEnd = START_CRANK_SEC;
+        float crankEnd = p.startRpm > 0f ? 0.52f : START_CRANK_SEC;
         float catchEnd = crankEnd + (p.startRpm > 0f ? 1.2f : START_CATCH_SEC);
         float end = catchEnd + (p.startRpm > 0f ? 6f : START_SETTLE_SEC);
         float rpmTarget;
@@ -710,6 +711,11 @@ final class VirtualEngine {
         float downRatio = p.shiftDownRatio + EAGER_DOWN_RAISE * eager + STAB_DOWNSHIFT_RAISE * stabEnv
                 + (easing ? DECEL_DOWNSHIFT_RAISE * decel : 0f);
         float down = Math.max(upshiftRpm(p, easing ? shiftLoad : load, eager) * downRatio * (1f - driverHold), LUG_RPM);
+        float landLimit = up * (easing ? SHIFT_GUARD : KICKDOWN_ROOM);
+        if (p.liftDownRpm > 0f && loadTarget(in) < OVERRUN_LOAD) {
+            down = Math.max(down, p.liftDownRpm);
+            landLimit = Math.max(landLimit, p.liftDownRpm * LIFT_LAND);
+        }
         boolean slowing = easing && decel > NO_UPSHIFT_DECEL;
         boolean holding = loadTarget(in) < OVERRUN_LOAD && (eager > EAGER_HOLD || gearbox.manual())
                 && inGear < upshiftRpm(p, 1f, eager) * SHIFT_GUARD;
@@ -718,7 +724,7 @@ final class VirtualEngine {
             autoUpshift();
             driverHold = 0f;
         } else if (gearIndex > 0 && inGear < down
-                && v * gearbox.rpmPerKmh[gearIndex - 1] < up * (easing ? SHIFT_GUARD : KICKDOWN_ROOM)) {
+                && v * gearbox.rpmPerKmh[gearIndex - 1] < landLimit) {
             downshiftTo(gearIndex - 1, easing);
             driverHold = 0f;
         }
@@ -789,8 +795,8 @@ final class VirtualEngine {
         upLeftSec = 0f;
         shiftSerial++;
         shiftUp = false;
-        blip = Math.max(blip, DOWNSHIFT_BLIP_RPM);
-        blipLoad = Math.max(blipLoad, easing ? DOWNSHIFT_BLIP_LOAD : DOWNSHIFT_BLIP_LOAD * 0.5f);
+        blip = Math.max(blip, p.blipRpm);
+        blipLoad = Math.max(blipLoad, easing ? p.blipLoad : p.blipLoad * 0.5f);
     }
 
     private float rpmTarget(float v, Input in) {
@@ -813,7 +819,7 @@ final class VirtualEngine {
                 }
                 break;
             default:
-                base = p.idleRpm + (FREE_REV_MAX_RPM - p.idleRpm) * load + CATCH_FLARE_RPM * catchShape();
+                base = p.idleRpm + (p.freeRevRpm - p.idleRpm) * load + CATCH_FLARE_RPM * catchShape();
                 break;
         }
         return base + blip;
@@ -824,7 +830,7 @@ final class VirtualEngine {
         target = clamp(target, p.idleRpm, cap);
         boolean free = neutral(g);
         float riseTau = p.rpmRiseSec * (1f - STAB_RISE_CUT * stabEnv);
-        float tau = shifting ? p.shiftSec : (target > rpm ? riseTau : (free ? NEUTRAL_LAND_SEC : p.rpmFallSec));
+        float tau = shifting ? (!shiftUp && p.downSlewSec > 0f ? p.downSlewSec : p.shiftSec) : (target > rpm ? riseTau : (free ? NEUTRAL_LAND_SEC : p.rpmFallSec));
         float next = rpm + (target - rpm) * follow(dt, tau);
         if (!shifting) {
             float up = p.rpmRisePerSec * (1f + stabEnv) * dt;
@@ -838,7 +844,7 @@ final class VirtualEngine {
         if (g == Gear.D) {
             return p.maxRpm;
         }
-        return g == Gear.R ? REVERSE_MAX_RPM : FREE_REV_MAX_RPM;
+        return g == Gear.R ? REVERSE_MAX_RPM : p.freeRevRpm;
     }
 
     private float launchRpm(float l) {
@@ -1024,7 +1030,7 @@ final class VirtualEngine {
         float s = speedCurve(p, speedKmh);
         float l = voiceLoad();
         return LEVEL_FLOOR_DB + LEVEL_LOAD_DB * (float) Math.pow(l, LEVEL_LOAD_CURVE) + LEVEL_SPEED_DB * s
-                + LEVEL_SURGE_DB * effortEnv + LEVEL_STAB_DB * stabEnv - cruiseCutDb;
+                + LEVEL_SURGE_DB * effortEnv + LEVEL_STAB_DB * stabEnv - cruiseCutDb + p.coastDb * s * (1f - Math.min(l, 1f));
     }
 
     float outputDb() {

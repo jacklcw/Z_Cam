@@ -224,6 +224,18 @@ final class CivicTypeRVoice implements Voice {
     private final Biquad sideHighpass;
     private final Biquad[] highpass = new Biquad[2];
     private final Biquad[] tone = new Biquad[2];
+    private final Biquad[] deepen = new Biquad[2];
+    private final Biquad[] dark = new Biquad[2];
+    static final float DEEPEN_DB = 7f;
+    static final float DEEPEN_HZ = 180f;
+    static final float DEEPEN_TRIM = 0.8f;
+    static final float PITCH = 1.0905f;       // +1.5 semitones
+    static final float DARK_HZ = 1720f;
+    /** Tuned by ear in the test ground; the test ground can still override them. */
+    static volatile float tuneDrive = 1.1f;
+    static volatile float tuneRaspDb = -6f;
+    static volatile float tuneRise = 2.5f;
+    static volatile float tuneRedlineFade = 0.2f;
     private float toneSetHz = -1f;
     private final Limiter limiter;
     private final float ampK;
@@ -265,6 +277,8 @@ final class CivicTypeRVoice implements Voice {
             exitHighpass[c] = Biquad.highpass(EXIT_HIGHPASS_HZ, 0.7071f, sampleRate);
             highpass[c] = Biquad.highpass(EngineVoice.HIGHPASS_HZ, 0.7071f, sampleRate);
             tone[c] = new Biquad();
+            deepen[c] = Biquad.lowShelf(DEEPEN_HZ, DEEPEN_DB, sampleRate);
+            dark[c] = Biquad.lowpass(DARK_HZ, 0.7071f, sampleRate);
         }
         exitK = onePole(EXIT_TILT_HZ);
         popDecayA = perSample(POP_DECAY_MS * 1e-3f);
@@ -286,7 +300,7 @@ final class CivicTypeRVoice implements Voice {
         if (frames <= 0) {
             return;
         }
-        float rpmTarget = params.rpm > 0f ? params.rpm : 0f;
+        float rpmTarget = params.rpm > 0f ? params.rpm * PITCH : 0f;
         if (rpmNow < 0f) {
             rpmNow = rpmTarget;
         }
@@ -364,14 +378,14 @@ final class CivicTypeRVoice implements Voice {
         // slew it: throttle flicker at high rpm used to flip the muffler/rasp every block (zipper, "broken" sound)
         vtec += (vtecTarget - vtec) * VirtualEngine.follow(dt, vtecTarget > vtec ? 0.25f : 0.6f);
         float vtecNow = vtec;
-        evRasp = EngineVoice.dbToLin(mix(mix(RASP_IDLE_DB, RASP_LOAD_DB, load), RASP_OVERRUN_DB, over) + 4f * vtecNow);
+        evRasp = EngineVoice.dbToLin(mix(mix(RASP_IDLE_DB, RASP_LOAD_DB, load), RASP_OVERRUN_DB, over) + 4f * vtecNow + tuneRaspDb * load);
         evJitter = mix(JITTER_IDLE_DEG, JITTER_LOAD_DEG, load);
         evSamplesPerDeg = rate / (6f * Math.max(rpmTarget, 50f));
         evAbsorb = 1f - TURBINE_ABSORB * boost;
         burble *= VirtualEngine.decay(dt, BURBLE_SEC);
 
         float decaySec = DECAY_DEG / (6f * rpmCalc);
-        float riseSec = mix(RISE_IDLE_MS, RISE_LOAD_MS, load) * 1e-3f * (1f + TURBINE_SMOOTH * boost) * (1f + over);
+        float riseSec = mix(RISE_IDLE_MS, RISE_LOAD_MS * tuneRise, load) * 1e-3f * (1f + TURBINE_SMOOTH * boost) * (1f + over);
         if (riseSec > decaySec * 0.5f) {
             riseSec = decaySec * 0.5f;
         }
@@ -399,7 +413,7 @@ final class CivicTypeRVoice implements Voice {
         }
         pipeDelay = Math.max(1f, Math.min(PIPE - 2, rate / (PIPE_HZ * sound)));
         setTilt(Math.min(RASP_TILT_HZ * (float) Math.sqrt(Math.max(rpmCalc, 300f) / 2000f), RASP_TILT_TOP_HZ));
-        float drive = mix(DRIVE_IDLE, DRIVE_LOAD, load) * (1f - 0.3f * VirtualEngine.clamp01((rpmTarget - 4500f) / 2500f));   // less clipping near the redline
+        float drive = mix(DRIVE_IDLE, DRIVE_LOAD * tuneDrive, load) * (1f - tuneRedlineFade * VirtualEngine.clamp01((rpmTarget - 4500f) / 2500f));   // less clipping near the redline
         float floor = RASP_FLOOR * evRasp * (unfired ? 0.2f : 1f);
         float kickShare = 1f - RASP_FLOOR;
         float popGain = EngineVoice.dbToLin(POP_DB);
@@ -521,6 +535,8 @@ final class CivicTypeRVoice implements Voice {
                 l = tone[0].process(l);
                 rr = tone[1].process(rr);
             }
+            l = dark[0].process(deepen[0].process(l)) * DEEPEN_TRIM;
+            rr = dark[1].process(deepen[1].process(rr)) * DEEPEN_TRIM;
             l = highpass[0].process(l);
             rr = highpass[1].process(rr);
             gainNow += (params.gain - gainNow) * gainK;

@@ -47,6 +47,12 @@ final class SoundProfile {
     final float shiftDipDb;
     final float levelPow;
     final float norm;
+    final float coastDb;
+    final float blipRpm;
+    final float blipLoad;
+    final float liftDownRpm;
+    final float downSlewSec;
+    final float freeRevRpm;
 
     private SoundProfile(Builder b) {
         idleRpm = b.idleRpm;
@@ -79,6 +85,12 @@ final class SoundProfile {
         shiftDipDb = b.shiftDipDb;
         levelPow = b.levelPow;
         norm = b.norm;
+        coastDb = b.coastDb;
+        blipRpm = b.blipRpm;
+        blipLoad = b.blipLoad;
+        liftDownRpm = b.liftDownRpm;
+        downSlewSec = b.downSlewSec;
+        freeRevRpm = b.freeRevRpm > 0f ? b.freeRevRpm : VirtualEngine.FREE_REV_MAX_RPM;
     }
 
     static final SoundProfile V8 = new Builder()
@@ -122,150 +134,13 @@ final class SoundProfile {
             .exhaust(-14f)
             .resonance(150f, 4f, 1.0f)
             .resonance(1200f, 3f, 1.2f)
-            .shifts(2400f, 4200f, 0.55f, 0.06f, -4.5f)
+            .shifts(2400f, 2080f, 0.55f, 0.06f, -4.5f)
             .loudness(0.17f, 0.8f)
-            .build();
-
-    /** Nissan GT-R: 3.8 twin-turbo V6 (uneven 90 degree firing, so 1.5 order is strong), deep and burbly, 7000 rpm. */
-    static final SoundProfile GTR = new Builder()
-            .rpm(750f, 7000f)
-            .continuous(0.30f, 0.30f, 70f)
-            .rise(0.11f, 5500f)
-            .fall(0.45f, 3800f)
-            .load(0.07f, 0.30f, 0.12f)
-            .order(3f, 0f, 0f)
-            .order(1.5f, -5f, 2f)
-            .order(6f, -7f, 4f)
-            .order(4.5f, -11f, 3f)
-            .order(9f, -13f, 5f)
-            .order(1f, -14f, 0f)
-            .order(0.5f, -22f, 6f)
-            .order(14f, -24f, 8f)
-            .intake(28f, 1.4f, -17f)
-            .exhaust(-12f)
-            .resonance(110f, 5f, 1.0f)
-            .resonance(850f, 3f, 1.3f)
-            .resonance(2600f, 3f, 2.0f)
-            .shifts(2600f, 4000f, 0.58f, 0.05f, -4.5f)
-            .loudness(0.17f, 0.8f)
-            .build();
-
-    /** Ferrari: flat-plane V8, even firing so almost only whole orders; light, smooth and high, 9000 rpm. */
-    static final SoundProfile FERRARI = new Builder()
-            .rpm(1000f, 9000f)
-            .continuous(0.30f, 0.32f, 75f)
-            .rise(0.07f, 9000f)
-            .fall(0.30f, 6500f)
-            .load(0.04f, 0.18f, 0.10f)
-            .order(4f, 0f, 0f)
-            .order(8f, -4f, 4f)
-            .order(12f, -8f, 6f)
-            .order(16f, -12f, 6f)
-            .order(20f, -17f, 6f)
-            .order(2f, -16f, 0f)
-            .order(24f, -23f, 6f)
-            .intake(40f, 1.6f, -15f)
-            .exhaust(-17f)
-            .resonance(180f, 3f, 1.0f)
-            .resonance(1800f, 4f, 1.4f)
-            .resonance(3200f, 3f, 1.8f)
-            .shifts(4200f, 4000f, 0.65f, 0.04f, -4f)
-            .loudness(0.17f, 0.8f)
-            .build();
-
-    /** Lamborghini: naturally aspirated V10, 5th order, a wide and hard wail, 8500 rpm. */
-    static final SoundProfile LAMBO = new Builder()
-            .rpm(950f, 8500f)
-            .continuous(0.30f, 0.32f, 75f)
-            .rise(0.08f, 8500f)
-            .fall(0.32f, 6000f)
-            .load(0.05f, 0.20f, 0.10f)
-            .order(5f, 0f, 0f)
-            .order(10f, -4f, 4f)
-            .order(15f, -9f, 6f)
-            .order(20f, -13f, 6f)
-            .order(2.5f, -15f, 2f)
-            .order(25f, -20f, 6f)
-            .order(1f, -18f, 0f)
-            .order(7.5f, -14f, 3f)
-            .intake(36f, 1.5f, -15f)
-            .exhaust(-14f)
-            .resonance(160f, 4f, 1.0f)
-            .resonance(1500f, 4f, 1.3f)
-            .resonance(3000f, 3f, 1.8f)
-            .shifts(3800f, 4000f, 0.64f, 0.04f, -4f)
-            .loudness(0.17f, 0.8f)
-            .build();
-
-    /** Porsche: naturally aspirated flat-six, 3rd order, a metallic rasp that gets harder with revs, 7800 rpm. */
-    static final SoundProfile PORSCHE = new Builder()
-            .rpm(800f, 7800f)
-            .continuous(0.30f, 0.30f, 70f)
-            .rise(0.08f, 7800f)
-            .fall(0.35f, 5000f)
-            .load(0.05f, 0.22f, 0.12f)
-            .order(3f, 0f, 0f)
-            .order(6f, -4f, 3f)
-            .order(9f, -9f, 5f)
-            .order(12f, -15f, 6f)
-            .order(1.5f, -18f, 3f)
-            .order(18f, -22f, 7f)
-            .order(1f, -20f, 0f)
-            .intake(34f, 1.8f, -15f)
-            .exhaust(-16f)
-            .resonance(140f, 3f, 1.0f)
-            .resonance(1400f, 4f, 1.5f)
-            .resonance(2800f, 4f, 2.0f)
-            .shifts(3400f, 3800f, 0.62f, 0.05f, -4f)
-            .loudness(0.17f, 0.8f)
-            .build();
-
-    /** Toyota Supra: turbo inline-six, very even and smooth, 3rd order with a deep low end, 7000 rpm. */
-    static final SoundProfile SUPRA = new Builder()
-            .rpm(750f, 7000f)
-            .continuous(0.30f, 0.30f, 70f)
-            .rise(0.10f, 6000f)
-            .fall(0.40f, 4000f)
-            .load(0.06f, 0.26f, 0.12f)
-            .order(3f, 0f, 0f)
-            .order(6f, -6f, 3f)
-            .order(1.5f, -20f, 3f)
-            .order(9f, -12f, 4f)
-            .order(12f, -17f, 6f)
-            .order(1f, -15f, 0f)
-            .order(0.5f, -24f, 6f)
-            .intake(30f, 1.4f, -17f)
-            .exhaust(-13f)
-            .resonance(120f, 4f, 1.0f)
-            .resonance(1000f, 3f, 1.2f)
-            .shifts(2600f, 4200f, 0.56f, 0.06f, -4.5f)
-            .loudness(0.17f, 0.8f)
-            .build();
-
-    /**
-     * Porsche Taycan Turbo S, Electric Sport Sound: whole-order motor harmonics only (no half orders, so no burble or
-     * combustion roughness), a bright airy whoosh, revs that follow speed and rarely shift (the real car sweeps).
-     */
-    static final SoundProfile TAYCAN = new Builder()
-            .rpm(1100f, 9000f)
-            .continuous(0.55f, 0.35f, 110f)
-            .rise(0.06f, 9000f)
-            .fall(0.25f, 7000f)
-            .load(0.04f, 0.22f, 0.10f)
-            .order(4f, 0f, 0f)
-            .order(8f, -3f, 3f)
-            .order(12f, -6f, 4f)
-            .order(16f, -10f, 5f)
-            .order(2f, -8f, 0f)
-            .order(6f, -12f, 3f)
-            .order(24f, -15f, 6f)
-            .order(36f, -22f, 6f)
-            .intake(60f, 1.2f, -14f)
-            .exhaust(-30f)
-            .resonance(900f, 4f, 1.2f)
-            .resonance(2400f, 3f, 1.5f)
-            .shifts(8200f, 800f, 0.80f, 0.04f, -3f)
-            .loudness(0.17f, 0.8f)
+            .coast(10f)
+            .liftDown(2300f)
+            .downshiftBlip(0f, 0.8f)
+            .downSlew(0.45f)
+            .freeRev(3200f)
             .build();
 
     private static float[] toArray(List<Float> list) {
@@ -307,6 +182,12 @@ final class SoundProfile {
         private float shiftDipDb = -3f;
         private float levelPow = 1f;
         private float norm = 1f;
+        private float coastDb;
+        private float liftDownRpm;
+        private float downSlewSec;
+        private float freeRevRpm;
+        private float blipRpm = VirtualEngine.DOWNSHIFT_BLIP_RPM;
+        private float blipLoad = VirtualEngine.DOWNSHIFT_BLIP_LOAD;
 
         Builder rpm(float idle, float max) {
             idleRpm = idle;
@@ -378,6 +259,36 @@ final class SoundProfile {
             shiftDownRatio = downRatio;
             shiftSec = sec;
             shiftDipDb = dipDb;
+            return this;
+        }
+
+        /** Extra level (dB, scaled by speed) while off the pedal at speed, so lift-off and downshifts stay audible. */
+        Builder coast(float db) {
+            coastDb = db;
+            return this;
+        }
+
+        /** Off the pedal at speed the box drops a gear once the engine falls below this rpm (0 = normal rule). */
+        Builder liftDown(float rpm) {
+            liftDownRpm = rpm;
+            return this;
+        }
+
+        /** Top of the revs in P/N with the pedal flat (default: the shared 4500). */
+        Builder freeRev(float rpm) {
+            freeRevRpm = rpm;
+            return this;
+        }
+
+        Builder downSlew(float sec) {
+            downSlewSec = sec;
+            return this;
+        }
+
+        /** Downshift rev blip: extra rpm and the engine load it is voiced with. */
+        Builder downshiftBlip(float rpm, float load) {
+            blipRpm = rpm;
+            blipLoad = load;
             return this;
         }
 
