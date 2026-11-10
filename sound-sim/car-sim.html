@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Car Sound Test Ground</title>
+<style>
+:root{--bg:#0b0d10;--fg:#d7dde4;--dim:#7d8791;--card:#141a20;--line:#25303a;--acc:#4fc3f7;--hot:#ff7043}
+*{box-sizing:border-box}body{margin:auto;background:var(--bg);color:var(--fg);font:14px ui-monospace,Menlo,monospace;padding:16px;max-width:900px}
+h1{font-size:18px;margin:0 0 12px}.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:12px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.k{color:var(--dim);font-size:12px}
+button,select{background:#1d2630;color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:12px 16px;font:inherit;cursor:pointer;user-select:none;touch-action:none}
+button:hover{border-color:var(--acc)}button.on{background:var(--acc);color:#001}
+#pedal,#brake{flex:1;min-width:140px;height:90px;font-size:16px}#pedal.down{background:var(--hot);color:#001}#brake.down{background:#e53935;color:#fff}
+.gauges{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}.g b{display:block;font-size:22px}.bar{height:8px;background:#0006;border-radius:4px;overflow:hidden;margin-top:6px}.bar i{display:block;height:100%;background:var(--acc);width:0}
+.sb{position:relative;height:46px;margin-top:10px;border-bottom:2px solid var(--line)}.sb u{cursor:ew-resize;touch-action:none;position:absolute;top:0;bottom:0;border-left:1px dashed var(--hot);text-decoration:none;font-size:10px;color:var(--dim);padding-left:2px}.sb u.l{border-color:var(--acc)}.sb s{position:absolute;top:-4px;bottom:0;width:3px;background:#fff;text-decoration:none}
+.sl{display:grid;grid-template-columns:150px 1fr 60px;gap:8px;align-items:center;margin:6px 0}input[type=range]{width:100%}
+@media(max-width:600px){.gauges{grid-template-columns:repeat(2,1fr)}.sl{grid-template-columns:110px 1fr 50px}}
+</style></head><body>
+<h1>Car sound test ground <span class="k">(the app's real engine + real voices, played on this computer)</span></h1>
+<div class="card"><div class="row"><span class="k">Sound</span><select id="snd">
+<option value="american">American V8</option><option value="prototype">Prototype V8</option><option value="jet">Jet</option><option value="jet_old">Jet (old)</option><option value="turbo4">Turbo four</option><option value="electric">Electric concept</option><option value="typer" selected>Civic Type R (FL5)</option></select>
+<button id="start">Start (sound begins)</button><button id="stop" disabled>Stop</button><button id="mode">Gear: P (free rev)</button><button id="rm">RPM: shifts</button><span id="st" class="k">silent - nothing plays until you press Start</span></div>
+<div class="sl"><span>Volume</span><input type="range" id="vol" min="-30" max="12" value="0"><span id="vvol">0 dB</span></div>
+<div class="sl"><span>Full-load drive</span><input type="range" id="drive2" min="0.5" max="3" step="0.1" value="1.1"><span id="vdrive2">1.1x</span></div>
+<div class="sl"><span>Full-load rasp</span><input type="range" id="rasp" min="-12" max="12" step="1" value="-6"><span id="vrasp">-6 dB</span></div>
+<div class="sl"><span>Pulse softness</span><input type="range" id="sharp" min="0.5" max="4" step="0.1" value="2.5"><span id="vsharp">2.5x</span></div>
+<div class="sl"><span>Redline thinning</span><input type="range" id="fade" min="0" max="0.6" step="0.05" value="0.2"><span id="vfade">0.2</span></div>
+<div class="sl"><span>Pitch</span><input type="range" id="pitch" min="-12" max="12" step="0.5" value="0"><span id="vpitch">0 st</span></div>
+<div class="sl"><span>Bass</span><input type="range" id="bass" min="-6" max="18" value="0"><span id="vbass">0 dB</span></div>
+<div class="sl"><span>Darker</span><input type="range" id="dark" min="0" max="100" value="0"><span id="vdark">off</span></div></div>
+<div class="card"><div class="gauges">
+<div class="g"><span class="k">RPM</span><b id="grpm">0</b><div class="bar"><i id="brpm"></i></div></div>
+<div class="g"><span class="k">SPEED km/h</span><b id="gspd">0</b></div><div class="g"><span class="k">GEAR</span><b id="ggear">-</b></div>
+<div class="g"><span class="k">LOAD</span><b id="gload">0</b><div class="bar"><i id="bload" style="background:var(--hot)"></i></div></div></div></div>
+<div class="card"><span class="k">Upshift speed per gear: blue = light pedal, orange = full pedal, white = now. Drag a line to move the shift point (applies to all gears)</span><div class="sb" id="sb"></div></div>
+<div class="card"><div class="row"><button id="pedal">PEDAL<br><span class="k">hold</span></button><button id="brake">BRAKE<br><span class="k">hold</span></button></div>
+<div class="sl"><span>Pedal depth</span><input type="range" id="depth" min="10" max="100" value="100"><span id="vdepth">100%</span></div>
+<span class="k">Keys: Space/Up = pedal (hold), B/Down = brake (hold), D = P/D, 1-9 = pedal depth. Switching sound restarts the engine.</span></div>
+<script>
+const $=id=>document.getElementById(id);
+const post=(path,o)=>fetch(path,{method:'POST',body:new URLSearchParams(o||{}).toString()}).catch(()=>{});
+let drive=0,shifts=1,pedal=0,brake=0,depth=1;
+const ctl=()=>post('/ctl',{pedal,brake,depth,drive,shifts,sound:$('snd').value,vol:$('vol').value,bass:$('bass').value,pitch:$('pitch').value,drive2:$('drive2').value,rasp:$('rasp').value,sharp:$('sharp').value,fade:$('fade').value,dark:Math.round(20000*Math.pow(600/20000,$('dark').value/100))});
+$('start').onclick=async()=>{await ctl();await post('/start');$('start').classList.add('on')};
+$('stop').onclick=()=>{post('/stop');$('start').classList.remove('on')};
+$('snd').onchange=ctl;$('vol').oninput=e=>{$('vvol').textContent=e.target.value+' dB';ctl()};
+['drive2','rasp','sharp','fade'].forEach(i=>$(i).oninput=e=>{$('v'+i).textContent=e.target.value+({drive2:'x',rasp:' dB',sharp:'x',fade:''}[i]);ctl()});
+$('pitch').oninput=e=>{$('vpitch').textContent=e.target.value+' st';ctl()};$('bass').oninput=e=>{$('vbass').textContent=e.target.value+' dB';ctl()};$('dark').oninput=e=>{const v=+e.target.value;$('vdark').textContent=v?Math.round(20000*Math.pow(600/20000,v/100))+' Hz':'off';ctl()};
+$('mode').onclick=()=>{drive^=1;$('mode').textContent=drive?'Gear: D (auto)':'Gear: P (free rev)';ctl()};
+$('rm').onclick=()=>{shifts^=1;$('rm').textContent=shifts?'RPM: shifts':'RPM: continuous';ctl()};
+$('depth').oninput=e=>{depth=e.target.value/100;$('vdepth').textContent=e.target.value+'%';ctl()};
+function hold(id,set){const b=$(id);b.onpointerdown=e=>{b.setPointerCapture(e.pointerId);set(1);b.classList.add('down')};b.onpointerup=b.onpointercancel=()=>{set(0);b.classList.remove('down')}}
+hold('pedal',v=>{pedal=v;ctl()});hold('brake',v=>{brake=v;ctl()});
+addEventListener('keydown',e=>{if(e.repeat||e.target.tagName==='SELECT')return;const k=e.key;
+ if(k===' '||k==='ArrowUp'){pedal=1;$('pedal').classList.add('down');ctl();e.preventDefault()}
+ else if(k==='b'||k==='B'||k==='ArrowDown'){brake=1;$('brake').classList.add('down');ctl();e.preventDefault()}
+ else if(k==='d'||k==='D')$('mode').click();
+ else if(/^[1-9]$/.test(k)){depth=+k/9;$('depth').value=Math.round(depth*100);$('vdepth').textContent=$('depth').value+'%';ctl()}});
+addEventListener('keyup',e=>{const k=e.key;if(k===' '||k==='ArrowUp'){pedal=0;$('pedal').classList.remove('down');ctl()}else if(k==='b'||k==='B'||k==='ArrowDown'){brake=0;$('brake').classList.remove('down');ctl()}});
+let upsKey='',drag=null;
+function drawUps(u,spd){const sb=$('sb');if(drag)return;const k=JSON.stringify(u);if(k!==upsKey){upsKey=k;const mx=Math.max(100,Math.ceil(Math.max(...u.map(r=>r[1]),0)/20)*20+20);sb.dataset.mx=mx;
+ sb.innerHTML=u.map((r,g)=>`<u class="l" data-g="${g}" data-k="0" style="left:${r[0]/mx*100}%;top:${(g%2)*18}px">${g+1}-${g+2} ${r[0].toFixed(0)}</u><u data-g="${g}" data-k="1" style="left:${r[1]/mx*100}%;top:${(g%2)*18+9}px">${g+1}-${g+2} ${r[1].toFixed(0)}</u>`).join('')+'<s id="nw"></s>';sb.ups=u}
+ const n=$('nw');if(n)n.style.left=Math.min(100,spd/sb.dataset.mx*100)+'%'}
+$('sb').onpointerdown=e=>{const t=e.target.closest('u');if(!t)return;drag=t;t.setPointerCapture(e.pointerId);e.preventDefault()};
+$('sb').onpointermove=e=>{if(!drag)return;const sb=$('sb'),r=sb.getBoundingClientRect(),mx=+sb.dataset.mx;const kmh=Math.max(5,Math.min(mx,(e.clientX-r.left)/r.width*mx));drag.style.left=kmh/mx*100+'%';drag.textContent=drag.textContent.split(' ')[0]+' '+Math.round(kmh);drag.kmh=kmh};
+$('sb').onpointerup=async e=>{if(!drag)return;const sb=$('sb'),u=sb.ups,g=+drag.dataset.g,k=+drag.dataset.k,rpg=u[g][2];let lo=u[g][0]*rpg,fu=u[g][1]*rpg;const rpm=(drag.kmh||u[g][k])*rpg;if(k===0){lo=rpm;fu=Math.max(fu,lo)}else{fu=Math.max(rpm,lo)}
+ drag=null;upsKey='';await post('/ups',{light:lo,full:fu})};
+setInterval(async()=>{try{const s=await (await fetch('/state')).json();drawUps(s.ups||[],s.speed);$('grpm').textContent=s.rpm;$('brpm').style.width=Math.min(100,s.rpm/90)+'%';$('gspd').textContent=s.speed;
+ $('ggear').textContent=s.gear>=0?s.gear+1:(drive?'D':'P');$('gload').textContent=Math.round(s.load*100)+'%';$('bload').style.width=s.load*100+'%';
+ $('stop').disabled=!s.on;$('st').textContent=s.on?('playing - engine '+s.phase.toLowerCase()):'silent - nothing plays until you press Start';if(!s.on)$('start').classList.remove('on')}catch(x){$('st').textContent='server not reachable - run run.sh'}},100);
+</script></body></html>
