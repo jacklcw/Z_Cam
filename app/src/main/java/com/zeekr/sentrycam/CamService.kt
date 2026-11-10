@@ -360,7 +360,7 @@ class CamService : Service() {
         val base = p.getString("url", "")!!.trimEnd('/')
         val token = p.getString("token", "")
         val maxW = 2000   // >= native width -> no downscale (keep full detail)
-        val quality = 92
+        val quality = 82   // WebP: roughly half the size of 92, visually the same (snapshots filled the relay storage)
         var lastServedReq = 0L
         var lastAutoVideoCheck = 0L
         var lastServedLogReq = 0L

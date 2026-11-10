@@ -1,3 +1,6 @@
+0.79.6
+- Snapshots upload at lower WebP quality (about half the size, looks the same), so they no longer fill the relay storage.
+
 0.79.5
 - Trip widget: the compact view is now a 3 x 2 grid (6 tiles, new defaults add HV battery and Regen); pick each tile in Settings.
 - Trip widget: the Regen tile now counts only real regen while the car is moving (brake and standing still no longer count) and shows it as a share of moving time.
