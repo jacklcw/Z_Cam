@@ -726,6 +726,7 @@ class MainActivity : AppCompatActivity() {
         }
         pair(chartSw[0], chartSw[1], 0); pair(chartSw[2], chartSw[3], 0)
         pair(seekBox("twFade", "Edge fade", 0, 30, 0) { if (it == 0) "off" else "$it%" }, seekBox("twOpacity", "Opacity", 50, 100, 90) { "$it%" }, 12)
+        pair(seekBox("twHdrText", "Header text size (clock, battery, gear)", 60, 200, 100) { "$it%" }, null, 12)
         pair(seekBox("twPack", "Battery size", 30, 150, 100) { "$it kWh" },
             androidx.appcompat.widget.SwitchCompat(this).apply {
                 tag = "sw"; text = "Regen pill"; isChecked = p.getBoolean("twRegen", true)
@@ -766,6 +767,10 @@ class MainActivity : AppCompatActivity() {
             mark(); return row
         }
         pair(colourBox("Accent", "twAcc", ZTheme.LIME, false), colourBox("Background", "twBg", 0, true), 12)
+        body.addView(androidx.appcompat.widget.SwitchCompat(this).apply {
+            tag = "sw"; text = "Accent follows the drive mode (Comfort blue, Standard = accent above, Sport red)"; isChecked = p.getBoolean("twAccMode", false)
+            setOnCheckedChangeListener { _, on -> p.edit().putBoolean("twAccMode", on).apply(); sync() }
+        })
         applyTheme()
     }
 

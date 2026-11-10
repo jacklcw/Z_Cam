@@ -1,3 +1,10 @@
+0.80.0
+- Trip widget header (clock, battery, gear): larger, battery is a rounded pill, drive mode and clock moved in, and a "Header text size" slider (the compact window now obeys it).
+- Trip widget charts: thicker glowing line with a fading translucent area under it (tiles and main chart).
+- Trip widget 0-100: counts only launches from standstill, cancels if you lift off, shows a live timer and freezes on your last run.
+- Trip widget: optional "Accent follows the drive mode" (Comfort blue, Standard your accent, Sport red), off by default.
+- Engine sound: regains audio focus after a web video stops, so it no longer goes silent.
+
 0.79.6
 - Snapshots upload at lower WebP quality (about half the size, looks the same), so they no longer fill the relay storage.
 
