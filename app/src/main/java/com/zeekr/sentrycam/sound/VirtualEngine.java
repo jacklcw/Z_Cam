@@ -150,6 +150,7 @@ final class VirtualEngine {
     static final float START_CRANK_RPM = 250f;
     static final float START_CRANK_LOAD = 0.12f;
     static final float START_FLARE_RPM = 2000f;
+    static final float START_VOICE_LOAD = 0.1f;
     static final float START_CRANK_TAU = 0.15f;
     static final float START_CATCH_TAU = 0.08f;
     static final float START_SETTLE_TAU = 0.35f;
@@ -202,6 +203,7 @@ final class VirtualEngine {
     private Gearbox gearbox;
     private final boolean crank;
     private Phase phase = Phase.RUNNING;
+    private boolean startQuiet;   // from ignition until the revs are back at idle (or the driver moves): one constant loudness
     private float phaseSec;
     private float rpm;
     private float load;
@@ -318,6 +320,7 @@ final class VirtualEngine {
         cut = 0f;
         bark = 0f;
         phaseSec = 0f;
+        startQuiet = true;
         starter = 0f;
         overrun = 0f;
         surge = 0f;
@@ -407,6 +410,10 @@ final class VirtualEngine {
         bark *= decay(dt, BARK_SEC);
         surge *= decay(dt, SURGE_SEC);
 
+        if (startQuiet && phase != Phase.STARTING && (phase == Phase.STOPPING || v >= START_LEAVE_KMH || demand(in.throttlePct) > START_TAKEOVER_LOAD
+                || (phase == Phase.RUNNING && rpm <= p.idleRpm * 1.05f))) {
+            startQuiet = false;
+        }
         if (phase == Phase.STOPPING) {
             stepStop(dt);
             return;
@@ -1023,18 +1030,19 @@ final class VirtualEngine {
     }
 
     float voiceLoad() {
-        return phase == Phase.JOINING ? 0f : Math.max(Math.max(load, blipLoad), CATCH_LOAD * catchShape());
+        float l = phase == Phase.JOINING ? 0f : Math.max(Math.max(load, blipLoad), CATCH_LOAD * catchShape());
+        return startQuiet ? Math.min(l, START_VOICE_LOAD) : l;   // the start-up is no louder than an idle
     }
 
     float levelDb() {
         float s = speedCurve(p, speedKmh);
         float l = voiceLoad();
         return LEVEL_FLOOR_DB + LEVEL_LOAD_DB * (float) Math.pow(l, LEVEL_LOAD_CURVE) + LEVEL_SPEED_DB * s
-                + LEVEL_SURGE_DB * effortEnv + LEVEL_STAB_DB * stabEnv - cruiseCutDb + p.coastDb * s * (1f - Math.min(l, 1f));
+                + (startQuiet ? 0f : LEVEL_SURGE_DB * effortEnv + LEVEL_STAB_DB * stabEnv) - cruiseCutDb + p.coastDb * s * (1f - Math.min(l, 1f));
     }
 
     float outputDb() {
-        return SPEED_GAIN_DB * speedCurve(p, speedKmh) + SURGE_GAIN_DB * surge;
+        return SPEED_GAIN_DB * speedCurve(p, speedKmh) + (startQuiet ? 0f : SURGE_GAIN_DB * surge);
     }
 
     float starter() {
@@ -1054,7 +1062,7 @@ final class VirtualEngine {
     }
 
     float brightDb() {
-        return BRIGHT_STAB_DB * stabEnv + BRIGHT_SURGE_DB * effortEnv + BARK_DB * bark + SURGE_BRIGHT_DB * surge;
+        return BRIGHT_STAB_DB * stabEnv + BRIGHT_SURGE_DB * effortEnv + BARK_DB * bark + (startQuiet ? 0f : SURGE_BRIGHT_DB * surge);
     }
 
     float cut() {

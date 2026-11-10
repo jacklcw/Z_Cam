@@ -383,7 +383,7 @@ class TripWidget(private val ctx: Context) {
                             FloatPush.moved("tw", dm.widthPixels, dm.heightPixels)
                         }
                     }
-                    MotionEvent.ACTION_UP -> { if (moved) savePlace(); if (!pinched) raise(); pinched = false; moved = false }
+                    MotionEvent.ACTION_UP -> { if (moved) savePlace(); if (!pinched && !moved) raise(); pinched = false; moved = false }
                 }
                 true
             }

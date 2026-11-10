@@ -507,10 +507,10 @@ class WebHud(private val ctx: Context) {
                 private var mine: Surface? = null   // this view's own surface: a rebuilt window's old view is destroyed AFTER the new one is created, so it must not release the new surface
                 override fun onSurfaceTextureAvailable(st: android.graphics.SurfaceTexture, w: Int, h: Int) { mine = Surface(st); floatSurface = mine }
                 override fun onSurfaceTextureSizeChanged(st: android.graphics.SurfaceTexture, w: Int, h: Int) {}
-                override fun onSurfaceTextureDestroyed(st: android.graphics.SurfaceTexture): Boolean { mine?.release(); if (floatSurface === mine) floatSurface = null; mine = null; return true }
+                override fun onSurfaceTextureDestroyed(st: android.graphics.SurfaceTexture): Boolean { if (raising) return false; mine?.release(); if (floatSurface === mine) floatSurface = null; mine = null; return true }
                 override fun onSurfaceTextureUpdated(st: android.graphics.SurfaceTexture) {}
             }
-            setOnTouchListener { v, e -> padTouch(e, v); if (e.actionMasked == MotionEvent.ACTION_UP) main.post { raiseFloat() }; true }
+            setOnTouchListener { v, e -> padTouch(e, v); true }
         }
         val title = TextView(ctx).apply {
             text = "Web"; setTextColor(0xFFF5F5F7.toInt()); textSize = (hdr * 0.38f).coerceIn(13f, 24f)   // same as the camera windows' title
@@ -925,7 +925,16 @@ class WebHud(private val ctx: Context) {
 
     // Tapping the window while it overlaps another brings it to the front (re-added on top).
     fun restack() { if (floatRoot != null && !fullScreen) { hideFloat(); showFloat() } }
-    private fun raiseFloat() { if (floatRoot != null && FloatPush.overlapsOther("web")) { hideFloat(); showFloat() } }
+    // Re-add the same window on top (overlay windows stack by add order); its SurfaceTexture is kept, so no rebuild / fade-in blink.
+    private var raising = false
+    private fun raiseFloat() {
+        val r = floatRoot ?: return
+        if (!FloatPush.overlapsOther("web")) return
+        val l = r.layoutParams as? WindowManager.LayoutParams ?: return
+        val wm = ctx.getSystemService(WindowManager::class.java)
+        raising = true
+        try { l.alpha = 1f; wm.removeViewImmediate(r); wm.addView(r, l) } catch (_: Throwable) {} finally { raising = false }
+    }
 
     /** Address-bar text to a URL: a bare word or anything with spaces is searched, the rest gets https:// if missing. */
     private fun toUrl(raw: String): String? {

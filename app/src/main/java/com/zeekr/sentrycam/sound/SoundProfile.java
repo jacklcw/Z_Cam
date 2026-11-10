@@ -137,9 +137,6 @@ final class SoundProfile {
             .shifts(2400f, 2080f, 0.55f, 0.06f, -4.5f)
             .loudness(0.17f, 0.8f)
             .coast(10f)
-            .liftDown(2300f)
-            .downshiftBlip(0f, 0.8f)
-            .downSlew(0.45f)
             .freeRev(3200f)
             .build();
 

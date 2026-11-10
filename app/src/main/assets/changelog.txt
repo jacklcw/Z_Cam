@@ -1,3 +1,9 @@
+0.82.0
+- Civic Type R downshifts are back to the default engine behaviour (no early lift-off downshift).
+- Engine start-up now keeps one constant loudness from ignition until the revs settle at idle.
+- Floating web, camera and trip windows no longer blink or lose their content when you let go after dragging or scrolling.
+- Trip widget charts: the shade under the line now covers the whole area down to the bottom, and the tile sparkline lines are thinner.
+
 0.81.0
 - Civic Type R engine sound reworked: deeper, darker and thicker at full pedal, slightly higher pitch, and a lower free-rev pitch in P.
 - Civic Type R gearbox uses real Civic ratios: 1st is shorter, the 1-2 shift at full pedal is around 40 km/h, and downshifts glide smoothly at a lower rpm instead of jumping.

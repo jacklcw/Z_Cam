@@ -130,7 +130,7 @@ class FloatCam(private val ctx: Context) {
                         try { wm.updateViewLayout(w.root, lp) } catch (_: Throwable) {}
                         FloatPush.moved(w.key, dm.widthPixels, dm.heightPixels)
                     }
-                    MotionEvent.ACTION_UP -> { p.edit().putInt("${w.key}X", lp.x).putInt("${w.key}Y", lp.y).apply(); raise(w) }
+                    MotionEvent.ACTION_UP -> { p.edit().putInt("${w.key}X", lp.x).putInt("${w.key}Y", lp.y).apply() }
                 }
                 true
             }
@@ -224,7 +224,7 @@ class FloatCam(private val ctx: Context) {
                     }
                     MotionEvent.ACTION_UP -> {
                         if (moved) p.edit().putInt("${w.key}X", lp.x).putInt("${w.key}Y", lp.y).apply()
-                        if (!pinched) raise(w)
+                        if (!pinched && !moved) raise(w)
                         pinched = false; moved = false
                     }
                 }
