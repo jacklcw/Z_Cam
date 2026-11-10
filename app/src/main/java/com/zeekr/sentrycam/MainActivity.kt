@@ -734,8 +734,9 @@ class MainActivity : AppCompatActivity() {
             }, 8)
         // The six tiles of the Glance (compact) grid: each slot picks any metric
         body.addView(label("Glance tiles (the 3 x 2 grid)"))
-        val metricIds = listOf("eff", "avg", "dist", "rng", "top", "reg", "soc", "v12", "p0100", "pa", "pb", "p1000", "used", "stp")
-        val metricNames = listOf("Wh/km", "Average speed", "Distance", "Range", "Top speed", "Regen share", "HV battery", "12V battery", "0-100 time", "Peak accel", "Peak brake", "100-0 distance", "Energy used", "Stopped time")
+        // alphabetical by name
+        val metricIds = listOf("p0100", "p1000", "v12", "avg", "dist", "used", "soc", "pa", "pb", "rng", "reg", "stp", "top", "eff")
+        val metricNames = listOf("0-100 time", "100-0 distance", "12V battery", "Average speed", "Distance", "Energy used", "HV battery", "Peak accel", "Peak brake", "Range", "Regen recovered", "Stopped time", "Top speed", "Wh/km")
         val defSlots = listOf("eff", "avg", "dist", "rng", "soc", "reg")
         fun slots() = (p.getString("twSlots", null) ?: defSlots.joinToString(",")).split(",").filter { it in metricIds }.let { l -> (l + defSlots.drop(l.size)).take(6) }
         fun slotBtn(i: Int) = Button(this).apply {
@@ -768,7 +769,7 @@ class MainActivity : AppCompatActivity() {
         }
         pair(colourBox("Accent", "twAcc", ZTheme.LIME, false), colourBox("Background", "twBg", 0, true), 12)
         body.addView(androidx.appcompat.widget.SwitchCompat(this).apply {
-            tag = "sw"; text = "Accent follows the drive mode (Comfort blue, Standard = accent above, Sport red)"; isChecked = p.getBoolean("twAccMode", false)
+            tag = "sw"; text = "Accent follows the drive mode's ambient light colour (modes set to Keep use the accent above)"; isChecked = p.getBoolean("twAccMode", false)
             setOnCheckedChangeListener { _, on -> p.edit().putBoolean("twAccMode", on).apply(); sync() }
         })
         applyTheme()

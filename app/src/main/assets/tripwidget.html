@@ -161,7 +161,7 @@ let C={regenPill:true,slots:['eff','avg','dist','rng','soc','reg'],hdr:56,acc:'#
 let S,last=0,fitN=0,lastH=0;
 function lum(h){const n=parseInt(h.slice(1),16);return(.299*(n>>16)+.587*(n>>8&255)+.114*(n&255))/255}
 function mixc(h,t,a){const n=parseInt(h.slice(1),16),m=parseInt(t.slice(1),16),f=(x,y)=>Math.round(x+(y-x)*a);return '#'+[f(n>>16,m>>16),f(n>>8&255,m>>8&255),f(n&255,m&255)].map(v=>v.toString(16).padStart(2,'0')).join('')}
-function reset(){for(const k in (window.MH||{}))delete MH[k];S={t:0,v:0,pv:null,x:0,moving:0,stop:0,top:0,pa:0,pb:0,regT:0,run0:null,last0:null,still:true,lift:0,best0:null,brk:null,best100:null,soc0:null,soc:null,g:0,rg:0,hist:[],sh:[],tick:0,stk:0,cur:null}}
+function reset(){for(const k in (window.MH||{}))delete MH[k];S={t:0,v:0,pv:null,x:0,moving:0,stop:0,top:0,pa:0,pb:0,regT:0,regE:0,run0:null,last0:null,still:true,lift:0,best0:null,brk:null,best100:null,soc0:null,soc:null,g:0,rg:0,hist:[],sh:[],tick:0,stk:0,cur:null}}
 reset();
 function applyCfg(){
  const r=document.documentElement.style;document.documentElement.dataset.theme=C.theme;
@@ -182,6 +182,7 @@ function onData(d){
  S.t+=dt;S.v=v;S.x+=v*dt;const kmh=v*3.6;if(kmh>S.top)S.top=kmh;
  if(kmh>1)S.moving+=dt;else S.stop+=dt;
  if(dt>0&&S.pv!=null){const a=(v-S.pv)/dt;S.g+=((a/9.81)-S.g)*.35;if(S.g>S.pa)S.pa=S.g;if(-S.g>S.pb)S.pb=-S.g}
+ if(d.regen&&S.pv!=null&&v<S.pv)S.regE+=.5*2575*(S.pv*S.pv-v*v)*.6/3.6e6;   // kWh put back: kinetic energy shed while the car regenerates, x about 0.6 (motor, inverter, drag)
  S.pv=v;
  if(d.regen&&kmh>=1)S.regT+=dt;
  if(kmh<1)S.run0=null;
@@ -246,7 +247,7 @@ const M={
  dist:{k:'Distance',s:'CALC',f:(c,k)=>[(S.x/1000*k).toFixed(1),C.unit]},
  rng:{k:'Range',s:'RELAY',f:(c,k)=>[c.range!=null?Math.round(c.range*k):'--',C.unit]},
  top:{k:'Top',s:'CALC',f:(c,k)=>[Math.round(S.top*k),C.unit==='mi'?'mph':'km/h']},
- reg:{k:'Regen',s:'CAR',f:()=>[S.moving?Math.round(S.regT/S.moving*100):0,'%']},
+ reg:{k:'Regen back',s:'CALC',f:()=>[(S.regE/Math.max(1,C.pack)*100).toFixed(1),'%']},
  soc:{k:'HV batt',s:'RELAY',f:()=>[S.soc!=null?Math.round(S.soc):'--','%']},
  v12:{k:'12V batt',s:'RELAY',f:c=>[c.aux!=null?c.aux.toFixed(1):'--','V'],warn:c=>c.aux!=null&&c.aux<12.2},
  p0100:{k:'0-100',s:'CALC',f:()=>[S.run0!=null?(S.t-S.run0).toFixed(1):S.last0?S.last0.toFixed(1):S.best0?S.best0.toFixed(1):'--','s']},
@@ -261,7 +262,7 @@ const M={
 const NUM={
  eff:(c,k)=>{const u=usedKwh();return(u!=null&&u>0&&S.x>1000)?u*1000/(S.x/1000)/k:null},
  avg:(c,k)=>S.moving?S.x/S.moving*3.6*k:null, dist:(c,k)=>S.x/1000*k, rng:(c,k)=>c.range!=null?c.range*k:null,
- top:(c,k)=>S.top*k, reg:()=>S.t?S.regT/S.t*100:null, soc:()=>S.soc, v12:c=>c.aux,
+ top:(c,k)=>S.top*k, reg:()=>S.regE/Math.max(1,C.pack)*100, soc:()=>S.soc, v12:c=>c.aux,
  p0100:()=>S.best0, pa:()=>S.pa, pb:()=>S.pb, p1000:()=>S.best100, used:()=>usedKwh(), stp:()=>S.stop
 };
 var MH={};   // id -> last 90 samples
@@ -312,7 +313,7 @@ function ui(){
  // regen pill: the car says regen is active (power flow); its fill follows how hard the car is slowing down (G), at least a sliver while regen is on
  const rg=c.regen?Math.max(.12,Math.min(1,-S.g/0.2)):0;S.rg+=(rg-S.rg)*.4;$('rgb').style.height=(S.rg*100)+'%';
  $('clock').textContent=fmt(S.t);$('mode').textContent=c.mode?' \u00b7 '+c.mode:'';$('gear').textContent=c.gear;
- {const k=C.accMode?(c.mode==='Sport'?'#ff453a':c.mode==='Comfort'?'#64d2ff':C.acc):C.acc;if(S.ac!==k){S.ac=k;const r=document.documentElement.style;r.setProperty('--acc',k);r.setProperty('--onacc',lum(k)>.55?'#10170a':'#fff')}}   // accent follows the drive mode (Comfort blue, Standard = chosen accent, Sport red)
+ {const k=C.accMode?((C.modeCols||{})[c.mode]||C.acc):C.acc;if(S.ac!==k){S.ac=k;const r=document.documentElement.style;r.setProperty('--acc',k);r.setProperty('--onacc',lum(k)>.55?'#10170a':'#fff')}}   // accent follows the ambient colour the user set for the current drive mode (the chosen accent when that mode keeps the car's own)
  buildGrid();
  document.querySelectorAll('#grid .tile').forEach(t=>{const m=M[t.dataset.m],r=m.f(c,k),miss=m.s==='RELAY'&&r[0]==='--'&&c.why;t.querySelector('.val').textContent=r[0];t.querySelector('.un').textContent=miss?c.why:r[1];t.title=miss?c.why:'';t.classList.toggle('warn',!!(m.warn&&m.warn(c)))});
  const bp=S.soc!=null?Math.max(0,Math.min(100,S.soc)):0;$('bpc').textContent=S.soc!=null?Math.round(S.soc):'--';$('bbi').style.width=bp+'%';document.querySelector('.bat').classList.toggle('low',S.soc!=null&&S.soc<20);

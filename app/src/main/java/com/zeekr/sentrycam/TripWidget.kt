@@ -253,7 +253,7 @@ class TripWidget(private val ctx: Context) {
         return JSONObject()
             .put("regenPill", p.getBoolean("twRegen", true))
             .put("slots", org.json.JSONArray((p.getString("twSlots", "eff,avg,dist,rng,soc,reg") ?: "eff,avg,dist,rng,soc,reg").split(",").filter { it.isNotEmpty() }))
-            .put("accMode", p.getBoolean("twAccMode", false)).put("hdrText", p.getInt("twHdrText", 100).coerceIn(60, 200)).put("hdr", hdrDp())   // same header height as the other floating windows
+            .put("accMode", p.getBoolean("twAccMode", false)).put("modeCols", JSONObject().also { o -> for ((code, name) in DriveProfile.MODES) { val c = DriveProfile.colorOf(p.getString("pfColor_" + DriveProfile.hex(code), "0")); if (c != 0) o.put(name, hex(c)) } }).put("hdrText", p.getInt("twHdrText", 100).coerceIn(60, 200)).put("hdr", hdrDp())   // same header height as the other floating windows
             .put("acc", hex(acc)).put("bg", if (bgc == 0) JSONObject.NULL else hex(bgc))
             .put("orient", p.getString("twOrient", "v")).put("detail", p.getString("twDetail", "glance"))
             .put("chart", org.json.JSONArray((p.getString("twChart", "load") ?: "load").split(",").filter { it.isNotEmpty() }))

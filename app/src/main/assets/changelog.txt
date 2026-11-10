@@ -1,3 +1,8 @@
+0.80.1
+- Trip widget: "Accent follows the drive mode" now uses the ambient light colour you set for each mode (no preset colours).
+- Trip widget: the Regen tile now shows an estimate of the battery % put back by regen (energy shed while regenerating, scaled by your battery size).
+- Trip widget: tile pickers are sorted alphabetically.
+
 0.80.0
 - Trip widget header (clock, battery, gear): larger, battery is a rounded pill, drive mode and clock moved in, and a "Header text size" slider (the compact window now obeys it).
 - Trip widget charts: thicker glowing line with a fading translucent area under it (tiles and main chart).
