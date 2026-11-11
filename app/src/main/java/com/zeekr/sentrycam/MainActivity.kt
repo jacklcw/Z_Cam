@@ -93,7 +93,10 @@ class MainActivity : AppCompatActivity() {
             // wide: the left (service) column stays put and only the right (display) column scrolls; see fixColumns()
             val op = findViewById<LinearLayout>(R.id.opBox); val right = findViewById<LinearLayout>(R.id.colLeft)
             val sv = ScrollView(this).apply { isVerticalScrollBarEnabled = false }
-            op.removeView(right)
+            val leftCol = findViewById<LinearLayout>(R.id.colRight); val sv2 = ScrollView(this).apply { isVerticalScrollBarEnabled = false }
+            op.removeView(leftCol); op.removeView(right)
+            leftCol.layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+            sv2.addView(leftCol); op.addView(sv2, 0, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 28f))
             right.layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
             sv.addView(right)
             op.addView(sv, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 72f).apply { marginStart = (20 * ZScale.density(this@MainActivity)).toInt() })
@@ -862,7 +865,7 @@ class MainActivity : AppCompatActivity() {
             head.addView(TextView(this).apply { tag = "m"; text = name; textSize = 17f; typeface = ZFont.bold }, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
             head.addView(Button(this).apply { tag = "btn2"; text = "Test"; isAllCaps = false; setOnClickListener { DriveProfile.test(this@MainActivity, code) } })
             host.addView(head)
-            fun colourRow(key: String, dlgTitle: String, keepText: String, def: Int = 0) {
+            fun colourRow(key: String, dlgTitle: String, keepText: String, def: Int = 0, into: LinearLayout = host, onChange: (() -> Unit)? = null) {
                 fun cur() = DriveProfile.colorOf(p.getString(key, def.toString())).let { if (it == 0 && def != 0) def else it }
                 val dot = View(this); val hexT = TextView(this).apply { tag = "m"; gravity = Gravity.CENTER_VERTICAL }
                 val pickBtn = Button(this).apply { tag = "btn2"; isAllCaps = false; text = "Choose colour" }
@@ -886,15 +889,15 @@ class MainActivity : AppCompatActivity() {
                         }
                     }
                     ColorPicker.show(this, ZTheme.palette(mode), dlgTitle, cur(),
-                        onLive = { c -> DriveProfile.previewColor(this, c) },
-                        onDone = { c -> p.edit().putString(key, c.toString()).apply(); mark() }, swatches = used)
+                        onLive = { c -> if (into === host) DriveProfile.previewColor(this, c) },
+                        onDone = { c -> p.edit().putString(key, c.toString()).apply(); mark(); onChange?.invoke() }, swatches = used)
                 }
                 val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
                 row.addView(dot, LinearLayout.LayoutParams(dp(34), dp(34)).apply { marginEnd = dp(12) })
                 row.addView(hexT, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
                 row.addView(pickBtn)
                 mark(); pfRefresh += ::mark
-                host.addView(row)
+                into.addView(row)
             }
             host.addView(label("Ambient light", 4))
             colourRow("pfColor_$h", "$name: ambient light", "Keep as is")
@@ -953,7 +956,8 @@ class MainActivity : AppCompatActivity() {
             val rh = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
             revPanels += rh; revBody.addView(rh)
             val revViews = ArrayList<View>()
-            fun revVis() { revViews.forEach { it.visibility = if (p.getString("pfRev_$h", DriveProfile.revDef(code, "pfRev")) == "2") View.VISIBLE else View.GONE } }
+            var afterRevVis: () -> Unit = {}
+            fun revVis() { revViews.forEach { it.visibility = if (p.getString("pfRev_$h", DriveProfile.revDef(code, "pfRev")) == "2") View.VISIBLE else View.GONE }; afterRevVis() }
             rh.addView(label("Rev bar: $name", 12))
             rh.addView(picker("pfRev_$h", "$name: rev bar", listOf("0", "1", "2"), listOf("Keep as is", "Off", "On"), DriveProfile.revDef(code, "pfRev")) { revVis(); applyTheme(); DriveProfile.revEdited(this, code) })
             val revRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(0, dp(10), 0, 0) }
@@ -961,6 +965,14 @@ class MainActivity : AppCompatActivity() {
                 revRow.addView(cell(q.third, picker(q.first, "$name: ${q.third.lowercase()}", q.second.indices.map { it.toString() }, q.second, DriveProfile.revDef(code, q.first.substringBefore('_'))) { DriveProfile.revEdited(this, code) }),
                     LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply { if (i > 0) marginStart = dp(8) })
             rh.addView(revRow); revViews += revRow
+            val rbSw = androidx.appcompat.widget.SwitchCompat(this).apply { tag = "sw"; text = "Regen bar (grows from the other end while regenerating)"; isChecked = p.getBoolean("pfRevRegen_$h", false) }
+            val regCol = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+            fun regVis2() { regCol.visibility = if (rbSw.isChecked && p.getString("pfRev_$h", DriveProfile.revDef(code, "pfRev")) == "2") View.VISIBLE else View.GONE }
+            afterRevVis = ::regVis2
+            rbSw.setOnCheckedChangeListener { _, on -> p.edit().putBoolean("pfRevRegen_$h", on).apply(); regVis2(); DriveProfile.revEdited(this, code) }
+            rh.addView(rbSw, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(10) }); revViews += rbSw
+            colourRow("pfRevRegenColor_$h", "$name: regen bar colour", "Green", DriveProfile.REGEN_BAR_DEF, regCol) { DriveProfile.revEdited(this, code) }
+            rh.addView(regCol); regVis2()
             fun revSeek(key: String, def: Int, min: Int, max: Int, text: (Int) -> String) {
                 val lab = TextView(this).apply { tag = "m"; setPadding(0, dp(8), 0, 0) }
                 val sb = SeekBar(this).apply { tag = "seek"; this.max = max - min }
@@ -1084,6 +1096,8 @@ class MainActivity : AppCompatActivity() {
             chips("engView", listOf("cabin", "outside"), listOf("Inside the car", "Outside the car"), 2)
             body.addView(View(this), LinearLayout.LayoutParams(1, dp(8)))
         }
+        chips("engGearShow", listOf("on", "off"), listOf("Show gear on rev bar and widget", "Hide gear"), 2)
+        body.addView(View(this), LinearLayout.LayoutParams(1, dp(8)))
         chips("engBlip", listOf("on", "off"), listOf("Rev when shifting into D/R", "No rev blip"), 2)
         body.addView(View(this), LinearLayout.LayoutParams(1, dp(8)))
         chips("engCrackle", listOf("normal", "low", "off"), listOf("Crackle", "Low crackle", "No crackle"), 3)
@@ -1822,6 +1836,7 @@ class MainActivity : AppCompatActivity() {
             findViewById<View>(R.id.identifyBox).visibility = View.GONE
             findViewById<View>(R.id.codeBox).visibility = View.GONE
             findViewById<View>(R.id.opBox).visibility = View.VISIBLE
+            fixColumns(true)
             findViewById<View>(R.id.backupCard).apply { visibility = View.VISIBLE; isEnabled = false; alpha = 0.4f }   // needs a ZDash link
             findViewById<View>(R.id.dataUsage).visibility = View.GONE
             findViewById<View>(R.id.test).visibility = View.GONE
@@ -1853,13 +1868,31 @@ class MainActivity : AppCompatActivity() {
         if (linked) { buildCamGrid(); autoStartService() } else showCodeStage()
     }
 
-    // Wide screen, linked: the page itself fills the screen without scrolling; the left column is fixed, the right one scrolls inside.
+    private var pinPage = false
+    private var pageHooked = false
+    // A ScrollView ignores its child's height, so the page only stayed screen-high while the left column was shorter than the screen; a taller left column made the whole page scroll and steal the right column's drags. Give the columns an exact height instead.
+    private fun pinPageHeight() {
+        if (rightScroll == null) return
+        val sc = findViewById<ScrollView>(R.id.scroll); val content = sc.getChildAt(0) as? LinearLayout ?: return
+        val op = findViewById<View>(R.id.opBox)
+        val want = if (!pinPage) ViewGroup.LayoutParams.WRAP_CONTENT else {
+            var others = 0
+            for (i in 0 until content.childCount) { val c = content.getChildAt(i); if (c === op || c.visibility == View.GONE) continue; val m = c.layoutParams as? ViewGroup.MarginLayoutParams; others += c.height + (m?.topMargin ?: 0) + (m?.bottomMargin ?: 0) }
+            val avail = sc.height - sc.paddingTop - sc.paddingBottom - content.paddingTop - content.paddingBottom - others
+            if (avail < (200 * ZScale.density(this)).toInt()) return
+            avail
+        }
+        if (op.layoutParams.height != want) { op.layoutParams = op.layoutParams.apply { height = want }; op.requestLayout() }
+    }
+
+    // Wide screen, linked: the page itself fills the screen without scrolling; both columns scroll inside.
     private fun fixColumns(linked: Boolean) {
         if (rightScroll == null) return
-        val content = findViewById<ScrollView>(R.id.scroll).getChildAt(0) as? LinearLayout ?: return
-        content.layoutParams = content.layoutParams.apply { height = if (linked) ViewGroup.LayoutParams.MATCH_PARENT else ViewGroup.LayoutParams.WRAP_CONTENT }
-        val op = findViewById<View>(R.id.opBox)
-        op.layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, if (linked) 0 else ViewGroup.LayoutParams.WRAP_CONTENT, if (linked) 1f else 0f)
+        val sc = findViewById<ScrollView>(R.id.scroll)
+        pinPage = linked
+        if (!pageHooked) { pageHooked = true; sc.viewTreeObserver.addOnGlobalLayoutListener { pinPageHeight() } }
+        findViewById<View>(R.id.opBox).layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+        sc.post { pinPageHeight() }
     }
 
     // Make background capture "just work": whenever the car is linked and has every permission

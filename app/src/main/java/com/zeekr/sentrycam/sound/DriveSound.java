@@ -91,6 +91,12 @@ public final class DriveSound {
         });
     }
 
+    /** Z_Cam: simulated gear number (1..n) for the on-screen readout, 0 when there is none. */
+    public static int simGear() {
+        Run r = INSTANCE.run;
+        return r == null ? 0 : r.gear;
+    }
+
     public static void shift(int step) {
         Run r = INSTANCE.run;
         if (r != null) {

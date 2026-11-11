@@ -213,13 +213,17 @@ class WebHud(private val ctx: Context) {
         if (old != null && tabs[i].wv === old) return
         customCb?.onCustomViewHidden()
         if (old != null) {
-            old.evaluateJavascript("document.querySelectorAll('video,audio').forEach(function(m){m.pause();})", null)
-            big.removeView(old); old.onPause()
+            // a tab that is playing media keeps playing in the background (hidden, not paused); any other tab is paused and detached as before
+            old.visibility = View.INVISIBLE
+            old.evaluateJavascript("(function(){var m=document.querySelectorAll('video,audio');for(var i=0;i<m.length;i++)if(!m[i].paused&&!m[i].ended)return 1;return 0})()") { r ->
+                if (r != "1" && web !== old) { try { big.removeView(old); old.onPause() } catch (_: Throwable) {} }
+            }
         }
         curTab = i
         val t = tabs[i]
         val wv = t.wv ?: makeWebView(wc, big, t).also { t.wv = it; if (t.url.isNotEmpty()) it.loadUrl(t.url) }
-        big.addView(wv, 0, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+        if (wv.parent == null) big.addView(wv, 0, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+        wv.visibility = View.VISIBLE
         wv.onResume()
         web = wv; curUrl = t.url.ifEmpty { null }; curTitle = t.title; loadPct = 100; loadedUrl = t.url
         p.edit().putString("webUrl", t.url).apply(); saveTabs()
@@ -242,7 +246,14 @@ class WebHud(private val ctx: Context) {
         val keep = tabs[curTab]
         tabs.removeAt(i)
         curTab = tabs.indexOf(keep)
-        try { t.wv?.destroy() } catch (_: Throwable) {}
+        try { t.wv?.let { (it.parent as? ViewGroup)?.removeView(it); it.destroy() } } catch (_: Throwable) {}
+        saveTabs(); tabsChanged()
+    }
+
+    private fun moveTab(from: Int, to: Int) {
+        val keep = tabs[curTab]
+        tabs.add(to, tabs.removeAt(from))
+        curTab = tabs.indexOf(keep)
         saveTabs(); tabsChanged()
     }
 
@@ -262,6 +273,22 @@ class WebHud(private val ctx: Context) {
                     background = chip(if (i == curTab) 0xFF3A3A3C.toInt() else 0xFF2C2C2E.toInt(), 12)
                     setPadding(dp(14), 0, dp(6), 0)
                     setOnClickListener { switchTab(i); onDone(false) }
+                    // long press, then drag up or down to a new place in the list
+                    var dragging = false; var downY = 0f
+                    setOnLongClickListener { dragging = true; alpha = 0.8f; scroll.requestDisallowInterceptTouchEvent(true); true }
+                    setOnTouchListener { v, e ->
+                        when (e.actionMasked) {
+                            MotionEvent.ACTION_DOWN -> { downY = e.rawY; false }
+                            MotionEvent.ACTION_MOVE -> if (dragging) { v.translationY = e.rawY - downY; true } else false
+                            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> if (dragging) {
+                                dragging = false
+                                val to = (i + Math.round((e.rawY - downY) / dp(80))).coerceIn(0, tabs.size - 1)
+                                if (to != i) moveTab(i, to)
+                                fill(); true
+                            } else false
+                            else -> false
+                        }
+                    }
                 }
                 row.addView(View(ctx).apply {
                     background = chip(if (i == curTab) 0xFFA3E635.toInt() else 0xFF636366.toInt(), 8)

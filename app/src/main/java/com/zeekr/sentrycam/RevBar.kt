@@ -31,6 +31,12 @@ class RevBar(private val ctx: Context) {
         val POS_NAMES = listOf("Top edge", "Bottom edge", "Right side")
         private const val CAR_CLASS = "com.ecarx.xui.adaptapi.car.Car"
         private const val SENSOR_THROTTLE = 0x00101400
+        private const val SENSOR_BRAKE = 0x00101300
+        private const val SENSOR_SPEED = 0x00100100
+        private const val FUNC_POWER_FLOW = 0x24010100
+        private val REGEN_FLOWS = setOf(0x24010115, 0x24010116, 0x24010117, 0x2401010a, 0x2401010b, 0x2401010c)
+        private const val BRAKE_FULL = 44f
+        private const val DECEL_FULL = 4f   // m/s2 that fills the regen bar
         private const val TICK_MS = 40L
         // One Car connection for the whole process: Car.create() on every start leaked a binder connection to the
         // car's service each time, and toggling the bar on and off quickly exhausted it.
@@ -54,6 +60,15 @@ class RevBar(private val ctx: Context) {
     private var peak = 0f
     private var peakAt = 0L
     private var target = 0f
+    private var regenLevel = 0f
+    private var regenTarget = 0f
+    private var fnMgr: Any? = null
+    private var getFnVal: java.lang.reflect.Method? = null
+    private var flowAt = 0L
+    private var inRegen = false
+    private var lastSpeed = -1f
+    private var lastSpeedAt = 0L
+    private var decelPct = 0f
 
     private var retryAt = 0L
     private var view: RevView? = null   // main thread only
@@ -102,16 +117,49 @@ class RevBar(private val ctx: Context) {
         } catch (_: Throwable) { getLatest = null; latestCache = null; sensorCache = null; 0f }
     }
 
+    private fun sensorNum(id: Int): Float? = try {
+        val f = (getLatest?.invoke(sensor, id) as? Number)?.toFloat()
+        if (f == null || f.isNaN() || f == 255f || f == -65535f) null else f
+    } catch (_: Throwable) { null }
+
+    /** Regen amount 0..100: while the car's power flow says regenerating, the larger of brake pedal depth and measured deceleration. */
+    private fun readRegen(now: Long): Float {
+        if (getLatest == null) return 0f
+        if (now - flowAt >= 250) {
+            flowAt = now
+            try {
+                if (getFnVal == null) {
+                    val car = BlindSpotHud.carCache ?: Class.forName(CAR_CLASS).getMethod("create", Context::class.java).invoke(null, ctx.applicationContext).also { BlindSpotHud.carCache = it }
+                    fnMgr = car?.javaClass?.getMethod("getICarFunction")?.invoke(car)
+                    getFnVal = fnMgr?.javaClass?.getMethod("getFunctionValue", Int::class.javaPrimitiveType)
+                }
+                inRegen = ((getFnVal?.invoke(fnMgr, FUNC_POWER_FLOW) as? Number)?.toInt() ?: 0) in REGEN_FLOWS
+            } catch (_: Throwable) { getFnVal = null; inRegen = false }
+        }
+        val sp = sensorNum(SENSOR_SPEED)
+        if (sp != null && now - lastSpeedAt >= 200) {
+            if (lastSpeed >= 0f) decelPct = ((lastSpeed - sp) / ((now - lastSpeedAt) / 1000f) / DECEL_FULL * 100f).coerceIn(0f, 100f)
+            lastSpeed = sp; lastSpeedAt = now
+        }
+        if (!inRegen) return 0f
+        val brake = ((sensorNum(SENSOR_BRAKE) ?: 0f) / BRAKE_FULL * 100f).coerceIn(0f, 100f)
+        return maxOf(brake, decelPct)
+    }
+
     private fun tick() {
         val h = bg ?: return
         if (!running) return
         val now = System.currentTimeMillis()
         val preview = p.getLong("revPreviewUntil", 0L) > now
         target = if (preview) (0.5f + 0.5f * Math.sin(now / 450.0).toFloat()) * 100f else readThrottle()
+        val regenOn = p.getBoolean("revRegen", false)
+        regenTarget = if (!regenOn) 0f else if (preview) (0.5f - 0.5f * Math.sin(now / 450.0).toFloat()) * 100f else readRegen(now)
+        regenLevel += (regenTarget - regenLevel) * (if (regenTarget > regenLevel) 0.5f else 0.25f)
+        if (regenLevel < 0.3f) regenLevel = 0f
         // the car reports ~5 times a second: glide to each reading, quick up, slower down
         level += (target - level) * (if (target > level) 0.5f else 0.25f)
         if (level >= peak) { peak = level; peakAt = now } else if (now - peakAt > 1200) peak = maxOf(level, peak - 2.5f)
-        val show = (level > 0.5f || peak > 0.5f)
+        val show = (level > 0.5f || peak > 0.5f || regenLevel > 0.5f || regenOn)   // with the regen bar on, the bar stays on screen like a gauge
         main.post { update(show) }
         h.postDelayed(::tick, TICK_MS)
     }
@@ -184,7 +232,9 @@ class RevBar(private val ctx: Context) {
         }
         v.visibility = View.VISIBLE
         v.pos = pos(); v.inset = inset().toFloat(); v.vInset = hudH * p.getInt("revInset", 8).coerceIn(0, 20) / 100f; v.shape = p.getInt("revShape", 0).coerceIn(0, 2); v.scheme = p.getInt("revScheme", 0).coerceIn(0, 3)
-        v.level = level; v.peak = peak
+        v.track = p.getBoolean("revRegen", false)
+        v.simGear = if (p.getString("engGearShow", "on") == "off") 0 else com.zeekr.sentrycam.sound.DriveSound.simGear()
+        v.level = level; v.peak = peak; v.regen = regenLevel; v.regenColor = p.getInt("revRegenColor", Color.rgb(0, 230, 90))
         v.invalidate()
         // settings changed: re-place the window
         val w = v.layoutParams as? WindowManager.LayoutParams ?: return
@@ -209,11 +259,15 @@ class RevBar(private val ctx: Context) {
 class RevView(c: Context) : View(c) {
     var level = 0f
     var peak = 0f
+    var regen = 0f
+    var regenColor = Color.rgb(0, 230, 90)
     var pos = 0          // 0 top / 1 bottom / 2 right
     var inset = 0f       // gap kept at the outer edge
     var vInset = 0f      // right side: gap kept at the top and bottom (the HUD crops those too)
     var shape = 0
     var scheme = 0
+    var simGear = 0
+    var track = false    // regen bar on: draw a faint track so the bar never vanishes between rev and regen
     private val fill = Paint(Paint.ANTI_ALIAS_FLAG)
     private val glow = Paint(Paint.ANTI_ALIAS_FLAG)
     private val funnel = android.graphics.Path()
@@ -248,6 +302,12 @@ class RevView(c: Context) : View(c) {
         if (lit) { glow.color = colorAt(f); glow.alpha = 50; glow.style = Paint.Style.STROKE; cv.drawPath(seg, glow) }
     }
 
+    private fun regenCell(cv: Canvas) {
+        fill.shader = null; fill.color = regenColor; fill.alpha = 255
+        cv.drawPath(seg, fill)
+        glow.color = regenColor; glow.alpha = 50; glow.style = Paint.Style.STROKE; cv.drawPath(seg, glow)
+    }
+
     override fun onDraw(cv: Canvas) {
         val vertical = pos == 2
         val w = width.toFloat() - (if (vertical) inset else 0f); val h = height.toFloat() - (if (vertical) 2 * vInset else inset)
@@ -268,6 +328,7 @@ class RevView(c: Context) : View(c) {
                 cv.drawRect(0f, h * (1f - level / 100f), w, h, fill)
                 val py = h * (1f - peak / 100f)
                 cv.drawRect(0f, py, w, py + (w * 0.04f).coerceAtLeast(3f), tick)
+                if (regen > 0f) { fill.shader = null; fill.color = regenColor; fill.alpha = 255; cv.drawRect(0f, 0f, w, h * regen / 100f, fill) }
             } else {
                 // stacked slices, bottom to top
                 val n = 20; val sh = h / n; val gap = sh * 0.25f
@@ -277,11 +338,13 @@ class RevView(c: Context) : View(c) {
                     val y1 = h - i * sh; val y0 = y1 - sh + gap
                     seg.reset(); seg.addRect(0f, y0, w, y1, android.graphics.Path.Direction.CW)
                     cell(cv, f, f * 100f <= level, f * 100f <= peak && (i + 1f) / n * 100f > peak)
+                    if ((1f - f) * 100f <= regen) regenCell(cv)
                 }
             }
             cv.restore()
             if (w >= 60f) { text.textSize = w * 0.25f; cv.drawText("${level.toInt()}", w * 0.8f, h * 0.12f, text) }
         } else if (shape == 0) {
+            if (track) { fill.shader = null; fill.color = Color.WHITE; fill.alpha = 35; cv.drawRect(0f, h * 0.15f, w, h * 0.85f, fill) }
             // glow underlay, then the bar
             fill.shader = null; fill.color = colorAt(level / 100f); fill.alpha = 45
             cv.drawRect(0f, 0f, w * level / 100f, h, fill)
@@ -289,6 +352,7 @@ class RevView(c: Context) : View(c) {
             cv.drawRect(0f, h * 0.15f, w * level / 100f, h * 0.85f, fill)
             val px = w * peak / 100f
             cv.drawRect(px - (h * 0.2f).coerceAtLeast(3f), 0f, px, h, tick)
+            if (regen > 0f) { fill.shader = null; fill.color = regenColor; fill.alpha = 255; cv.drawRect(0f, h * 0.15f, w * regen / 100f, h * 0.85f, fill) }
         } else {
             val n = if (shape == 1) 40 else 32
             val sw = w / n; val gap = sw * 0.22f
@@ -300,7 +364,15 @@ class RevView(c: Context) : View(c) {
                 seg.reset()
                 seg.moveTo(x0 + skew, 0f); seg.lineTo(x0 + sw - gap + skew, 0f); seg.lineTo(x0 + sw - gap, h); seg.lineTo(x0, h); seg.close()
                 cell(cv, f, f * 100f <= level, f * 100f <= peak && (i + 1f) / n * 100f > peak)
+                if (f * 100f <= regen) regenCell(cv)
             }
+        }
+        if (simGear > 0) {
+            val g = "D$simGear"
+            text.setShadowLayer(4f, 0f, 0f, Color.BLACK)
+            if (vertical) { if (w >= 60f) { text.textSize = w * 0.3f; cv.drawText(g, w * 0.8f, h * 0.12f + w * 0.32f, text) } }
+            else { text.textSize = h * 0.8f; text.textAlign = Paint.Align.LEFT; cv.drawText(g, h * 0.3f, h * 0.8f, text); text.textAlign = Paint.Align.CENTER }
+            text.clearShadowLayer()
         }
     }
 }

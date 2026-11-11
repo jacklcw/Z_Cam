@@ -1,3 +1,9 @@
+0.86.0
+- Rev bar: new Regen bar option per drive mode (Driving profiles > Rev bar): shows regenerative braking growing from the left, with its own colour. With it on, the bar stays on screen like a gauge.
+- Simulated gear (D1 to D8) shows on the rev bar and beside km/h on the trip widget while the engine sound runs. Turn it off under Engine sound.
+- Web window: long press a tab in the tab list and drag it to reorder. Media keeps playing when you switch to another tab.
+- Settings: the right column scrolls again on the car screen (the page no longer steals the swipes), and the left column scrolls on its own.
+
 0.85.0
 - New "Apply default settings" button (left column, above Check for update): sets up the windows, camera tuning, HUD, web window, engine sound, driving profiles, trip widget and theme the way the author uses them. It asks first, works without ZDash, and keeps your relay link, bookmarks and history.
 - Back up now also covers engine sound, driving profiles, the trip widget, the rev bar and the theme. Long press Back up or restore to choose which groups a backup includes.

@@ -139,7 +139,7 @@ canvas{flex:1;min-height:calc(14*var(--u));height:auto}
 
      <div class="stack">
       <div class="hero">
-       <div style="min-width:0"><div class="spd" id="spd">0</div><div class="spd" id="spm" aria-hidden="true">888</div><div class="unit" id="unit">km/h</div></div>
+       <div style="min-width:0"><div class="spd" id="spd">0</div><div class="spd" id="spm" aria-hidden="true">888</div><div class="unit"><span id="unit">km/h</span><span id="sg"></span></div></div>
        <div class="pedals">
         <div><div class="pd th"><i id="thb"></i></div><div class="pl">THR</div></div>
         <div><div class="pd br"><i id="brb"></i></div><div class="pl">BRK</div></div>
@@ -196,7 +196,7 @@ function onData(d){
  if(d.batt!=null){if(S.soc0==null)S.soc0=d.batt;S.soc=d.batt}
  S.stk+=dt;if(S.stk>=1){S.stk=0;if(S.cur){sampleTiles(S.cur);drawSparks()}if(S.soc!=null){S.sh.push(S.soc);if(S.sh.length>3600)S.sh.shift()}}
  S.tick+=dt;if(S.tick>=.2){S.tick=0;S.hist.push({v:kmh,th,br,ld:(th-br)*100,g:S.g});if(S.hist.length>300)S.hist.shift()}
- S.cur={kmh,th,br,regen:!!d.regen,gear:d.gear||'-',mode:d.mode||'',range:d.range,aux:d.aux,auxPct:d.auxPct,age:d.age,why:d.why||''};
+ S.cur={kmh,th,br,regen:!!d.regen,gear:d.gear||'-',sg:d.sg||0,mode:d.mode||'',range:d.range,aux:d.aux,auxPct:d.auxPct,age:d.age,why:d.why||''};
  if(now-lastDraw>=190){lastDraw=now;draw()}ui();
 }
 function draw(){
@@ -310,7 +310,7 @@ function buildGrid(){
 function ui(){
  const c=S.cur;if(!c)return;if(fitN++%20===0)fitSpeed();
  const k=K(),sU=C.unit==='mi'?'mph':'km/h';
- $('spd').textContent=Math.round(c.kmh*k);$('unit').textContent=sU;
+ $('spd').textContent=Math.round(c.kmh*k);$('unit').textContent=sU;$('sg').textContent=c.sg>0?' \u00b7 D'+c.sg:'';
  $('thb').style.height=c.th*100+'%';$('brb').style.height=c.br*100+'%';
  // regen pill: the car says regen is active (power flow); its fill follows how hard the car is slowing down (G), at least a sliver while regen is on
  const rg=c.regen?Math.max(.12,Math.min(1,-S.g/0.2)):0;S.rg+=(rg-S.rg)*.4;$('rgb').style.height=(S.rg*100)+'%';

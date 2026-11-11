@@ -197,6 +197,7 @@ class TripWidget(private val ctx: Context) {
             }
         }
         o.put("gear", gear); o.put("mode", mode); o.put("regen", regen)
+        o.put("sg", if (p.getString("engGearShow", "on") == "off") 0 else com.zeekr.sentrycam.sound.DriveSound.simGear())
         // range: the car's own sensor first (works without the relay), the relay value as fallback
         val carRange = if (latest != null) num(RANGE_KM)?.takeIf { it > 0f }?.toDouble() else null
         val carBatt = if (latest != null) num(BATT_PCT)?.takeIf { it in 0f..100f }?.toDouble() else null
