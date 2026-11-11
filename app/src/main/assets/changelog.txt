@@ -1,3 +1,7 @@
+0.87.0
+- First opening: a new install is asked once whether to apply the default settings; later openings never ask. The Apply default settings button still applies them any time.
+- The default settings now turn the Regen bar on.
+
 0.86.0
 - Rev bar: new Regen bar option per drive mode (Driving profiles > Rev bar): shows regenerative braking growing from the left, with its own colour. With it on, the bar stays on screen like a gauge.
 - Simulated gear (D1 to D8) shows on the rev bar and beside km/h on the trip widget while the engine sound runs. Turn it off under Engine sound.

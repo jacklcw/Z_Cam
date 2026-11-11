@@ -75,6 +75,9 @@ class MainActivity : AppCompatActivity() {
         ZScale.pin(this)
         setContentView(R.layout.activity_main)
         p = getSharedPreferences("cfg", Context.MODE_PRIVATE)
+        // first ever opening (no saved settings at all): offer the default settings once; upgrades and later openings are never asked
+        val askDefaults = !p.contains("defaultsAsked") && p.all.isEmpty()
+        if (!p.contains("defaultsAsked")) p.edit().putBoolean("defaultsAsked", true).apply()
         // record every change of screen size / density / font scale (the screen sometimes shrinks on its own; this shows whether the system did it)
         fun uiInfo() = resources.displayMetrics.let { m -> "${m.widthPixels}x${m.heightPixels} density=${m.density} pinned=${ZScale.density(this)} dpi=${m.densityDpi} fontScale=${resources.configuration.fontScale} sw=${resources.configuration.smallestScreenWidthDp}dp" }
         Logger.log(this, "ui: onCreate ${uiInfo()}")
@@ -673,6 +676,10 @@ class MainActivity : AppCompatActivity() {
         checkForUpdate()
         findViewById<Button>(R.id.checkUpdate).setOnClickListener { checkForUpdate(true) }
         applyTheme()
+        if (askDefaults) window.decorView.post {
+            ZDialog.show(this, "Apply the default settings?",
+                "First time here? Start with the setup the author uses. You can apply it any time later with the Apply default settings button.", "Apply", "Not now") { applyDefaultSettings() }
+        }
     }
 
     // Hidden: tap the "HUD" title 10 times to show/hide the web-on-HUD section.
