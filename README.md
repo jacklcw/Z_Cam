@@ -1,12 +1,13 @@
 # Z_Cam (companion app for the Zeekr 7X head unit)
 
 An Android app that runs **on the Zeekr 7X head unit** (sideloaded through App Lab). It
-uses the car's own cameras through standard **Camera2** and talks only to **your own
-deployed relay** over a paired token. Current version: see `app/build.gradle.kts`.
+uses the car's own cameras through standard **Camera2**. It works standalone, and can
+optionally talk to **your own deployed relay** over a paired token for uploads and remote
+features. Current version: see `app/build.gradle.kts`.
 
-One-pager: [docs/zcam-onepager.html](../docs/zcam-onepager.html) (download and open in a browser).
+One-pager: [open the one-pager](https://jacklcw.github.io/Z_Cam/docs/zcam-onepager.html).
 
-![Z_Cam one-pager](../docs/zcam-onepager.png)
+![Z_Cam one-pager](docs/zcam-onepager.png)
 
 ## What it does
 
