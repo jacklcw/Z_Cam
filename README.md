@@ -22,17 +22,28 @@ One-pager: [open the one-pager](https://jacklcw.github.io/Z_Cam/docs/zcam-onepag
 - **Live view tuning and floating windows.** Left, right, rear and front cameras are tuned in
   one **Live view** section (angle, tilt, turn, rotate, mirror, flip) and shown as floating
   windows; a floating button hides or shows them all. **Web view** is a small browser with
-  bookmarks and history. Settings can be backed up to the relay.
+  tabs, bookmarks, history and downloads. A More menu holds Full screen (its own full-size page on
+  the centre screen), Mobile / Desktop site (remembered per tab), Bookmarks, History and Downloads.
+  Files save to Downloads and an APK opens the installer. Drag a window's corner line to resize it.
 - **Rev bar.** A throttle-pedal bar on the HUD (top, bottom, or a funnel on the right), with
   smooth / segmented / slanted styles, four colour schemes, size and edge-gap sliders and a live
   in-app preview. Press and hold the floating button for quick toggles (engine sound, rev bar,
   web on HUD, HUD side camera, rear/front window): slide to one and lift to flip it.
-- **Engine sound.** A simulated engine that follows throttle and speed in every drive mode (V8,
-  turbo four and Civic Type R), played in the
+- **Engine sound.** A simulated engine that follows throttle and speed in every drive mode (Civic Type R,
+  American V8, Prototype V8 and Turbo four; Civic Type R is the default), played in the
   cabin, outside, or both. Gear changes have their own effects (upshift bang, ignition cut,
   downshift blip with crackle, gear thump), and the Civic Type R adds more bass while parked. The
   cabin and outside volumes are separate: in outside mode only the outside volume applies. Ported
   from Zeekr Shortcut (GPL-3.0).
+- **Apply default settings.** One button sets up windows, camera tuning, HUD, web window, engine
+  sound, driving profiles, trip widget and theme the way the author uses them. It asks first, works
+  without ZDash and keeps your relay link, bookmarks and history.
+- **Back up and restore.** Covers windows, camera tuning, HUD, web, engine sound, driving profiles,
+  the trip widget, rev bar and theme (needs a linked relay). Long press the button to choose which
+  groups a backup includes.
+- **Auto Camping-off.** Optionally turns Camping mode off when it was left on after getting out:
+  both front seats empty and the car locked for a chosen number of minutes. Any doubt restarts the wait.
+- **Data usage.** A built-in meter shows what the app sends and receives, per category and day.
 - **Driving profiles.** One profile per drive mode: engine sound, ambient light (follows speed),
   regen, steering weight and rev bar all follow the mode you switch to, with an optional silent
   profile per mode.
