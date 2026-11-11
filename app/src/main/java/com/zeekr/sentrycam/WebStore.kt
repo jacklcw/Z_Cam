@@ -75,11 +75,11 @@ object WebStore {
      * A dark panel with Bookmarks / History tabs, one row per entry (tap opens it, X deletes it) and a Clear button on the
      * history tab. [heightPx] is the height of the scrolling list.
      */
-    fun panel(ctx: Context, p: SharedPreferences, heightPx: Int, startOnHistory: Boolean, onOpen: (String) -> Unit): View {
+    fun panel(ctx: Context, p: SharedPreferences, heightPx: Int, startOnHistory: Boolean, startTab: Int = -1, onOpen: (String) -> Unit): View {
         val d = ZScale.density(ctx)   // same scale as the settings screen, not the (possibly re-based) window density
         fun dp(x: Int) = (x * d).toInt()
         fun chip(fill: Int, r: Int) = GradientDrawable().apply { setColor(fill); cornerRadius = r * d }
-        var history = startOnHistory
+        var tab = if (startTab >= 0) startTab else if (startOnHistory) 1 else 0   // 0 bookmarks, 1 history, 2 downloads
         val root = LinearLayout(ctx).apply { orientation = LinearLayout.VERTICAL }
         val tabs = LinearLayout(ctx).apply { orientation = LinearLayout.HORIZONTAL }
         val list = LinearLayout(ctx).apply { orientation = LinearLayout.VERTICAL }
@@ -91,11 +91,44 @@ object WebStore {
             setOnClickListener { click() }
         }
         lateinit var refresh: () -> Unit
-        refresh = {
+        refresh = { run {
             tabs.removeAllViews(); list.removeAllViews()
-            tabs.addView(label("Bookmarks", !history) { history = false; refresh() }, LinearLayout.LayoutParams(0, dp(72), 1f))
-            tabs.addView(label("History", history) { history = true; refresh() }, LinearLayout.LayoutParams(0, dp(72), 1f).apply { marginStart = dp(8) })
+            val history = tab == 1
+            tabs.addView(label("Bookmarks", tab == 0) { tab = 0; refresh() }, LinearLayout.LayoutParams(0, dp(72), 1f))
+            tabs.addView(label("History", tab == 1) { tab = 1; refresh() }, LinearLayout.LayoutParams(0, dp(72), 1f).apply { marginStart = dp(8) })
+            tabs.addView(label("Downloads", tab == 2) { tab = 2; refresh() }, LinearLayout.LayoutParams(0, dp(72), 1.2f).apply { marginStart = dp(8) })
             if (history) tabs.addView(label("Clear", false) { clearHistory(p); refresh() }, LinearLayout.LayoutParams(0, dp(72), 0.7f).apply { marginStart = dp(8) })
+            if (tab == 2) {
+                val files = WebDownload.files(ctx)
+                if (files.isEmpty()) list.addView(TextView(ctx).apply {
+                    text = "No downloads yet"; setTextColor(0xFF98989D.toInt()); textSize = 20f; setPadding(dp(6), dp(18), dp(6), dp(18))
+                })
+                for (f in files) {
+                    val row = LinearLayout(ctx).apply {
+                        orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
+                        background = chip(0xFF2C2C2E.toInt(), 14); setPadding(dp(16), dp(10), 0, dp(10)); minimumHeight = dp(84)
+                        layoutParams = LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(8) }
+                    }
+                    val txt = LinearLayout(ctx).apply {
+                        orientation = LinearLayout.VERTICAL
+                        setOnClickListener { WebDownload.openFile(ctx, f) }
+                        layoutParams = LinearLayout.LayoutParams(0, -2, 1f)
+                        addView(TextView(ctx).apply { text = f.name; setTextColor(0xFFF5F5F7.toInt()); textSize = 24f; typeface = ZFont.reg; maxLines = 1; ellipsize = TextUtils.TruncateAt.END })
+                        addView(TextView(ctx).apply {
+                            text = WebDownload.sizeText(f.length()) + (if (f.name.endsWith(".apk", true)) "  -  tap to install" else "  -  tap to open")
+                            setTextColor(0xFF98989D.toInt()); textSize = 20f; typeface = ZFont.reg; maxLines = 1
+                        })
+                    }
+                    row.addView(txt)
+                    row.addView(TextView(ctx).apply {
+                        text = "X"; gravity = Gravity.CENTER; textSize = 24f; typeface = ZFont.reg; setTextColor(0xFFFF6B6B.toInt())
+                        setOnClickListener { f.delete(); refresh() }
+                        layoutParams = LinearLayout.LayoutParams(dp(72), dp(56))
+                    })
+                    list.addView(row)
+                }
+                return@run
+            }
             val items = if (history) history(p) else bookmarks(p)
             if (items.isEmpty()) list.addView(TextView(ctx).apply {
                 text = if (history) "No history yet" else "No bookmarks yet. Tap the star to add the page."
@@ -130,7 +163,7 @@ object WebStore {
                 })
                 list.addView(row)
             }
-        }
+        } }
         refresh()
         root.addView(tabs); root.addView(scroll, (scroll.layoutParams as LinearLayout.LayoutParams).apply { topMargin = dp(8) })
         return root

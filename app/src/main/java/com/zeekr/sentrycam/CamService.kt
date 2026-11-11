@@ -85,7 +85,20 @@ class CamService : Service() {
         }
     }
 
+    private var crashHooked = false
+    // An uncaught exception writes its stack trace to the on-device log before the app goes down (Settings > log), so a crash can be diagnosed afterwards.
+    private fun hookCrashLog() {
+        if (crashHooked) return
+        crashHooked = true
+        val prev = Thread.getDefaultUncaughtExceptionHandler()
+        Thread.setDefaultUncaughtExceptionHandler { t, e ->
+            try { Logger.log(applicationContext, "CRASH on thread ${t.name}: " + android.util.Log.getStackTraceString(e).take(2500)) } catch (_: Throwable) {}
+            prev?.uncaughtException(t, e)
+        }
+    }
+
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        hookCrashLog()
         mainH.removeCallbacks(dailyUpdate); mainH.postDelayed(dailyUpdate, 60_000L)
         enterForeground()
         acquireWake()

@@ -17,8 +17,11 @@ final class AudioWake {
     private static AudioFocusRequest held;
     private static int users;
     private static boolean lost;       // another app (a web video) took the focus from us
-    private static int ownPlayers;     // players running while we still had the focus: lets us tell when the other app has stopped
+    private static boolean seenOther;  // after losing the focus: the other app's player has actually shown up as a running player
     private static boolean watching;
+    private static long lostAt;       // when we lost the focus
+    private static long quietSince;   // since when nobody but us has been playing
+    private static long assertedAt;   // last time the focus was re-asserted
     private static final Runnable WATCH = new Runnable() {
         @Override
         public void run() {
@@ -28,14 +31,29 @@ final class AudioWake {
             }
             try {
                 AudioManager am = appCtx.getSystemService(AudioManager.class);
-                int n = am.getActivePlaybackConfigurations().size();
-                if (!lost) {
-                    ownPlayers = n;
-                } else if (n <= ownPlayers) {
-                    // the video stopped: take the focus back, or the car mutes the cabin speaker again
+                long now = android.os.SystemClock.uptimeMillis();
+                // somebody else is playing when there are more active players than our own tracks
+                boolean other = am.getActivePlaybackConfigurations().size() > SoundOutput.LIVE.get();
+                if (other) {
+                    quietSince = 0;
+                    if (lost) {
+                        seenOther = true;   // the video / music is really playing now
+                    }
+                } else if (quietSince == 0) {
+                    quietSince = now;
+                }
+                if (lost && !other && (seenOther || now - lostAt > 8000)) {
+                    // whatever took the focus has stopped (music ended, video paused): take it back, or the car mutes the cabin speaker again.
+                    // Never before it was seen playing, unless 8 s passed: a video that is still starting up has no player yet, and grabbing the focus then paused it after ~2 s.
                     int r = am.requestAudioFocus(held);
                     Shim.log("wake: regained audio focus, result " + r);
                     lost = false;
+                    seenOther = false;
+                    assertedAt = now;
+                } else if (!lost && !other && quietSince != 0 && now - quietSince > 6000 && now - assertedAt > 15000) {
+                    // the car can hand the focus to its media app without telling us: while nothing else plays, keep asserting ours
+                    am.requestAudioFocus(held);
+                    assertedAt = now;
                 }
             } catch (RuntimeException e) {
                 Shim.log("wake: watch " + e);
@@ -68,7 +86,7 @@ final class AudioWake {
                         .setOnAudioFocusChangeListener(change -> {
                             Shim.log("wake: focus change " + change);
                             if (change < 0) {
-                                lost = true;
+                                lost = true; seenOther = false; lostAt = android.os.SystemClock.uptimeMillis();
                             }
                         })
                         .build();

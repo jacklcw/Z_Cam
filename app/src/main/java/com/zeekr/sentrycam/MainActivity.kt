@@ -153,7 +153,9 @@ class MainActivity : AppCompatActivity() {
             }.start()
             Toast.makeText(this, "Car probe running", Toast.LENGTH_SHORT).show(); true
         }
-        findViewById<Button>(R.id.restartApp).setOnClickListener { forceCloseApp() }
+        findViewById<Button>(R.id.restartApp).setOnClickListener {
+            ZDialog.show(this, "Close the app?", "This stops the floating windows, HUD and engine sound until you open Z Cam again.", "Close app") { forceCloseApp() }
+        }
         findViewById<Button>(R.id.credits).setOnClickListener { showCreditsDialog() }
         findViewById<Button>(R.id.whatsNew).setOnClickListener { showChangelogDialog() }
         findViewById<Button>(R.id.resetAll).setOnClickListener {
@@ -260,7 +262,7 @@ class MainActivity : AppCompatActivity() {
             })
         }
         for ((sid, lid, key, def, fmt) in listOf(
-            Quint(R.id.flCorner, R.id.flCornerLabel, "flCorner", 16, "Window corner radius: %d (0 = sharp)"),
+            Quint(R.id.flCorner, R.id.flCornerLabel, "flCorner", 0, "Window corner radius: %d (0 = sharp)"),
             Quint(R.id.flFade, R.id.flFadeLabel, "flFade", 0, "Window edge fade: %d%% (0 = off, hides the frame)")))
             findViewById<SeekBar>(sid).apply {
                 val lab = this@MainActivity.findViewById<TextView>(lid)
@@ -277,6 +279,18 @@ class MainActivity : AppCompatActivity() {
             fun paint() { text = "Blinker window animation: " + names[keys.indexOf(p.getString("flAnim", "fade")).coerceAtLeast(0)] + " (tap to change)" }
             paint()
             setOnClickListener { val i = (keys.indexOf(p.getString("flAnim", "fade")).coerceAtLeast(0) + 1) % keys.size; p.edit().putString("flAnim", keys[i]).apply(); paint() }
+        }
+        findViewById<SeekBar>(R.id.flBlinkSize).apply {
+            // 0 = keep the window's own size; 1..15 = grow to 30..100 % of the screen height while the blinker is on (same shape), then back
+            val lab = this@MainActivity.findViewById<TextView>(R.id.flBlinkSizeLabel)
+            fun txt(v: Int) = "Left / Right: enlarge while the blinker is on: " + (if (v == 0) "off" else "${30 + (v - 1) * 5}% of screen height")
+            progress = p.getInt("flBlinkSize", 0).let { if (it <= 0) 0 else ((it - 30) / 5 + 1).coerceIn(1, 15) }
+            lab.text = txt(progress)
+            setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+                override fun onProgressChanged(sb: SeekBar, v: Int, fromUser: Boolean) { lab.text = txt(v); if (fromUser) p.edit().putInt("flBlinkSize", if (v == 0) 0 else 30 + (v - 1) * 5).apply() }
+                override fun onStartTrackingTouch(sb: SeekBar) {}
+                override fun onStopTrackingTouch(sb: SeekBar) {}
+            })
         }
         findViewById<SeekBar>(R.id.flAnimMs).apply {
             val lab = this@MainActivity.findViewById<TextView>(R.id.flAnimMsLabel)
@@ -478,12 +492,24 @@ class MainActivity : AppCompatActivity() {
             var out: PanelOut? = null
             fun tuneOut() { out?.let { if (CamTune.isX(bsSide)) CamTune.applyStitch(p, bsSide.substring(1, 2), it, true) else CamTune.apply(p, bsSide, it) } }
             val loop = object : Runnable { override fun run() { if (out != null) { tuneOut(); ui.postDelayed(this, 200) } } }
-            live.surfaceTextureListener = object : TextureView.SurfaceTextureListener {
-                override fun onSurfaceTextureAvailable(st: android.graphics.SurfaceTexture, w: Int, h: Int) {
-                    val r = PanelOut(st); r.boxW = w; r.boxH = h; out = r; tuneOut(); CamHub.add(this@MainActivity, hubKey, r); ui.post(loop)
+            // The camera is only held while the picture is really wanted: the pop-up always, the page's own preview only while the Live view section is open and the app is in front
+            var stex: android.graphics.SurfaceTexture? = null; var bw = 0; var bh = 0
+            fun hold() {
+                val want = popup || liveWanted()
+                val t = stex
+                if (want && out == null && t != null) {
+                    val r = PanelOut(t); r.boxW = bw; r.boxH = bh; out = r; tuneOut(); CamHub.add(this@MainActivity, hubKey, r); ui.post(loop)
+                } else if (!want) {
+                    val r = out ?: return
+                    out = null; CamHub.remove(hubKey, r)
                 }
-                override fun onSurfaceTextureSizeChanged(st: android.graphics.SurfaceTexture, w: Int, h: Int) { out?.let { it.boxW = w; it.boxH = h } }
+            }
+            if (!popup) liveHolders += ::hold
+            live.surfaceTextureListener = object : TextureView.SurfaceTextureListener {
+                override fun onSurfaceTextureAvailable(st: android.graphics.SurfaceTexture, w: Int, h: Int) { stex = st; bw = w; bh = h; hold() }
+                override fun onSurfaceTextureSizeChanged(st: android.graphics.SurfaceTexture, w: Int, h: Int) { bw = w; bh = h; out?.let { it.boxW = w; it.boxH = h } }
                 override fun onSurfaceTextureDestroyed(st: android.graphics.SurfaceTexture): Boolean {
+                    stex = null
                     val r = out ?: return true
                     out = null; r.dead = true; CamHub.remove(hubKey, r); return true
                 }
@@ -644,7 +670,7 @@ class MainActivity : AppCompatActivity() {
 
     // Hidden: tap the "HUD" title 10 times to show/hide the web-on-HUD section.
     @android.annotation.SuppressLint("ClickableViewAccessibility")
-    override fun onPause() { WebHud.appVisible = false; super.onPause() }
+    override fun onPause() { WebHud.appVisible = false; resumed = false; updateLiveHold(); super.onPause() }
 
     // Nothing may outlive the screen: the old Activity would otherwise stay pinned in memory by the
     // redraw loop and the pairing poller every time the app is opened and closed.
@@ -789,8 +815,8 @@ class MainActivity : AppCompatActivity() {
                 ZDialog.choose(this@MainActivity, title, names, values.indexOf(p.getString(key, def)).coerceAtLeast(0)) { i -> p.edit().putString(key, values[i]).apply(); show(); onChange?.invoke() }
             }
         }
-        val styleKeys = listOf("", "off", "american", "prototype", "jet", "jet_old", "turbo4", "electric", "typer")
-        val styleNames = listOf("Keep current", "Silent (no engine sound)", "American V8", "Prototype V8", "Jet", "Jet (old)", "Turbo four", "Electric concept", "Civic Type R")
+        val styleKeys = listOf("", "off", "american", "prototype", "turbo4", "typer")
+        val styleNames = listOf("Keep current", "Silent (no engine sound)", "American V8", "Prototype V8", "Turbo four", "Civic Type R")
         // one tab per drive mode, so only one mode's settings are on screen at a time
         val panels = ArrayList<LinearLayout>()
         val tabBtns = ArrayList<Button>()
@@ -1002,8 +1028,8 @@ class MainActivity : AppCompatActivity() {
         chips("welcomeOn", listOf("off", "on"), listOf("Off", "Play on unlock"), 2)
         body.addView(View(this), LinearLayout.LayoutParams(1, dp(8)))
         run {
-            val keys = listOf("american", "prototype", "jet", "jet_old", "turbo4", "electric", "typer")
-            val names = listOf("American V8", "Prototype V8", "Jet", "Jet (old)", "Turbo four", "Electric concept", "Civic Type R")
+            val keys = listOf("american", "prototype", "turbo4", "typer")
+            val names = listOf("American V8", "Prototype V8", "Turbo four", "Civic Type R")
             body.addView(Button(this).apply {
                 tag = "btn2"; isAllCaps = false
                 fun cur() = keys.indexOf(p.getString("welcomeStyle", "american")).coerceAtLeast(0)
@@ -1057,6 +1083,10 @@ class MainActivity : AppCompatActivity() {
         chips("engBlip", listOf("on", "off"), listOf("Rev when shifting into D/R", "No rev blip"), 2)
         body.addView(View(this), LinearLayout.LayoutParams(1, dp(8)))
         chips("engCrackle", listOf("normal", "low", "off"), listOf("Crackle", "Low crackle", "No crackle"), 3)
+        gate(setOf("typer")) {
+            body.addView(View(this), LinearLayout.LayoutParams(1, dp(8)))
+            chips("engPop", listOf("off", "low", "high"), listOf("No exhaust pops", "Light pops (high-rev shifts)", "Strong pops (high-rev shifts)"), 3)
+        }
         updateFeel()
         feelListener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, k -> if (k == "engStyle" || k == "pfOn" || k?.startsWith("pfSound_") == true) runOnUiThread { updateFeel() } }
         p.registerOnSharedPreferenceChangeListener(feelListener)
@@ -1089,9 +1119,9 @@ class MainActivity : AppCompatActivity() {
     private fun openSet(): MutableSet<String> = (p.getString("openSections", null) ?: "Driving profiles").split("|").filter { it.isNotEmpty() }.toMutableSet()
     private val SECTION_ICONS = mapOf("Relay" to R.drawable.ic_sec_relay, "Cameras" to R.drawable.ic_sec_camera, "Backup" to R.drawable.ic_sec_backup,
         "Driving profiles" to R.drawable.ic_sec_profile, "Engine sound" to R.drawable.ic_sec_engine, "HUD" to R.drawable.ic_sec_blind, "Camping mode" to R.drawable.ic_sec_camp,
-        "Live view" to R.drawable.ic_sec_live, "Web view" to R.drawable.ic_sec_web, "Floating windows" to R.drawable.ic_sec_float, "Trip widget" to R.drawable.ic_sec_trip, "Sentry" to R.drawable.ic_sec_sentry)
-    private val SIDE_BUTTONS = mapOf(R.id.checkUpdate to R.drawable.ic_btn_update, R.id.backupCard to R.drawable.ic_sec_backup, R.id.dataUsage to R.drawable.ic_btn_log,
-        R.id.viewLog to R.drawable.ic_btn_log, R.id.whatsNew to R.drawable.ic_btn_log, R.id.unlink to R.drawable.ic_btn_unlink, R.id.restartApp to R.drawable.ic_btn_restart, R.id.credits to R.drawable.ic_btn_credits, R.id.resetAll to R.drawable.ic_btn_reset)
+        "360° live view" to R.drawable.ic_sec_live, "Web view" to R.drawable.ic_sec_web, "Floating windows" to R.drawable.ic_sec_float, "Trip widget" to R.drawable.ic_sec_trip, "Snapshot (works with ZDash)" to R.drawable.ic_sec_sentry)
+    private val SIDE_BUTTONS = mapOf(R.id.checkUpdate to R.drawable.ic_btn_update, R.id.backupCard to R.drawable.ic_sec_backup, R.id.dataUsage to R.drawable.ic_btn_data,
+        R.id.viewLog to R.drawable.ic_btn_log, R.id.whatsNew to R.drawable.ic_btn_whatsnew, R.id.unlink to R.drawable.ic_btn_unlink, R.id.restartApp to R.drawable.ic_btn_restart, R.id.credits to R.drawable.ic_btn_credits, R.id.resetAll to R.drawable.ic_btn_reset)
     private fun addSectionIcons(v: View) {
         if (v.tag == "h" && v is TextView) SECTION_ICONS[v.text.toString()]?.let {
             v.setCompoundDrawablesRelativeWithIntrinsicBounds(it, 0, 0, 0); v.compoundDrawablePadding = (10 * ZScale.density(this)).toInt()
@@ -1116,11 +1146,37 @@ class MainActivity : AppCompatActivity() {
         }
         showOpen()
     }
+    private val liveHolders = ArrayList<() -> Unit>()
+    private var resumed = false
+    private fun liveWanted() = resumed && "360° live view" in openSet()
+    private fun updateLiveHold() { liveHolders.forEach { it() } }
+    // One short line after each section name, so you know what is inside before opening it
+    private val SECTION_DESC = mapOf(
+        "Relay" to "link to your ZDash relay",
+        "Cameras" to "choose cameras, previews",
+        "Driving profiles" to "sound, light, regen per drive mode",
+        "Camping mode" to "auto-off when the car is empty",
+        "Engine sound" to "simulated engine, volume, style",
+        "HUD" to "rev bar, side camera, turn arrow",
+        "360\u00b0 live view" to "tune the four camera pictures",
+        "Web view" to "browser on the HUD and in a window",
+        "Floating windows" to "windows, button, animations",
+        "Trip widget" to "driving stats window",
+        "Snapshot (works with ZDash)" to "remote snapshots, live view, clips")
+    private fun headerText(title: String): CharSequence {
+        val d = SECTION_DESC[title] ?: return title
+        val sp = android.text.SpannableString("$title   $d")
+        val mut = ZTheme.palette(ZTheme.Mode.of(p.getString("theme", null))).mut
+        sp.setSpan(android.text.style.RelativeSizeSpan(0.62f), title.length, sp.length, android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+        sp.setSpan(android.text.style.ForegroundColorSpan(mut), title.length, sp.length, android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+        return sp
+    }
     private fun showOpen() {
         val open = openSet()
+        updateLiveHold()
         for ((card, h, title) in cards) {
             val closed = title !in open
-            h.text = title
+            h.text = headerText(title); h.maxLines = 1; h.ellipsize = android.text.TextUtils.TruncateAt.END
             h.isSelected = closed
             h.setPadding(0, 0, 0, if (closed) 0 else (6 * ZScale.density(this)).toInt())
             for (i in 1 until card.childCount) card.getChildAt(i).let { if (it.id != R.id.stitchPick) it.visibility = if (closed) View.GONE else View.VISIBLE }
@@ -1161,7 +1217,7 @@ class MainActivity : AppCompatActivity() {
         val m = LinkedHashMap<String, Any>()
         for (k in listOf("flLeft", "flRight", "flRear", "flFront", "flOnly_L", "flOnly_R", "flBlinkCenter", "flBlackBg", "bsHud", "bsRightPos", "revOn", "webHudOn", "webFloatOn", "webFloatAlways")) m[k] = false
         for (k in listOf("flMaster", "parkCut", "bsSignal")) m[k] = true
-        m["flHeader"] = 56; m["flCorner"] = 16; m["flFade"] = 0
+        m["flHeader"] = 56; m["flCorner"] = 0; m["flFade"] = 0
         for (c in CamTune.CAMS) {
             for (k in listOf("bsSize", "bsAspect", "bsFov", "bsTilt", "bsYaw", "bsRoll")) if ((k != "bsSize" && k != "bsAspect") || CamTune.side(c)) m["${k}_$c"] = CamTune.def(k, c)
             m[CamTune.mirrorKey(c)] = CamTune.mirrorDef(c)
@@ -1303,7 +1359,7 @@ class MainActivity : AppCompatActivity() {
                         "I understand") { confirmed = true; btn.isChecked = true; confirmed = false }
                     return@setOnCheckedChangeListener
                 }
-                p.edit().putBoolean("webHudOn", on).apply(); if (on) p.edit().putBoolean("webFloatOn", true).apply()
+                p.edit().putBoolean("webHudOn", on).apply()
                 if (on && !android.provider.Settings.canDrawOverlays(this@MainActivity)) {
                     Toast.makeText(this@MainActivity, "Allow 'Display over other apps' for this app", Toast.LENGTH_LONG).show()
                 }
@@ -1584,6 +1640,7 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         WebHud.appVisible = true
         super.onResume()
+        resumed = true; updateLiveHold()
         startMirror()
         startQueueLoop()
         if (standalone() || !p.getString("token", "").isNullOrEmpty()) buildCamGrid()
@@ -1710,7 +1767,7 @@ class MainActivity : AppCompatActivity() {
             findViewById<View>(R.id.identifyBox).visibility = View.GONE
             findViewById<View>(R.id.codeBox).visibility = View.GONE
             findViewById<View>(R.id.opBox).visibility = View.VISIBLE
-            findViewById<View>(R.id.backupCard).visibility = View.GONE
+            findViewById<View>(R.id.backupCard).apply { visibility = View.VISIBLE; isEnabled = false; alpha = 0.4f }   // needs a ZDash link
             findViewById<View>(R.id.dataUsage).visibility = View.GONE
             findViewById<View>(R.id.test).visibility = View.GONE
             findViewById<Button>(R.id.unlink).text = "Link to Z app"
@@ -1718,7 +1775,7 @@ class MainActivity : AppCompatActivity() {
             buildCamGrid(); autoStartService()
             return
         }
-        findViewById<View>(R.id.backupCard).visibility = View.VISIBLE
+        findViewById<View>(R.id.backupCard).apply { visibility = View.VISIBLE; isEnabled = true; alpha = 1f }
         findViewById<View>(R.id.dataUsage).visibility = View.VISIBLE
         findViewById<View>(R.id.test).visibility = View.VISIBLE
         findViewById<Button>(R.id.unlink).text = "Unlink ZDash"

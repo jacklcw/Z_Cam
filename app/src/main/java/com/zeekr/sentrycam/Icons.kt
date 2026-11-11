@@ -9,10 +9,10 @@ import android.graphics.drawable.GradientDrawable
 import android.view.View
 
 /** Small drawn icon button for the floating windows (no text, no emoji): a dark rounded chip with a stroked glyph. */
-class IconButton(c: Context, private val kind: Kind, chip: Int = 0xFF2C2C2E.toInt()) : View(c) {
-    enum class Kind { BACK, FORWARD, RELOAD, RESET, HIDE, GLOBE, STAR, LIST, ROTATE, FULL, UNFULL, UP, DOWN, HOME, TABS, CAM_L, CAM_R, CAM_REAR, CAM_FRONT, TRIP }
+class IconButton(c: Context, private val kind: Kind, chip: Int = 0xFF2C2C2E.toInt(), private val halo: Boolean = false) : View(c) {
+    enum class Kind { BACK, FORWARD, RELOAD, RESET, HIDE, GLOBE, STAR, LIST, ROTATE, FULL, UNFULL, UP, DOWN, HOME, TABS, CAM_L, CAM_R, CAM_REAR, CAM_FRONT, TRIP, EDIT, MORE, DOWNLOAD, HISTORY, DESKTOP }
 
-    /** STAR: filled when the page is bookmarked. */
+    /** STAR: filled when the page is bookmarked; EDIT / LIST / TABS: lit while that mode or page is open. */
     var on = false
         set(v) { field = v; invalidate() }
 
@@ -30,11 +30,25 @@ class IconButton(c: Context, private val kind: Kind, chip: Int = 0xFF2C2C2E.toIn
     private val fill = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xFFF5F5F7.toInt(); style = Paint.Style.FILL }
 
     init {
-        background = GradientDrawable().apply { setColor(chip); cornerRadius = 12 * d }
+        if (!halo) background = GradientDrawable().apply { setColor(chip); cornerRadius = 12 * d }   // halo: no chip, the glyph carries its own dark outline instead
         isClickable = true
     }
 
     override fun onDraw(cv: Canvas) {
+        val main = if ((kind == Kind.EDIT || kind == Kind.LIST || kind == Kind.TABS || kind == Kind.MORE) && on) 0xFFA3E635.toInt() else 0xFFF5F5F7.toInt()
+        if (halo) {
+            // a fake background: the glyph drawn first in a fat dark outline, so it reads over black and white alike
+            line.color = 0xE6000000.toInt(); line.strokeWidth = 2.5f * d + 4f * d
+            fill.color = 0xE6000000.toInt(); fill.style = Paint.Style.FILL_AND_STROKE; fill.strokeWidth = 4f * d; fill.strokeJoin = Paint.Join.ROUND
+            glyph(cv)
+            fill.style = Paint.Style.FILL; fill.strokeWidth = 0f
+            line.strokeWidth = 2.5f * d
+        }
+        line.color = main; fill.color = main
+        glyph(cv)
+    }
+
+    private fun glyph(cv: Canvas) {
         val s = minOf(width, height) * 0.46f
         val cx = width / 2f; val cy = height / 2f
         val h = s / 2
@@ -51,6 +65,10 @@ class IconButton(c: Context, private val kind: Kind, chip: Int = 0xFF2C2C2E.toIn
                 }
                 p.close(); cv.drawPath(p, if (on) fill else line)
             }
+            Kind.DOWNLOAD -> { cv.drawLine(cx, cy - h, cx, cy + h * 0.45f, line); p.moveTo(cx - h * 0.6f, cy - h * 0.15f); p.lineTo(cx, cy + h * 0.5f); p.lineTo(cx + h * 0.6f, cy - h * 0.15f); cv.drawPath(p, line); cv.drawLine(cx - h, cy + h, cx + h, cy + h, line) }
+            Kind.HISTORY -> { cv.drawCircle(cx, cy, h, line); cv.drawLine(cx, cy, cx, cy - h * 0.6f, line); cv.drawLine(cx, cy, cx + h * 0.45f, cy + h * 0.2f, line) }
+            Kind.DESKTOP -> { cv.drawRoundRect(cx - h, cy - h * 0.8f, cx + h, cy + h * 0.35f, 3 * d, 3 * d, line); cv.drawLine(cx, cy + h * 0.35f, cx, cy + h * 0.85f, line); cv.drawLine(cx - h * 0.5f, cy + h * 0.85f, cx + h * 0.5f, cy + h * 0.85f, line) }
+            Kind.MORE -> for (i in -1..1) cv.drawCircle(cx + i * h * 0.8f, cy, h * 0.17f, fill)
             Kind.LIST -> for (i in -1..1) cv.drawLine(cx - h, cy + i * h * 0.7f, cx + h, cy + i * h * 0.7f, line)
             Kind.ROTATE -> {
                 // a phone with a curved arrow at each corner: turn the window
@@ -89,6 +107,13 @@ class IconButton(c: Context, private val kind: Kind, chip: Int = 0xFF2C2C2E.toIn
             Kind.RELOAD -> arrowArc(cv, cx, cy, h, -50f, 280f, h * 0.55f)   // circle arrow: open ring with a chevron head
             Kind.RESET -> cv.drawRoundRect(cx - h, cy - h, cx + h, cy + h, 3 * d, 3 * d, line)
             Kind.HIDE -> cv.drawLine(cx - h, cy + h * 0.6f, cx + h, cy + h * 0.6f, line)
+            Kind.EDIT -> {
+                // a pencil, tip down-left
+                cv.save(); cv.translate(cx, cy); cv.rotate(-45f)
+                p.moveTo(-h * 1.3f, 0f); p.lineTo(-h * 0.7f, -h * 0.4f); p.lineTo(h * 1.0f, -h * 0.4f); p.lineTo(h * 1.0f, h * 0.4f); p.lineTo(-h * 0.7f, h * 0.4f); p.close()
+                cv.drawPath(p, line); cv.drawLine(h * 0.5f, -h * 0.4f, h * 0.5f, h * 0.4f, line)
+                cv.restore()
+            }
             Kind.CAM_L, Kind.CAM_R, Kind.CAM_REAR, Kind.CAM_FRONT -> {
                 // a window with an arrow the way of the camera (same glyphs as the window headers and the floating control)
                 val g = h * 1.2f

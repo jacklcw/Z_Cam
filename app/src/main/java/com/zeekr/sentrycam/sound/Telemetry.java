@@ -146,7 +146,9 @@ final class Telemetry {
     }
 
     private void maybeStop() {
-        if (!core && !fastOn && thread != null) { thread.quitSafely(); thread = null; bg = null; connected = false; car = null; function = null; sensor = null; }
+        if (!core && !fastOn && thread != null) { thread.quitSafely(); thread = null; bg = null; connected = false; car = null; function = null; sensor = null;
+            readings = new Readings(new EnumMap<>(Signal.class));   // forget them: after a switch off / on the first poll must count as a change, or nothing re-evaluates the sound
+        }
     }
 
     Readings readings() { return readings; }

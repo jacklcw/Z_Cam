@@ -142,8 +142,10 @@ public final class DriveSound {
                 return;
             }
             if (leaving != null) {
+                // the old engine is still winding down and holds the speaker: starting now would open nothing (silent until restart),
+                // so let it finish quickly; ended() calls update() again and the new one starts then
                 leaving.hurry();
-                leaving = null;
+                return;
             }
             run = new Run();
             run.start();
@@ -158,6 +160,7 @@ public final class DriveSound {
         main.post(() -> {
             if (leaving == which) {
                 leaving = null;
+                update();   // a start that was waiting for it can go now
             }
             if (run == which) {
                 run = null;
@@ -176,6 +179,7 @@ public final class DriveSound {
             return;
         }
         PulseVoice.crackleScale = c.getCrackleScale();
+        CivicTypeRVoice.popScale = c.getPopScale();
         revBlip = c.isRevBlip();
         muted = c.isMuted();
         enabled = c.isDriveSoundEnabled();

@@ -32,6 +32,9 @@ final class SoundOutput {
     private static volatile int learnedFrames;
     static final int FRAME_BYTES = 8;
 
+    /** Tracks of ours that are playing right now (AudioWake tells our own players from other apps' by this). */
+    static final java.util.concurrent.atomic.AtomicInteger LIVE = new java.util.concurrent.atomic.AtomicInteger();
+    private boolean counted;
     private final AudioTrack track;
     private final String address;
     private final int capacityFrames;
@@ -124,6 +127,10 @@ final class SoundOutput {
     void start() {
         try {
             track.play();
+            if (!counted) {
+                counted = true;
+                LIVE.incrementAndGet();
+            }
         } catch (IllegalStateException e) {
             track.release();
             throw new IllegalStateException("play failed: " + e, e);
@@ -210,6 +217,10 @@ final class SoundOutput {
         } catch (IllegalStateException ignored) {
         }
         track.release();
+        if (counted) {
+            counted = false;
+            LIVE.decrementAndGet();
+        }
     }
 
     String address() {

@@ -28,7 +28,7 @@ final class CivicTypeRVoice implements Voice {
     static final float SIGMA_OVERRUN = 0.15f;
     static final float JITTER_IDLE_DEG = 1.2f;
     static final float JITTER_LOAD_DEG = 0.5f;
-    static final float PUMP = 0.28f;
+    static final float PUMP = 0.5f;
 
     /** VTEC-style crossover: the note opens up from here (rpm) over 600 rpm. */
     static final float VTEC_RPM = 5200f;
@@ -233,6 +233,9 @@ final class CivicTypeRVoice implements Voice {
     static final float DARK_HZ = 1720f;
     /** Tuned by ear in the test ground; the test ground can still override them. */
     static volatile float tuneDrive = 1.1f;
+    /** Exhaust pops on high-rev upshifts and lifts: 0 off (default), 0.5 light, 1 strong. Set from the "engPop" setting. */
+    static volatile float popScale = 0f;
+    static final float POP_EVENT = 0.1f;
     static volatile float tuneRaspDb = -6f;
     static volatile float tuneRise = 2.5f;
     static volatile float tuneRedlineFade = 0.2f;
@@ -359,6 +362,12 @@ final class CivicTypeRVoice implements Voice {
             lastSerial = params.shiftSerial;
             if (params.shiftUp) {
                 bang(UPSHIFT_BANG * (0.7f + 0.3f * load));
+                if (popScale > 0f && revs > 0.5f) {   // high-rev upshift: a short burst of pops
+                    burble = Math.max(burble, revs * popScale);
+                    for (int i = 0; i < 3; i++) {
+                        afterfire(1f + (POP_LAG_MS + POP_SPREAD_MS * (i + random01())) * 1e-3f * rate, popScale * (0.5f + 0.7f * random01()) * revs);
+                    }
+                }
             } else {
                 burble = Math.max(burble, DOWNSHIFT_BURBLE * Math.max(revs, 0.3f));
                 bang(DOWNSHIFT_BANG * Math.max(revs, 0.4f));
@@ -372,7 +381,7 @@ final class CivicTypeRVoice implements Voice {
         evSigma = mix(SIGMA_IDLE, SIGMA_LOAD, load) + over * SIGMA_OVERRUN;
         evMisfire = MISFIRE * catchEnv;
         float onThrottle = load > 0.15f && over < 0.3f ? POP_ON_THROTTLE : 1f;
-        evPop = unfired ? 0f : POP_CHANCE * burble * onThrottle;
+        evPop = unfired ? 0f : (POP_CHANCE + POP_EVENT * popScale) * burble * onThrottle;
         float vt = VirtualEngine.clamp01((rpmTarget - VTEC_RPM) / 600f);
         float vtecTarget = vt * vt * (3f - 2f * vt) * VirtualEngine.clamp01(1.3f * load);
         // slew it: throttle flicker at high rpm used to flip the muffler/rasp every block (zipper, "broken" sound)

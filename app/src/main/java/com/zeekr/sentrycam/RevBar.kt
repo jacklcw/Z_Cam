@@ -27,6 +27,7 @@ import android.view.WindowManager
  */
 class RevBar(private val ctx: Context) {
     companion object {
+        @Volatile var instance: RevBar? = null
         val POS_NAMES = listOf("Top edge", "Bottom edge", "Right side")
         private const val CAR_CLASS = "com.ecarx.xui.adaptapi.car.Car"
         private const val SENSOR_THROTTLE = 0x00101400
@@ -67,7 +68,7 @@ class RevBar(private val ctx: Context) {
 
     fun start() {
         if (running) return
-        running = true
+        running = true; instance = this
         dm.registerDisplayListener(displayLog, main)
         thread = HandlerThread("revbar").apply { start() }
         bg = Handler(thread!!.looper).also { it.post(::tick) }
@@ -75,7 +76,7 @@ class RevBar(private val ctx: Context) {
 
     fun stop() {
         if (!running) return
-        running = false
+        running = false; if (instance === this) instance = null
         dm.unregisterDisplayListener(displayLog)
         thread?.quitSafely(); thread = null; bg = null
         main.post(::removeView)
@@ -193,6 +194,9 @@ class RevBar(private val ctx: Context) {
             try { v.context.getSystemService(WindowManager::class.java).updateViewLayout(v, w) } catch (_: Throwable) {}
         }
     }
+
+    /** Drop the window so the next update re-adds it above windows created since (e.g. the web page on the HUD). */
+    fun raise() { main.post { removeView() } }
 
     private fun removeView() {
         val v = view ?: return

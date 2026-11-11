@@ -20,10 +20,7 @@ final class AppConfig {
     static final String DRIVE_SOUND_GEARBOX_MANUAL6 = "manual6";
     static final String DRIVE_SOUND_STYLE_AMERICAN = "american";
     static final String DRIVE_SOUND_STYLE_PROTOTYPE = "prototype";
-    static final String DRIVE_SOUND_STYLE_JET = "jet";
-    static final String DRIVE_SOUND_STYLE_JET_OLD = "jet_old";
     static final String DRIVE_SOUND_STYLE_TURBO4 = "turbo4";
-    static final String DRIVE_SOUND_STYLE_ELECTRIC = "electric";
     static final String DRIVE_SOUND_STYLE_TYPE_R = "typer";
     static final String DRIVE_SOUND_VIEW_OUTSIDE = "outside";
     static final String DRIVE_SOUND_VIEW_CABIN = "cabin";
@@ -47,6 +44,7 @@ final class AppConfig {
     boolean isMuted() { return p.getBoolean("pfMute", false); }
     boolean isRevBlip() { return !"off".equals(p.getString("engBlip", "on")); }
     float getCrackleScale() { String v = p.getString("engCrackle", "normal"); return "off".equals(v) ? 0f : "low".equals(v) ? 0.4f : 1f; }
+    float getPopScale() { String v = p.getString("engPop", "off"); return "high".equals(v) ? 1f : "low".equals(v) ? 0.5f : 0f; }
     String getDriveSoundExteriorVolume() { return String.valueOf(p.getInt("engExtVol", 18)); }
 }
 

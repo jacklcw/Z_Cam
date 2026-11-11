@@ -125,7 +125,8 @@ object FloatMaster {
         val longPress = Runnable {
             if (moved || multi) return@Runnable
             longFired = true
-            FloatQuick.show(ctx, params.x + params.width / 2, params.y + params.height / 2, params.width / 2)
+            val at = IntArray(2); btn.getLocationOnScreen(at)   // the button's real place on screen (the window offset can differ by the system bar)
+            FloatQuick.show(ctx, at[0] + btn.width / 2, at[1] + btn.height / 2, btn.width / 2)
         }
         btn.setOnTouchListener { _, e ->
             // ring open after a long press: the button stays put; slide to a circle and lift to flip it

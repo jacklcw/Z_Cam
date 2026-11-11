@@ -4,9 +4,9 @@ An Android app that runs **on the Zeekr 7X head unit** (sideloaded through App L
 uses the car's own cameras through standard **Camera2** and talks only to **your own
 deployed relay** over a paired token. Current version: see `app/build.gradle.kts`.
 
-One-pager: [docs/zcam-onepager.html](docs/zcam-onepager.html) (download and open in a browser).
+One-pager: [docs/zcam-onepager.html](../docs/zcam-onepager.html) (download and open in a browser).
 
-![Z_Cam one-pager](docs/zcam-onepager.png)
+![Z_Cam one-pager](../docs/zcam-onepager.png)
 
 ## What it does
 
@@ -22,19 +22,12 @@ One-pager: [docs/zcam-onepager.html](docs/zcam-onepager.html) (download and open
   one **Live view** section (angle, tilt, turn, rotate, mirror, flip) and shown as floating
   windows; a floating button hides or shows them all. **Web view** is a small browser with
   bookmarks and history. Settings can be backed up to the relay.
-- **Trip widget.** A floating window with your current trip: speed, throttle, brake and regen
-  pedals, battery, range, 12 V, efficiency and a live chart. Drag and resize it like the camera
-  windows. Vertical, horizontal or auto layout, Glance (4 tiles you pick) or Full, six fonts,
-  accent and background colour, edge fade. Needs the relay for HV battery, range and 12 V.
-
-  ![Trip widget: glance (left) and full (right)](docs/trip-widget.png)
-
 - **Rev bar.** A throttle-pedal bar on the HUD (top, bottom, or a funnel on the right), with
   smooth / segmented / slanted styles, four colour schemes, size and edge-gap sliders and a live
   in-app preview. Press and hold the floating button for quick toggles (engine sound, rev bar,
   web on HUD, HUD side camera, rear/front window): slide to one and lift to flip it.
 - **Engine sound.** A simulated engine that follows throttle and speed in every drive mode (V8,
-  jet, turbo four, Civic Type R, GT-R, Ferrari, Lamborghini, Porsche, Supra, Taycan and more, 13 in all), played in the
+  turbo four and Civic Type R), played in the
   cabin, outside, or both. Gear changes have their own effects (upshift bang, ignition cut,
   downshift blip with crackle, gear thump), and the Civic Type R adds more bass while parked. The
   cabin and outside volumes are separate: in outside mode only the outside volume applies. Ported
@@ -42,6 +35,16 @@ One-pager: [docs/zcam-onepager.html](docs/zcam-onepager.html) (download and open
 - **Driving profiles.** One profile per drive mode: engine sound, ambient light (follows speed),
   regen, steering weight and rev bar all follow the mode you switch to, with an optional silent
   profile per mode.
+- **Floating button guide.**
+  - **Tap** the floating button once: every floating window (cameras, web, trip) minimizes into
+    the bar at the top centre. Tap it again: they all come back.
+  - **Press and hold** (keep your finger still) to open the quick-toggle ring. Slide to a sector
+    and lift to flip it; the name shows at the top. Sectors: Engine sound, Volume (cabin / outside
+    arcs), Sound direction, HUD (rev bar, web on HUD, HUD side camera, turn arrow), Acceleration
+    mode, Floating windows (left, right, rear, front, web, trip) and Open Z Cam. Lift away from
+    every sector to close the ring.
+  - **Drag** the button to move it, **pinch** it to resize it. It can be switched off with
+    "Quick-hide button" under Floating windows in settings.
 - **Floating ring.** Press and hold the floating button for a ring of quick toggles and a
   drive-mode ring; the volume arcs (cabin or outside engine sound, web) are labelled and only the
   arc for the chosen sound direction is shown.

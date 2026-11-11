@@ -581,7 +581,7 @@ final class VirtualEngine {
     private void stepStart(float dt, float v, Input in) {
         float crankEnd = p.startRpm > 0f ? 0.52f : START_CRANK_SEC;
         float catchEnd = crankEnd + (p.startRpm > 0f ? 1.2f : START_CATCH_SEC);
-        float end = catchEnd + (p.startRpm > 0f ? 6f : START_SETTLE_SEC);
+        float end = catchEnd + (p.startRpm > 0f ? 2.3f : START_SETTLE_SEC);
         float rpmTarget;
         float loadTarget;
         float starterTarget;
@@ -727,7 +727,8 @@ final class VirtualEngine {
         boolean holding = loadTarget(in) < OVERRUN_LOAD && (eager > EAGER_HOLD || gearbox.manual())
                 && inGear < upshiftRpm(p, 1f, eager) * SHIFT_GUARD;
         boolean pressing = in.pedalRate > TIP_IN_RATE;
-        if (gearIndex < last && inGear >= up && !slowing && !holding && !pressing) {
+        boolean firstHold = gearIndex == 0 && gearbox.manual() && v < FIRST_UP_KMH + FIRST_UP_LOAD_KMH * clamp01(shiftLoad);   // 1st gear is not changed out of too early
+        if (gearIndex < last && inGear >= up && !slowing && !holding && !pressing && !firstHold) {
             autoUpshift();
             driverHold = 0f;
         } else if (gearIndex > 0 && inGear < down
@@ -964,6 +965,10 @@ final class VirtualEngine {
         return (float) Math.pow(a8 + b8, 0.125);
     }
 
+    /** Manual box, 1st to 2nd: never before this speed (light pedal) plus this much more at full pedal. */
+    static final float FIRST_UP_KMH = 30f;
+    static final float FIRST_UP_LOAD_KMH = 10f;
+
     static float upshiftRpm(SoundProfile p, float load) {
         return upshiftRpm(p, load, 0f);
     }
@@ -1042,7 +1047,9 @@ final class VirtualEngine {
     }
 
     float outputDb() {
-        return SPEED_GAIN_DB * speedCurve(p, speedKmh) + (startQuiet ? 0f : SURGE_GAIN_DB * surge);
+        float l = voiceLoad();
+        float idleness = startQuiet ? 1f : (1f - Math.min(1f, l * 5f)) * (1f - Math.min(1f, speedCurve(p, speedKmh)));
+        return SPEED_GAIN_DB * speedCurve(p, speedKmh) + (startQuiet ? 0f : SURGE_GAIN_DB * surge) + p.idleDb * idleness;
     }
 
     float starter() {

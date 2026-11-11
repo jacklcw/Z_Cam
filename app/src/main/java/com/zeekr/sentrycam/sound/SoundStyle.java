@@ -11,10 +11,7 @@ package com.zeekr.sentrycam.sound;
 enum SoundStyle {
     AMERICAN(AppConfig.DRIVE_SOUND_STYLE_AMERICAN),
     PROTOTYPE(AppConfig.DRIVE_SOUND_STYLE_PROTOTYPE),
-    JET(AppConfig.DRIVE_SOUND_STYLE_JET),
-    JET_OLD(AppConfig.DRIVE_SOUND_STYLE_JET_OLD),
     TURBO4(AppConfig.DRIVE_SOUND_STYLE_TURBO4),
-    ELECTRIC(AppConfig.DRIVE_SOUND_STYLE_ELECTRIC),
     /** Z_Cam: Civic Type R flavoured turbo four ({@link CivicTypeRVoice}), manual 6-speed. */
     TYPE_R(AppConfig.DRIVE_SOUND_STYLE_TYPE_R);
 
@@ -72,14 +69,8 @@ enum SoundStyle {
         switch (this) {
             case PROTOTYPE:
                 return new EngineVoice(SoundProfile.V8, sampleRate);
-            case JET:
-                return new JetVoice(sampleRate);
-            case JET_OLD:
-                return new JetOldVoice(sampleRate);
             case TURBO4:
                 return new TurboFourVoice(sampleRate);
-            case ELECTRIC:
-                return new ElectricVoice(sampleRate);
             case TYPE_R:
                 return new CivicTypeRVoice(sampleRate);
             default:

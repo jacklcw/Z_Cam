@@ -104,8 +104,7 @@
                 android:layout_height="wrap_content" android:orientation="vertical">
                 <Button android:id="@+id/checkUpdate" android:tag="btn2" android:text="Check for update"
                     android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginBottom="10dp"/>
-
-                <Button android:id="@+id/backupCard" android:tag="btn2" android:text="Back up or restore settings"
+                <Button android:id="@+id/whatsNew" android:tag="btn2" android:text="What's new"
                     android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginBottom="10dp"/>
 
                 <Button android:id="@+id/dataUsage" android:tag="btn2" android:text="Data usage"
@@ -119,13 +118,14 @@
                         android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"
                         android:layout_marginStart="12dp"/>
                 </LinearLayout>
-                <Button android:id="@+id/whatsNew" android:tag="btn2" android:text="What's new"
+
+                <Button android:id="@+id/backupCard" android:tag="btn2" android:text="Back up or restore settings"
                     android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginBottom="10dp"/>
-                <Button android:id="@+id/restartApp" android:tag="btn2" android:text="Force close app"
-                    android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginBottom="10dp"/>
-                <Button android:id="@+id/credits" android:tag="btn2" android:text="Credits"
+                <Button android:id="@+id/restartApp" android:tag="bad" android:text="Force close app"
                     android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginBottom="10dp"/>
                 <Button android:id="@+id/resetAll" android:tag="bad" android:text="Reset all settings to default"
+                    android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginBottom="10dp"/>
+                <Button android:id="@+id/credits" android:tag="btn2" android:text="Credits"
                     android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginBottom="10dp"/>
             </LinearLayout>
             <!-- display column (now on the right, nearest the driver) -->
@@ -216,7 +216,7 @@
 
                 <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
                     android:orientation="vertical" android:tag="card" android:layout_marginBottom="10dp">
-                    <TextView android:tag="h" android:text="Live view" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+                    <TextView android:tag="h" android:text="360° live view" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
                     <TextView android:tag="m" android:text="Pick a camera. Its settings apply to its floating window (and the HUD for left and right)."
                         android:layout_width="wrap_content" android:layout_height="wrap_content" android:paddingTop="6dp"/>
                     <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
@@ -321,6 +321,8 @@
                     android:orientation="vertical" android:tag="card" android:layout_marginBottom="10dp">
                     <TextView android:tag="h" android:text="Floating windows" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
                     <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
+                    <TextView android:tag="m" android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingBottom="6dp"
+                        android:text="Floating button: tap once to minimize every floating window into the top bar, tap again to restore them. Press and hold for the quick-toggle ring: slide to a sector and lift to flip it. Drag to move, pinch to resize."/>
                     <androidx.appcompat.widget.SwitchCompat android:id="@+id/flMaster" android:tag="sw"
                         android:layout_width="match_parent" android:layout_height="wrap_content"
                         android:text="Quick-hide button (hide / show all windows, pinch to resize)"/>
@@ -330,6 +332,9 @@
                     <androidx.appcompat.widget.SwitchCompat android:id="@+id/flBlinkCenter" android:tag="sw"
                         android:layout_width="match_parent" android:layout_height="wrap_content"
                         android:text="Left / Right: centre on screen while the blinker is on"/>
+                    <TextView android:id="@+id/flBlinkSizeLabel" android:tag="m" android:text="Left / Right: enlarge while the blinker is on: off"
+                        android:layout_width="wrap_content" android:layout_height="wrap_content" android:paddingTop="6dp"/>
+                    <SeekBar android:id="@+id/flBlinkSize" android:tag="seek" android:layout_width="match_parent" android:layout_height="wrap_content" android:max="15"/>
                     <TextView android:id="@+id/bsHoldLabel" android:tag="m" android:layout_width="wrap_content" android:layout_height="wrap_content"
                         android:text="Blinker view stays after blinker off: 1.5 s" android:paddingTop="6dp"/>
                     <SeekBar android:id="@+id/bsHold" android:tag="seek" android:layout_width="match_parent" android:layout_height="wrap_content" android:max="19"/>
@@ -397,7 +402,7 @@
 
                 <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
                     android:orientation="vertical" android:tag="card" android:layout_marginBottom="10dp">
-                    <TextView android:tag="h" android:text="Sentry" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+                    <TextView android:tag="h" android:text="Snapshot (works with ZDash)" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
                     <TextView android:tag="accent" android:text="Linked" android:textStyle="bold"
                         android:layout_width="wrap_content" android:layout_height="wrap_content" android:paddingBottom="8dp"/>
                     <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">

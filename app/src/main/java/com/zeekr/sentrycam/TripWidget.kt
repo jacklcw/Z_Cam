@@ -260,7 +260,7 @@ class TripWidget(private val ctx: Context) {
             .put("font", p.getString("twFont", "Inter")).put("theme", themeKey())
             .put("unit", p.getString("twUnit", "km")).put("opacity", p.getInt("twOpacity", 90).coerceIn(50, 100))
             .put("fade", p.getInt("twFade", 0).coerceIn(0, 30)).put("pack", p.getInt("twPack", 100).coerceIn(30, 150))
-            .put("resetSeq", p.getInt("twReset", 0)).toString()
+            .put("corner", p.getInt("flCorner", 0).coerceIn(0, 40)).put("resetSeq", p.getInt("twReset", 0)).toString()
     }
 
     private fun pushCfg() {
@@ -293,7 +293,7 @@ class TripWidget(private val ctx: Context) {
     private fun applySize() {
         val v = root ?: return; val l = lp ?: return
         l.width = winWpx(); l.height = winHpx()
-        l.x = l.x.coerceIn(-dp(PAD_DP), (dm.widthPixels - dp(40)).coerceAtLeast(0)); l.y = l.y.coerceIn(-dp(PAD_DP), (dm.heightPixels - dp(40)).coerceAtLeast(0))
+        l.x = l.x.coerceIn(-dp(PAD_DP), (dm.widthPixels - l.width + dp(PAD_DP)).coerceAtLeast(-dp(PAD_DP))); l.y = l.y.coerceIn(-dp(PAD_DP), (dm.heightPixels - l.height + dp(PAD_DP)).coerceAtLeast(-dp(PAD_DP)))
         try { wm.updateViewLayout(v, l) } catch (_: Throwable) {}
         FloatPush.moved("tw", dm.widthPixels, dm.heightPixels)
         relayout()
@@ -347,7 +347,8 @@ class TripWidget(private val ctx: Context) {
             }
         }
         val l = WindowManager.LayoutParams(winWpx(), winHpx(), WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED or
+                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,   // without it the system keeps the whole window (with its transparent margin) on screen, so the widget could never reach the edge
             PixelFormat.TRANSLUCENT).apply {
             gravity = Gravity.TOP or Gravity.LEFT
             val a = anchorXY(p.getInt("twPos", 0).coerceIn(0, 8))
@@ -377,8 +378,8 @@ class TripWidget(private val ctx: Context) {
                     MotionEvent.ACTION_MOVE -> if (!pinched && e.pointerCount == 1) {
                         if (Math.abs(e.rawX - dx) > slop || Math.abs(e.rawY - dy) > slop) moved = true
                         if (moved) {
-                            l.x = (ox + (e.rawX - dx).toInt()).coerceIn(-dp(PAD_DP), dm.widthPixels - dp(40))
-                            l.y = (oy + (e.rawY - dy).toInt()).coerceIn(-dp(PAD_DP), dm.heightPixels - dp(40))
+                            l.x = (ox + (e.rawX - dx).toInt()).coerceIn(-dp(PAD_DP), (dm.widthPixels - l.width + dp(PAD_DP)).coerceAtLeast(-dp(PAD_DP)))
+                            l.y = (oy + (e.rawY - dy).toInt()).coerceIn(-dp(PAD_DP), (dm.heightPixels - l.height + dp(PAD_DP)).coerceAtLeast(-dp(PAD_DP)))
                             try { wm.updateViewLayout(root, l) } catch (_: Throwable) {}
                             FloatPush.moved("tw", dm.widthPixels, dm.heightPixels)
                         }
@@ -388,41 +389,36 @@ class TripWidget(private val ctx: Context) {
                 true
             }
         }
-        fun pill(fill: Int) = android.graphics.drawable.GradientDrawable().apply { setColor(fill); cornerRadius = 10 * dm.density; setStroke(dp(1), 0xFF98989D.toInt()) }
-        // Resize holders exactly like the camera windows: pills on the left, right and bottom edges change one dimension (left also moves the
-        // window), the bottom-right corner changes both.
-        fun holder(left: Boolean, right: Boolean, bottom: Boolean) = View(ctx).apply {
-            background = pill(0x99000000.toInt())
-            var dx = 0f; var dy = 0f; var w0 = 0; var h0 = 0; var px0 = 0; var x0 = 0
-            setOnTouchListener { _, e ->
-                when (e.actionMasked) {
-                    MotionEvent.ACTION_DOWN -> { dx = e.rawX; dy = e.rawY; w0 = widgetW(); h0 = widgetH(); px0 = l.width; x0 = l.x }
-                    MotionEvent.ACTION_MOVE -> {
-                        val sx = ((e.rawX - dx) / dm.density).toInt(); val sy = ((e.rawY - dy) / dm.density).toInt()
-                        var nw = w0; var nh = h0
-                        if (right) nw = w0 + sx
-                        if (left) nw = w0 - sx
-                        if (bottom) nh = h0 + sy
-                        setSize(nw, nh)
-                        if (left) { l.x = x0 + (px0 - l.width); try { wm.updateViewLayout(root, l) } catch (_: Throwable) {} }
-                    }
-                    MotionEvent.ACTION_UP -> savePlace()
-                }
-                true
-            }
+        // A fine line around each corner of the widget (like the camera windows); drag one to resize from that corner (left / top also move the window).
+        val cr = p.getInt("flCorner", 0).coerceIn(0, 40); val cz = CornerLine.zoneDp(cr)
+        fun corner(left: Boolean, right: Boolean, top: Boolean, bottom: Boolean): View {
+            var w0 = 0; var h0 = 0; var px0 = 0; var py0 = 0; var x0 = 0; var y0 = 0
+            return CornerLine(ctx, cr, left, top, { w0 = widgetW(); h0 = widgetH(); px0 = l.width; py0 = l.height; x0 = l.x; y0 = l.y }, { ddx, ddy ->
+                val sx = (ddx / dm.density).toInt(); val sy = (ddy / dm.density).toInt()
+                setSize(if (right) w0 + sx else w0 - sx, if (bottom) h0 + sy else h0 - sy)
+                if (left) l.x = x0 + (px0 - l.width)
+                if (top) l.y = y0 + (py0 - l.height)
+                if (left || top) try { wm.updateViewLayout(root, l) } catch (_: Throwable) {}
+            }, { savePlace() })
         }
-        val edgeL = holder(true, false, false); val edgeR = holder(false, true, false); val edgeB = holder(false, false, true); val grip = holder(false, true, true)
-        val hideBtn = IconButton(ctx, IconButton.Kind.HIDE, 0xFF2C2C2E.toInt()).apply { setOnClickListener { setHidden(true) } }
+        val cTL = corner(true, false, true, false); val cTR = corner(false, true, true, false); val cBL = corner(true, false, false, true); val cBR = corner(false, true, false, true)
+        listOf(cTL, cTR, cBL, cBR).forEach { it.visibility = View.GONE }   // only shown while the pencil is on
+        var spaceButtons: (Boolean) -> Unit = {}
+        val editBtn = IconButton(ctx, IconButton.Kind.EDIT, halo = true).apply {
+            setOnClickListener { on = !on; val v = if (on) View.VISIBLE else View.GONE; listOf(cTL, cTR, cBL, cBR).forEach { it.visibility = v }; spaceButtons(on) }
+        }
+        val hideBtn = IconButton(ctx, IconButton.Kind.HIDE, halo = true).apply { setOnClickListener { setHidden(true) } }
         val box = FrameLayout(ctx).apply {
             addView(wv, FrameLayout.LayoutParams(-1, -1))
             addView(touch, FrameLayout.LayoutParams(-1, -1))
             // the hide button sits in the widget's header, the same size and place as in the camera windows' header bar
             builtHdr = hdrDp(); val hb = dp(builtHdr) - dp(10)   // exactly the camera windows' button size: header minus a 5 dp margin all round
             addView(hideBtn, FrameLayout.LayoutParams(hb, hb, Gravity.TOP or Gravity.END).apply { setMargins(0, dp(PAD_DP + 5), dp(PAD_DP + 8), 0) })
-            addView(edgeL, FrameLayout.LayoutParams(dp(14), dp(64), Gravity.START or Gravity.CENTER_VERTICAL).apply { setMargins(dp(22), 0, 0, 0) })
-            addView(edgeR, FrameLayout.LayoutParams(dp(14), dp(64), Gravity.END or Gravity.CENTER_VERTICAL).apply { setMargins(0, 0, dp(22), 0) })
-            addView(edgeB, FrameLayout.LayoutParams(dp(64), dp(14), Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL).apply { setMargins(0, 0, 0, dp(22)) })
-            addView(grip, FrameLayout.LayoutParams(dp(30), dp(30), Gravity.BOTTOM or Gravity.END).apply { setMargins(0, 0, dp(6), dp(6)) })
+            addView(editBtn, FrameLayout.LayoutParams(hb, hb, Gravity.TOP or Gravity.END).apply { setMargins(0, dp(PAD_DP + 5), dp(PAD_DP + 8) + hb + dp(2), 0) })
+            spaceButtons = { on -> val m = dp(PAD_DP) + (if (on) dp(cz) + dp(2) else dp(8)); (hideBtn.layoutParams as FrameLayout.LayoutParams).marginEnd = m; (editBtn.layoutParams as FrameLayout.LayoutParams).marginEnd = m + hb + dp(2); hideBtn.requestLayout(); editBtn.requestLayout() }
+            fun fl(g: Int, mx: Int, my: Int) = FrameLayout.LayoutParams(dp(cz), dp(cz), g).apply { setMargins(if (g and Gravity.START == Gravity.START) mx else 0, if (g and Gravity.TOP == Gravity.TOP) my else 0, if (g and Gravity.END == Gravity.END) mx else 0, if (g and Gravity.BOTTOM == Gravity.BOTTOM) my else 0) }
+            addView(cTL, fl(Gravity.TOP or Gravity.START, dp(PAD_DP), dp(PAD_DP))); addView(cTR, fl(Gravity.TOP or Gravity.END, dp(PAD_DP), dp(PAD_DP)))
+            addView(cBL, fl(Gravity.BOTTOM or Gravity.START, dp(PAD_DP), dp(PAD_DP))); addView(cBR, fl(Gravity.BOTTOM or Gravity.END, dp(PAD_DP), dp(PAD_DP)))
         }
         try {
             l.alpha = FloatAnim.startAlpha()

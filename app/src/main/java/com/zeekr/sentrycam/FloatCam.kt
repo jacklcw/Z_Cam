@@ -36,7 +36,8 @@ class FloatCam(private val ctx: Context) {
         var bar: TextView? = null
         // blinker takeover (left/right): shown in front, optionally centred, then put back as it was
         var blink = false; var front = false; var preHidden = false
-        var savedX = 0; var savedY = 0
+        var savedX = 0; var savedY = 0; var savedW = 0; var savedH = 0; var saved = false
+        var ovW = 0; var ovH = 0   // size to build the window with (a blinker-enlarged window is rebuilt at that size, never resized live)
         var sizeStamp = 0L          // last flSizeStamp applied to this window
         var leaving = false         // shrinking into the floating button
         @Volatile var keepSurface = false   // re-stacking: the picture surface must survive the view being re-added
@@ -71,7 +72,7 @@ class FloatCam(private val ctx: Context) {
     private fun animMs(w: Win) = if (blinkOnly(w)) p.getInt("flAnimMs", 320).toLong().coerceIn(80, 1000) else 320L
     private fun animDir(w: Win) = if (w === rightW) 1 else -1
     private fun fadePct() = p.getInt("flFade", 0).coerceIn(0, 30)
-    private fun cornerDp() = p.getInt("flCorner", 16).coerceIn(0, 40)
+    private fun cornerDp() = p.getInt("flCorner", 0).coerceIn(0, 40)
     private fun shapeSig() = cornerDp() * 100 + fadePct()
 
     @SuppressLint("ClickableViewAccessibility")
@@ -87,8 +88,8 @@ class FloatCam(private val ctx: Context) {
         // Rear/front default to a wide strip, like a real mirror.
         // Left/right start from their old square size; any window can be any rectangle (the picture keeps its proportions, a wide window crops top/bottom).
         val wide = w === rearW || w === frontW
-        var winW = p.getInt("${w.key}W", if (wide) dp(520) else side).coerceIn(dp(160), maxW)
-        var winH = p.getInt("${w.key}H", if (wide) dp(200) else side).coerceIn(dp(160), maxH)
+        var winW = (if (w.ovW > 0) w.ovW else p.getInt("${w.key}W", if (wide) dp(520) else side)).coerceIn(dp(160), maxW)
+        var winH = (if (w.ovH > 0) w.ovH else p.getInt("${w.key}H", if (wide) dp(200) else side)).coerceIn(dp(160), maxH)
         val lp = WindowManager.LayoutParams(winW, winH, WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED,
             PixelFormat.TRANSLUCENT).apply {
@@ -118,7 +119,7 @@ class FloatCam(private val ctx: Context) {
             val isz = (dp(hdr) * 0.5f).toInt()
             setCompoundDrawablesRelative(CamGlyph(if (w === leftW) "flLeft" else if (w === rightW) "flRight" else if (w === rearW) "flRear" else "flFront", d).also { it.setBounds(0, 0, isz, isz) }, null, null, null)
             compoundDrawablePadding = dp(8)
-            setBackgroundColor(0x26000000)   // nearly clear: the picture shows through, the label is outlined instead
+            background = GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, intArrayOf(0x99000000.toInt(), 0x00000000))   // black at the top fading out into the picture
             setShadowLayer(5f * d, 0f, 0f, 0xFF000000.toInt())
             var dx = 0f; var dy = 0f; var ox = 0; var oy = 0
             setOnTouchListener { _, e ->
@@ -135,57 +136,35 @@ class FloatCam(private val ctx: Context) {
                 true
             }
         }
-        // Bottom-right corner: drag to resize.
-        val grip = View(ctx).apply {
-            background = rounded(0x99000000.toInt(), 10, 0xFF98989D.toInt())
-            var dx = 0f; var dy = 0f; var w0 = 0; var h0 = 0
-            setOnTouchListener { _, e ->
-                when (e.actionMasked) {
-                    MotionEvent.ACTION_DOWN -> { dx = e.rawX; dy = e.rawY; w0 = winW; h0 = winH }
-                    MotionEvent.ACTION_MOVE -> {
-                        val nw = (w0 + (e.rawX - dx)).toInt().coerceIn(dp(160), maxW)
-                        val nh = (h0 + (e.rawY - dy)).toInt().coerceIn(dp(160), maxH)
-                        if (!FloatPush.hits(w.key, lp.x, lp.y, nw, nh)) {   // bumping into another window: stop growing
-                            winW = nw; winH = nh; lp.width = winW; lp.height = winH
-                            try { wm.updateViewLayout(w.root, lp) } catch (_: Throwable) {}
-                        }
-                    }
-                    MotionEvent.ACTION_UP -> {
-                        p.edit().putInt("${w.key}X", lp.x).putInt("${w.key}Y", lp.y).putInt("${w.key}W", winW).putInt("${w.key}H", winH).apply()
-                    }
+        // Fine line around each corner (following the corner radius set in settings): drag it to resize from that corner.
+        val cr = cornerDp()
+        val cz = CornerLine.zoneDp(cr)
+        fun corner(l: Boolean, r: Boolean, t: Boolean, bt: Boolean): View {
+            var w0 = 0; var h0 = 0; var x0 = 0; var y0 = 0
+            return CornerLine(ctx, cr, l, t, { w0 = winW; h0 = winH; x0 = lp.x; y0 = lp.y }, { ddx, ddy ->
+                var nw = if (r) w0 + ddx.toInt() else w0 - ddx.toInt()
+                var nh = if (bt) h0 + ddy.toInt() else h0 - ddy.toInt()
+                nw = nw.coerceIn(dp(160), maxW); nh = nh.coerceIn(dp(160), maxH)
+                var nx = if (l) x0 + w0 - nw else x0; var ny = if (t) y0 + h0 - nh else y0
+                if (nx < 0) { nw += nx; nx = 0 }; if (ny < 0) { nh += ny; ny = 0 }
+                if (!FloatPush.hits(w.key, nx, ny, nw, nh)) {   // bumping into another window: stop growing
+                    winW = nw; winH = nh; lp.width = nw; lp.height = nh; lp.x = nx; lp.y = ny
+                    try { wm.updateViewLayout(w.root, lp) } catch (_: Throwable) {}
                 }
-                true
-            }
+            }, { p.edit().putInt("${w.key}X", lp.x).putInt("${w.key}Y", lp.y).putInt("${w.key}W", winW).putInt("${w.key}H", winH).apply() })
         }
-        // Pills at the middle of the left, right and bottom edges: drag to change just that side (left also moves the window).
-        fun edge(l: Boolean, r: Boolean, b: Boolean) = View(ctx).apply {
-            background = rounded(0x99000000.toInt(), 7, 0xFF98989D.toInt())
-            var dx = 0f; var dy = 0f; var w0 = 0; var h0 = 0; var x0 = 0
-            setOnTouchListener { _, e ->
-                when (e.actionMasked) {
-                    MotionEvent.ACTION_DOWN -> { dx = e.rawX; dy = e.rawY; w0 = winW; h0 = winH; x0 = lp.x }
-                    MotionEvent.ACTION_MOVE -> {
-                        var nw = w0; var nx = x0
-                        if (r) nw = (w0 + (e.rawX - dx)).toInt().coerceIn(dp(160), maxW)
-                        if (l) { nw = (w0 - (e.rawX - dx)).toInt().coerceIn(dp(160), maxW); nx = x0 + w0 - nw; if (nx < 0) { nw += nx; nx = 0 } }
-                        val nh = if (b) (h0 + (e.rawY - dy)).toInt().coerceIn(dp(160), maxH) else h0
-                        if (!FloatPush.hits(w.key, nx, lp.y, nw, nh)) {
-                            winW = nw; winH = nh; lp.width = nw; lp.height = nh; lp.x = nx
-                            try { wm.updateViewLayout(w.root, lp) } catch (_: Throwable) {}
-                        }
-                    }
-                    MotionEvent.ACTION_UP -> p.edit().putInt("${w.key}X", lp.x).putInt("${w.key}Y", lp.y).putInt("${w.key}W", winW).putInt("${w.key}H", winH).apply()
-                }
-                true
-            }
+        val cTL = corner(true, false, true, false); val cTR = corner(false, true, true, false); val cBL = corner(true, false, false, true); val cBR = corner(false, true, false, true)
+        listOf(cTL, cTR, cBL, cBR).forEach { it.visibility = View.GONE }   // only shown while the pencil is on
+        var spaceButtons: (Boolean) -> Unit = {}
+        val editBtn = IconButton(ctx, IconButton.Kind.EDIT, halo = true).apply {
+            setOnClickListener { on = !on; val v = if (on) View.VISIBLE else View.GONE; listOf(cTL, cTR, cBL, cBR).forEach { it.visibility = v }; spaceButtons(on) }
         }
-        val edgeL = edge(true, false, false); val edgeR = edge(false, true, false); val edgeB = edge(false, false, true)
-        val hideBtn = IconButton(ctx, IconButton.Kind.HIDE, 0xFF2C2C2E.toInt()).apply {
+        val hideBtn = IconButton(ctx, IconButton.Kind.HIDE, halo = true).apply {
             setOnClickListener { w.hidden = true; main.removeCallbacks(tick); main.post(tick) }
         }
         val box = FrameLayout(ctx).apply {
             if (fadePct() > 0) setBackgroundColor(0)   // soft edge: no frame, the picture itself fades out
-            else { background = rounded(0xFF000000.toInt(), cornerDp(), 0xFF2C2C2E.toInt()); outlineProvider = ViewOutlineProvider.BACKGROUND; clipToOutline = true }
+            else { background = rounded(0xFF000000.toInt(), cornerDp()); outlineProvider = ViewOutlineProvider.BACKGROUND; clipToOutline = true }
             // Pinch anywhere on the picture to resize (about its centre); a plain tap still raises it.
             var pinched = false
             val pinch = android.view.ScaleGestureDetector(ctx, object : android.view.ScaleGestureDetector.SimpleOnScaleGestureListener() {
@@ -224,19 +203,19 @@ class FloatCam(private val ctx: Context) {
                     }
                     MotionEvent.ACTION_UP -> {
                         if (moved) p.edit().putInt("${w.key}X", lp.x).putInt("${w.key}Y", lp.y).apply()
-                        if (!pinched && !moved) raise(w)
+                        if (!pinched && !moved && FloatPush.overlapsOther(w.key)) raise(w, true)   // rebuilt, not re-added: a re-added window came back transparent
                         pinched = false; moved = false
                     }
                 }
                 true
             }
             addView(tv, FrameLayout.LayoutParams(-1, -1))
-            addView(edgeL, FrameLayout.LayoutParams(dp(14), dp(64), Gravity.START or Gravity.CENTER_VERTICAL).apply { setMargins(dp(3), 0, 0, 0) })
-            addView(edgeR, FrameLayout.LayoutParams(dp(14), dp(64), Gravity.END or Gravity.CENTER_VERTICAL).apply { setMargins(0, 0, dp(3), 0) })
-            addView(edgeB, FrameLayout.LayoutParams(dp(64), dp(14), Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL).apply { setMargins(0, 0, 0, dp(3)) })
             addView(bar, FrameLayout.LayoutParams(-1, dp(hdr), Gravity.TOP))
             addView(hideBtn, FrameLayout.LayoutParams(btn, btn, Gravity.TOP or Gravity.END).apply { setMargins(0, dp(5), dp(8), 0) })
-            addView(grip, FrameLayout.LayoutParams(dp(34), dp(34), Gravity.BOTTOM or Gravity.END).apply { setMargins(0, 0, dp(6), dp(6)) })
+            addView(editBtn, FrameLayout.LayoutParams(btn, btn, Gravity.TOP or Gravity.END).apply { setMargins(0, dp(5), dp(8) + btn + dp(2), 0) })
+            spaceButtons = { on -> val m = if (on) dp(cz) + dp(2) else dp(8); (hideBtn.layoutParams as FrameLayout.LayoutParams).marginEnd = m; (editBtn.layoutParams as FrameLayout.LayoutParams).marginEnd = m + btn + dp(2); hideBtn.requestLayout(); editBtn.requestLayout() }
+            addView(cTL, FrameLayout.LayoutParams(dp(cz), dp(cz), Gravity.TOP or Gravity.START)); addView(cTR, FrameLayout.LayoutParams(dp(cz), dp(cz), Gravity.TOP or Gravity.END))
+            addView(cBL, FrameLayout.LayoutParams(dp(cz), dp(cz), Gravity.BOTTOM or Gravity.START)); addView(cBR, FrameLayout.LayoutParams(dp(cz), dp(cz), Gravity.BOTTOM or Gravity.END))
         }
         try {
             lp.alpha = if (w.fadeIn) 0f else FloatAnim.startAlpha()
@@ -270,6 +249,10 @@ class FloatCam(private val ctx: Context) {
     private var lastPark: String? = null
     private val tick = object : Runnable {
         override fun run() {
+            // a failure in one pass is logged and retried, it must not take the whole app down
+            try { step() } catch (e: Throwable) { Logger.log(ctx, "floatcam: tick failed ${e.javaClass.simpleName} ${e.message ?: ""} @ ${e.stackTrace.firstOrNull() ?: ""}"); main.postDelayed(this, 500) }
+        }
+        private fun step() {
             val pr = Park.reason(ctx)
             if (pr != lastPark) {
                 lastPark = pr
@@ -293,14 +276,18 @@ class FloatCam(private val ctx: Context) {
                 }
                 if (restoreAll && want) w.hidden = false
                 if (minimizeAll && want) w.hidden = true   // double-tap on the floating button: collapse everything to the top dock
-                if (!want && !FloatMaster.hidden) w.hidden = false   // blinker off / switched off: next time it comes back expanded (hide-all on the floating button keeps who was minimized)
+                if (!want && !FloatMaster.hidden && !Park.parked(ctx)) w.hidden = false   // blinker off / switched off: next time it comes back expanded (hide-all on the floating button and a parked / just-started app keep who was minimized)
                 // Blinker on: this side's window comes to the front (expanded, optionally centred); when it stops it goes back where it was.
                 val ind = want && (w === leftW || w === rightW) && BlindSpotHud.indicating(w.panel)
                 if (ind && !w.blink) { w.blink = true; w.front = true; w.preHidden = w.hidden }
                 if (ind) w.hidden = false
                 if (!ind && w.blink) {
                     w.blink = false; w.front = false
-                    w.lp?.let { l -> if (w.root != null) { l.x = w.savedX; l.y = w.savedY; try { wm.updateViewLayout(w.root, l) } catch (_: Throwable) {} } }
+                    var rebuild = false
+                    w.lp?.let { l -> if (w.root != null) { l.x = w.savedX; l.y = w.savedY; if (w.saved && w.savedW > 0 && (l.width != w.savedW || l.height != w.savedH)) { l.width = w.savedW; l.height = w.savedH; rebuild = true }; if (!rebuild) try { wm.updateViewLayout(w.root, l) } catch (_: Throwable) {} } }
+                    w.saved = false; w.savedW = 0
+                    // shrinking back: a fresh window at the small size (the camera surface is re-made) instead of resizing the live one in one jump
+                    if (rebuild && w.root != null) raise(w, true)
                     w.hidden = w.preHidden
                 }
                 if (want && !w.hidden) {
@@ -314,9 +301,9 @@ class FloatCam(private val ctx: Context) {
                     if (!had && r1 != null && l1 != null && l1.alpha < 1f) { if (FloatAnim.revealing() && !w.blink) FloatAnim.genie(wm, r1, l1, true) {} else FloatAnim.run(wm, r1, l1, animStyle(w), animMs(w), true, animDir(w)) {} }
                 } else {
                     val rr = w.root; val ll = w.lp
-                    if (rr != null && ll != null && !want && blinkOnly(w) && !FloatMaster.hidden && animStyle(w) != "none") {
+                    if (rr != null && ll != null && !want && blinkOnly(w) && !FloatMaster.hidden) {
                         w.leaving = true; hideBubble(w)   // blinker went off: animate out, then remove
-                        FloatAnim.run(wm, rr, ll, animStyle(w), animMs(w), false, animDir(w)) { w.leaving = false; hide(w) }
+                        FloatAnim.genie(wm, rr, ll, false) { w.leaving = false; hide(w) }   // same exit as minimize (flMinAnim / flMinMs)
                         continue
                     }
                     if (rr != null && ll != null && want && w.hidden && !w.blink) {
@@ -335,11 +322,24 @@ class FloatCam(private val ctx: Context) {
                 }
                 if (w.blink && w.front && w.root != null) {
                     w.lp?.let { l ->
-                        w.savedX = l.x; w.savedY = l.y
+                        if (!w.saved) { w.saved = true; w.savedX = l.x; w.savedY = l.y; w.savedW = l.width; w.savedH = l.height }   // once per blinker, not again when the window is re-fronted
+                        val pct = p.getInt("flBlinkSize", 0)
+                        if (pct > 0) {
+                            // small window while idle, big while the blinker is on: same shape, grown about its own centre
+                            val dm = ctx.resources.displayMetrics
+                            val ratio = l.width.toFloat() / l.height.coerceAtLeast(1)
+                            var nh = (dm.heightPixels * pct / 100f).toInt(); var nw = (nh * ratio).toInt()
+                            if (nw > dm.widthPixels - dp(20)) { nw = dm.widthPixels - dp(20); nh = (nw / ratio).toInt() }
+                            if (nw > l.width) {
+                                val cx = l.x + l.width / 2; val cy = l.y + l.height / 2
+                                l.width = nw; l.height = nh
+                                l.x = (cx - nw / 2).coerceIn(0, (dm.widthPixels - nw).coerceAtLeast(0)); l.y = (cy - nh / 2).coerceIn(0, (dm.heightPixels - nh).coerceAtLeast(0))   // applied by the rebuild below
+                            }
+                        }
                         if (p.getBoolean("flBlinkCenter", false)) {
                             val dm = ctx.resources.displayMetrics
                             l.x = ((dm.widthPixels - l.width) / 2).coerceAtLeast(0); l.y = ((dm.heightPixels - l.height) / 2).coerceAtLeast(0)
-                            try { wm.updateViewLayout(w.root, l) } catch (_: Throwable) {}
+                            if (p.getInt("flBlinkSize", 0) <= 0) try { wm.updateViewLayout(w.root, l) } catch (_: Throwable) {}
                             showScrim()   // before raise(): the window is re-added on top of it
                         }
                     }
@@ -432,13 +432,15 @@ class FloatCam(private val ctx: Context) {
         if (force) {
             // Blinker took a window that was already on screen: re-adding the same view left its picture black (a window shown fresh,
             // e.g. after being minimized, works). So rebuild it from scratch, keeping the position it was just given, and leave the scrim alone.
-            val x = lp.x; val y = lp.y
+            val x = lp.x; val y = lp.y; val ww = lp.width; val hh = lp.height   // size too: a blinker-enlarged window must stay enlarged
             w.root = null; w.bar = null
             FloatPush.unregister(w.key)
             try { wm.removeView(r) } catch (_: Throwable) {}
             detach(w)
+            w.ovW = ww; w.ovH = hh
             show(w)
-            w.lp?.let { l -> l.x = x; l.y = y; try { wm.updateViewLayout(w.root, l) } catch (_: Throwable) {} }
+            w.ovW = 0; w.ovH = 0
+            w.lp?.let { l -> l.x = x; l.y = y; l.width = ww; l.height = hh; l.alpha = 1f; try { wm.updateViewLayout(w.root, l) } catch (_: Throwable) {} }
             Logger.log(ctx, "floatcam: ${w.key} rebuilt for the blinker")
             main.post { OverlayTop.raise(ctx) }
             return

@@ -37,6 +37,8 @@ object FloatPush {
 
     /** [key]'s window just moved/resized: push whatever it now overlaps. */
     fun moved(key: String, screenW: Int, screenH: Int, depth: Int = 0) {
+        return   // pushing other windows aside is switched off: windows just overlap
+        @Suppress("UNREACHABLE_CODE")
         val m = items[key] ?: return
         if (depth > 4) return
         val mr = rect(m)

@@ -48,6 +48,7 @@ final class SoundProfile {
     final float levelPow;
     final float norm;
     final float coastDb;
+    final float idleDb;
     final float blipRpm;
     final float blipLoad;
     final float liftDownRpm;
@@ -86,6 +87,7 @@ final class SoundProfile {
         levelPow = b.levelPow;
         norm = b.norm;
         coastDb = b.coastDb;
+        idleDb = b.idleDb;
         blipRpm = b.blipRpm;
         blipLoad = b.blipLoad;
         liftDownRpm = b.liftDownRpm;
@@ -136,7 +138,8 @@ final class SoundProfile {
             .resonance(1200f, 3f, 1.2f)
             .shifts(2400f, 2080f, 0.55f, 0.06f, -4.5f)
             .loudness(0.17f, 0.8f)
-            .coast(10f)
+            .coast(16f)
+            .idle(-6f)
             .freeRev(3200f)
             .build();
 
@@ -180,6 +183,7 @@ final class SoundProfile {
         private float levelPow = 1f;
         private float norm = 1f;
         private float coastDb;
+        private float idleDb;
         private float liftDownRpm;
         private float downSlewSec;
         private float freeRevRpm;
@@ -256,6 +260,12 @@ final class SoundProfile {
             shiftDownRatio = downRatio;
             shiftSec = sec;
             shiftDipDb = dipDb;
+            return this;
+        }
+
+        /** Level change (dB) at idle and during the start-up only; driving is untouched. */
+        Builder idle(float db) {
+            idleDb = db;
             return this;
         }
 

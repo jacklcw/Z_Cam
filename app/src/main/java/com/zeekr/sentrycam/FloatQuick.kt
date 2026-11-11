@@ -80,7 +80,8 @@ object FloatQuick {
         val v = Ring(ctx, cx.toFloat(), cy.toFloat(), r.toFloat())
         val lp = WindowManager.LayoutParams(WindowManager.LayoutParams.MATCH_PARENT, WindowManager.LayoutParams.MATCH_PARENT,
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED, PixelFormat.TRANSLUCENT)
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED or
+                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS, PixelFormat.TRANSLUCENT)   // covers the whole screen, bars included, so no sector is cut off
         try { ctx.getSystemService(WindowManager::class.java).addView(v, lp); view = v } catch (e: Throwable) { Logger.log(ctx, "floatquick: addView failed ${e.message ?: ""}"); return }
         main.postDelayed(closer, IDLE_MS)
     }
@@ -312,7 +313,7 @@ object FloatQuick {
             if (lockBand >= 0) { setVol(lockBand, x, y); lockBand = -1; invalidate(); return true }
             val h = at(x, y)
             if (grp(h) != null) { gopen = h; open = false; vopen = false; hover = h; invalidate(); return true }
-            if (h >= 2000) { val k = grp(gopen)!![h - 2000].key; p.edit().putBoolean(k, !p.getBoolean(k, false)).apply(); if (k == "webHudOn") p.edit().putBoolean("webFloatOn", p.getBoolean(k, false)).apply(); syncSoon(); invalidate(); return true }
+            if (h >= 2000) { val k = grp(gopen)!![h - 2000].key; p.edit().putBoolean(k, !p.getBoolean(k, false)).apply(); syncSoon(); invalidate(); return true }
             if (h == driveIdx) { open = true; vopen = false; gopen = -1; hover = driveIdx; invalidate(); return true }
             if (h == volIdx) { vopen = true; open = false; gopen = -1; hover = volIdx; invalidate(); return true }
             if (h in 1000 until 2000) { setVol(h - 1000, x, y); return true }

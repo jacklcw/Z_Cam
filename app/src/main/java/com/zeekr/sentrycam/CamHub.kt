@@ -186,7 +186,9 @@ object CamHub {
 
     fun add(c: Context, key: String, o: PanelOut) {
         h.post {
-            ctx = c.applicationContext; outs[key] = o; attach(o); ensure(); log("add $key (outputs: ${outs.keys})")
+            try {
+                ctx = c.applicationContext; outs[key] = o; attach(o); ensure(); log("add $key (outputs: ${outs.keys})")
+            } catch (e: Throwable) { log("add $key failed: ${e.javaClass.simpleName} ${e.message ?: ""}"); outs.remove(key) }   // a dead surface must not take the app down
             if (!watching) { watching = true; h.postDelayed(watchdog, 2000) }
         }
     }
