@@ -9,6 +9,10 @@ One-pager: [open the one-pager](https://jacklcw.github.io/Z_Cam/docs/zcam-onepag
 
 ![Z_Cam one-pager](docs/zcam-onepager.png)
 
+Dashboard layout: [open the wireframe](https://jacklcw.github.io/Z_Cam/docs/zcam-dashboard.html)
+
+![Z_Cam dashboard wireframe](docs/zcam-dashboard.png)
+
 ## What it does
 
 - **Blind-spot HUD.** When the left or right indicator is on, the matching side camera is
