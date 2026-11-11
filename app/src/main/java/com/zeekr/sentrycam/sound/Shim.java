@@ -37,7 +37,7 @@ final class AppConfig {
     String getDriveSoundVolume() { return String.valueOf(p.getInt("engVol", 0)); }
     String getDriveSoundRpm() { return p.getString("engRpm", DRIVE_SOUND_RPM_CONTINUOUS); }
     String getDriveSoundGearbox() { return p.getString("engGearbox", DRIVE_SOUND_GEARBOX_AUTO8); }
-    String getDriveSoundStyle() { return p.getString("engStyle", DRIVE_SOUND_STYLE_AMERICAN); }
+    String getDriveSoundStyle() { return p.getString("engStyle", DRIVE_SOUND_STYLE_TYPE_R); }
     String getDriveSoundView() { return p.getString("engView", DRIVE_SOUND_VIEW_CABIN); }
     String getDriveSoundOutput() { return p.getString("engOut", DRIVE_SOUND_OUTPUT_CABIN); }
     String getDriveSoundExteriorRoute() { return p.getString("engRoute", DRIVE_SOUND_ROUTE_NOTIFY); }

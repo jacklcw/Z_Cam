@@ -188,7 +188,7 @@ object DriveProfile {
         // silent profile = mute only (the audio outputs stay open, nothing is torn down or restarted)
         if (p.getBoolean("pfMute", false) != (style == "off")) { p.edit().putBoolean("pfMute", style == "off").apply(); log(ctx, if (style == "off") "engine sound muted" else "engine sound unmuted") }
         if (style == "off") return
-        if (style.isNotEmpty() && style != p.getString("engStyle", "american")) {
+        if (style.isNotEmpty() && style != p.getString("engStyle", "typer")) {
             p.edit().putString("engStyle", style).apply()
             try { com.zeekr.sentrycam.sound.DriveSound.refresh(ctx) } catch (_: Throwable) {}
             log(ctx, "sound style -> $style")

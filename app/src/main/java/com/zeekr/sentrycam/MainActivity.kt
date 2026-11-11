@@ -153,6 +153,10 @@ class MainActivity : AppCompatActivity() {
             }.start()
             Toast.makeText(this, "Car probe running", Toast.LENGTH_SHORT).show(); true
         }
+        findViewById<Button>(R.id.applyDefaults).setOnClickListener {
+            ZDialog.show(this, "Apply the default settings?",
+                "This sets up the windows, camera tuning, HUD, web window, engine sound, driving profiles, trip widget and theme the way the app's author uses them. Your current settings of those are replaced. Your relay link, bookmarks and history are kept.", "Apply") { applyDefaultSettings() }
+        }
         findViewById<Button>(R.id.restartApp).setOnClickListener {
             ZDialog.show(this, "Close the app?", "This stops the floating windows, HUD and engine sound until you open Z Cam again.", "Close app") { forceCloseApp() }
         }
@@ -160,7 +164,7 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.whatsNew).setOnClickListener { showChangelogDialog() }
         findViewById<Button>(R.id.resetAll).setOnClickListener {
             ZDialog.show(this, "Reset all settings?",
-                "Windows, camera tuning, HUD and web settings, bookmarks and history go back to default, then the app restarts. Your relay link stays. The relay backup is not touched.", "Reset") {
+                "Windows, camera tuning, HUD, web, engine sound, profiles and trip widget settings, bookmarks and history go back to default, then the app restarts. Your relay link stays. The relay backup is not touched.", "Reset") {
                 val e = p.edit(); for (k in p.all.keys.filter { backupKey(it) || it.startsWith("fm") }) e.remove(k); e.commit()
                 Logger.log(this, "all settings reset to default")
                 restartApp()
@@ -815,8 +819,8 @@ class MainActivity : AppCompatActivity() {
                 ZDialog.choose(this@MainActivity, title, names, values.indexOf(p.getString(key, def)).coerceAtLeast(0)) { i -> p.edit().putString(key, values[i]).apply(); show(); onChange?.invoke() }
             }
         }
-        val styleKeys = listOf("", "off", "american", "prototype", "turbo4", "typer")
-        val styleNames = listOf("Keep current", "Silent (no engine sound)", "American V8", "Prototype V8", "Turbo four", "Civic Type R")
+        val styleKeys = listOf("", "off", "typer", "american", "prototype", "turbo4")
+        val styleNames = listOf("Keep current", "Silent (no engine sound)", "Civic Type R", "American V8", "Prototype V8", "Turbo four")
         // one tab per drive mode, so only one mode's settings are on screen at a time
         val panels = ArrayList<LinearLayout>()
         val tabBtns = ArrayList<Button>()
@@ -1028,11 +1032,11 @@ class MainActivity : AppCompatActivity() {
         chips("welcomeOn", listOf("off", "on"), listOf("Off", "Play on unlock"), 2)
         body.addView(View(this), LinearLayout.LayoutParams(1, dp(8)))
         run {
-            val keys = listOf("american", "prototype", "turbo4", "typer")
-            val names = listOf("American V8", "Prototype V8", "Turbo four", "Civic Type R")
+            val keys = listOf("typer", "american", "prototype", "turbo4")
+            val names = listOf("Civic Type R", "American V8", "Prototype V8", "Turbo four")
             body.addView(Button(this).apply {
                 tag = "btn2"; isAllCaps = false
-                fun cur() = keys.indexOf(p.getString("welcomeStyle", "american")).coerceAtLeast(0)
+                fun cur() = keys.indexOf(p.getString("welcomeStyle", "typer")).coerceAtLeast(0)
                 fun show() { text = "Sound: " + names[cur()] }
                 show()
                 setOnClickListener { ZDialog.choose(this@MainActivity, "Welcome sound", names, cur()) { i -> p.edit().putString("welcomeStyle", keys[i]).apply(); show() } }
@@ -1066,7 +1070,7 @@ class MainActivity : AppCompatActivity() {
         val gated = ArrayList<Pair<List<View>, Set<String>>>()
         fun gate(styles: Set<String>, add: () -> Unit) { val at = body.childCount; add(); gated += (at until body.childCount).map { body.getChildAt(it) } to styles }
         fun feelStyles(): Set<String> = HashSet<String>().apply {
-            add(p.getString("engStyle", "american") ?: "american")
+            add(p.getString("engStyle", "typer") ?: "typer")
             if (p.getBoolean("pfOn", false)) DriveProfile.MODES.forEach { add(p.getString("pfSound_" + DriveProfile.hex(it.first), "") ?: "") }
         }
         fun updateFeel() { val now = feelStyles(); gated.forEach { (views, styles) -> views.forEach { it.visibility = if (styles.any { st -> st in now }) View.VISIBLE else View.GONE } } }
@@ -1120,7 +1124,7 @@ class MainActivity : AppCompatActivity() {
     private val SECTION_ICONS = mapOf("Relay" to R.drawable.ic_sec_relay, "Cameras" to R.drawable.ic_sec_camera, "Backup" to R.drawable.ic_sec_backup,
         "Driving profiles" to R.drawable.ic_sec_profile, "Engine sound" to R.drawable.ic_sec_engine, "HUD" to R.drawable.ic_sec_blind, "Camping mode" to R.drawable.ic_sec_camp,
         "360° live view" to R.drawable.ic_sec_live, "Web view" to R.drawable.ic_sec_web, "Floating windows" to R.drawable.ic_sec_float, "Trip widget" to R.drawable.ic_sec_trip, "Snapshot (works with ZDash)" to R.drawable.ic_sec_sentry)
-    private val SIDE_BUTTONS = mapOf(R.id.checkUpdate to R.drawable.ic_btn_update, R.id.backupCard to R.drawable.ic_sec_backup, R.id.dataUsage to R.drawable.ic_btn_data,
+    private val SIDE_BUTTONS = mapOf(R.id.checkUpdate to R.drawable.ic_btn_update, R.id.applyDefaults to R.drawable.ic_btn_reset, R.id.backupCard to R.drawable.ic_sec_backup, R.id.dataUsage to R.drawable.ic_btn_data,
         R.id.viewLog to R.drawable.ic_btn_log, R.id.whatsNew to R.drawable.ic_btn_whatsnew, R.id.unlink to R.drawable.ic_btn_unlink, R.id.restartApp to R.drawable.ic_btn_restart, R.id.credits to R.drawable.ic_btn_credits, R.id.resetAll to R.drawable.ic_btn_reset)
     private fun addSectionIcons(v: View) {
         if (v.tag == "h" && v is TextView) SECTION_ICONS[v.text.toString()]?.let {
@@ -1185,6 +1189,26 @@ class MainActivity : AppCompatActivity() {
 
     // Kill the whole process (floating windows, HUD, camera hub) and have the system bring the service and the app back.
     // Stops the service and kills the whole process (floating windows, HUD, camera hub). Nothing brings it back; open the app again to start it.
+    // The built-in preset (assets/default_settings.json): replaces every backed-up setting except the personal web data (bookmarks, history, tabs), then reloads.
+    private fun applyDefaultSettings() {
+        val cfg = try { JSONObject(assets.open("default_settings.json").bufferedReader().use { it.readText() }) } catch (e: Throwable) { Toast.makeText(this, "Default settings missing", Toast.LENGTH_LONG).show(); return }
+        val keep = setOf("webBookmarks", "webHistory", "webTabs", "webTabsDesk", "webTabIdx", "webUrl")
+        val e = p.edit()
+        for (k in p.all.keys.filter { (backupKey(it) || it.startsWith("fm")) && it !in keep }) e.remove(k)
+        var n = 0
+        for (k in cfg.keys()) {
+            if (k in keep) continue
+            when (val v = cfg.get(k)) { is Boolean -> e.putBoolean(k, v); is Int -> e.putInt(k, v); is Long -> e.putLong(k, v); is String -> e.putString(k, v); else -> continue }
+            n++
+        }
+        e.putLong("flSizeStamp", System.currentTimeMillis())   // windows re-read their saved sizes
+        e.commit()
+        Logger.log(this, "default settings applied ($n values)")
+        recreate()
+        val i = Intent(this, CamService::class.java)
+        if (Build.VERSION.SDK_INT >= 26) startForegroundService(i) else startService(i)
+    }
+
     private fun forceCloseApp() {
         Logger.log(this, "force close requested from the app")
         p.edit().remove("safeUntilMs").remove("crashTs").commit()   // a deliberate close must never count towards the crash-loop safe mode
@@ -1209,8 +1233,26 @@ class MainActivity : AppCompatActivity() {
     }
 
     // Settings backup to the relay (car-app token). Only user choices go up; link/credential keys never do.
-    private fun backupKey(k: String) = (k.startsWith("bs") || k.startsWith("fl") || k.startsWith("web") || k.startsWith("stitch") || k.startsWith("stSeam") || k.startsWith("stBlend") || k == "parkCut" || k == "theme" || k.startsWith("openSection")) &&
-        k != "bsPreviewUntil" && k != "bsNoHoldUntil" && k != "bsPreviewSide" && k != "bsArrPrevUntil" && k != "bsArrPrevSide"
+    // Backup groups: what goes up to the relay, and what the long press on the Backup button can leave out.
+    private val BACKUP_CATS = listOf(
+        "cam" to "Camera windows, HUD and tuning", "web" to "Web window settings", "webdata" to "Web bookmarks, history and tabs",
+        "eng" to "Engine sound and welcome sound", "pf" to "Driving profiles", "tw" to "Trip widget", "rev" to "Rev bar", "ui" to "Theme")
+    private val BACKUP_SKIP = setOf("bsPreviewUntil", "bsNoHoldUntil", "bsPreviewSide", "bsArrPrevUntil", "bsArrPrevSide", "flSizeStamp", "revPreviewUntil", "twSnapSeq", "twReset", "pfTab", "revTab")
+    private fun backupCat(k: String): String? = when {
+        k in BACKUP_SKIP -> null
+        k.startsWith("bs") || k.startsWith("fl") || k.startsWith("fm") || k.startsWith("stitch") || k.startsWith("stSeam") || k.startsWith("stBlend") || k == "parkCut" -> "cam"
+        k == "webBookmarks" || k == "webHistory" || k == "webTabs" || k == "webTabsDesk" || k == "webTabIdx" || k == "webUrl" -> "webdata"
+        k.startsWith("web") -> "web"
+        k.startsWith("eng") || k.startsWith("welcome") || k.startsWith("lock") -> "eng"
+        k.startsWith("pf") -> "pf"
+        k.startsWith("tw") -> "tw"
+        k.startsWith("rev") -> "rev"
+        k == "theme" || k.startsWith("openSection") -> "ui"
+        else -> null
+    }
+    private fun backupKey(k: String) = backupCat(k) != null
+    private fun backupOff(): Set<String> = (p.getString("backupOff", "") ?: "").split(",").filter { it.isNotEmpty() }.toSet()
+    private fun backupIncluded(k: String): Boolean { val c = backupCat(k) ?: return false; return c !in backupOff() }
     // Settings never touched are absent from the prefs, so a backup would leave them out and a restore could not bring them back
     // (the window switches, camera tuning...). Defaults go in first, saved values override them.
     private fun backupDefaults(): Map<String, Any> {
@@ -1228,6 +1270,7 @@ class MainActivity : AppCompatActivity() {
     private fun backupKeys(): Map<String, Any> {
         val out = LinkedHashMap(backupDefaults())
         for ((k, v) in p.all) if (v != null && backupKey(k) && (v is Boolean || v is Int || v is Long || v is String)) out[k] = v
+        out.keys.retainAll { backupIncluded(it) }   // groups left out with the long press on Backup
         return out
     }
     private fun setupBackup() {
@@ -1240,7 +1283,7 @@ class MainActivity : AppCompatActivity() {
             val cfg = JSONObject(); for ((k, v) in backupKeys()) cfg.put(k, v)
             // The relay takes 32 KB: shed the oldest history first (bookmarks and settings matter more).
             var hist = WebStore.history(p)
-            while (cfg.toString().length > 30000 && hist.isNotEmpty()) {
+            while (cfg.has("webHistory") && cfg.toString().length > 30000 && hist.isNotEmpty()) {
                 hist = hist.take(hist.size / 2).toMutableList()
                 cfg.put("webHistory", org.json.JSONArray().also { a -> hist.forEach { e -> a.put(org.json.JSONArray().put(e.url).put(e.title).put(e.t)) } }.toString())
             }
@@ -1287,6 +1330,18 @@ class MainActivity : AppCompatActivity() {
         }
         findViewById<Button>(R.id.dataUsage).setOnClickListener { showDataUsage() }
         // one button opens a pop-up with Back up and Restore (only shown once the app is linked to the relay, see showState)
+        findViewById<Button>(R.id.backupCard).setOnLongClickListener {
+            // choose what a backup leaves out
+            val d = ZScale.density(this)
+            val box = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+            box.addView(TextView(this).apply { tag = "m"; text = "Tick what a backup should include. Unticked groups are left out."; setPadding(0, 0, 0, (8 * d).toInt()) })
+            for ((id, label) in BACKUP_CATS) box.addView(androidx.appcompat.widget.SwitchCompat(this).apply {
+                tag = "sw"; text = label; isChecked = id !in backupOff()
+                setOnCheckedChangeListener { _, on -> val s = backupOff().toMutableSet(); if (on) s.remove(id) else s.add(id); p.edit().putString("backupOff", s.joinToString(",")).apply() }
+            }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+            ZDialog.custom(this, box, "Done")
+            true
+        }
         findViewById<Button>(R.id.backupCard).setOnClickListener {
             val d = ZScale.density(this)
             val st = TextView(this).apply { tag = "m"; setPadding(0, (8 * d).toInt(), 0, 0) }

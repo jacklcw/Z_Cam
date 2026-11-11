@@ -1,3 +1,9 @@
+0.85.0
+- New "Apply default settings" button (left column, above Check for update): sets up the windows, camera tuning, HUD, web window, engine sound, driving profiles, trip widget and theme the way the author uses them. It asks first, works without ZDash, and keeps your relay link, bookmarks and history.
+- Back up now also covers engine sound, driving profiles, the trip widget, the rev bar and the theme. Long press Back up or restore to choose which groups a backup includes.
+- Civic Type R is now the default engine sound and is first in every list.
+- Reset all settings also resets engine sound, profiles and the trip widget.
+
 0.84.0
 - Web window: new More menu (bottom right) with icons: Full screen, This tab (Mobile / Desktop site, remembered per tab), Bookmarks, History and Downloads. Tabs and Rotate moved to the bottom bar; Edit and Minimize stay in the header.
 - Web window: downloads. Files (including Telegram Web files) save to Downloads, the Downloads tab lists them, and an APK opens the installer.

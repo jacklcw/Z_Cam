@@ -27,7 +27,7 @@ enum SoundStyle {
                 return s;
             }
         }
-        return AMERICAN;
+        return TYPE_R;
     }
 
     boolean cranks() {

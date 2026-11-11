@@ -58,7 +58,7 @@ public final class DriveSound {
     private volatile float userDb = 0f;
     private volatile VirtualEngine.RpmMode rpmMode = VirtualEngine.RpmMode.CONTINUOUS;
     private volatile Gearbox gearbox = Gearbox.AUTO8;
-    private volatile SoundStyle style = SoundStyle.AMERICAN;
+    private volatile SoundStyle style = SoundStyle.TYPE_R;
     private volatile boolean cabinView;
     /** Z_Cam: a short rev when the gear goes from P/N into D/R while stopped. */
     private volatile boolean revBlip = true;

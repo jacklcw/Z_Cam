@@ -102,6 +102,8 @@
             <!-- service column (now on the left) -->
             <LinearLayout android:id="@+id/colRight" android:layout_width="0dp" android:layout_weight="28"
                 android:layout_height="wrap_content" android:orientation="vertical">
+                <Button android:id="@+id/applyDefaults" android:tag="btn2" android:text="Apply default settings"
+                    android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginBottom="10dp"/>
                 <Button android:id="@+id/checkUpdate" android:tag="btn2" android:text="Check for update"
                     android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginBottom="10dp"/>
                 <Button android:id="@+id/whatsNew" android:tag="btn2" android:text="What's new"

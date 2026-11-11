@@ -60,7 +60,7 @@ public final class WelcomeSound {
         Shim.app = app;
         AppConfig c = new AppConfig(app);
         SharedPreferences p = app.getSharedPreferences("cfg", Context.MODE_PRIVATE);
-        SoundStyle style = SoundStyle.of(p.getString("welcomeStyle", "american"));
+        SoundStyle style = SoundStyle.of(p.getString("welcomeStyle", "typer"));
         String route = c.getDriveSoundExteriorRoute();
         int usage = "0".equals(p.getString("engExt", "1")) ? AudioAttributes.USAGE_MEDIA : AudioAttributes.USAGE_ASSISTANCE_SONIFICATION;
         float exteriorDb = DriveSoundRules.exteriorDb(c.getDriveSoundExteriorVolume());
