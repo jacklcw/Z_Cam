@@ -1,12 +1,17 @@
 # Z_Cam (companion app for the Zeekr 7X head unit)
 
 An Android app that runs **on the Zeekr 7X head unit** (sideloaded through App Lab). It
-uses the car's own cameras through standard **Camera2** and talks only to **your own
-deployed relay** over a paired token. Current version: see `app/build.gradle.kts`.
+uses the car's own cameras through standard **Camera2**. It works standalone, and can
+optionally talk to **your own deployed relay** over a paired token for uploads and remote
+features. Current version: see `app/build.gradle.kts`.
 
-One-pager: [docs/zcam-onepager.html](../docs/zcam-onepager.html) (download and open in a browser).
+One-pager: [open the one-pager](https://jacklcw.github.io/Z_Cam/docs/zcam-onepager.html).
 
-![Z_Cam one-pager](../docs/zcam-onepager.png)
+![Z_Cam one-pager](docs/zcam-onepager.png)
+
+Dashboard layout: [open the wireframe](https://jacklcw.github.io/Z_Cam/docs/zcam-dashboard.html)
+
+![Z_Cam dashboard wireframe](docs/zcam-dashboard.png)
 
 ## What it does
 
@@ -23,7 +28,9 @@ One-pager: [docs/zcam-onepager.html](../docs/zcam-onepager.html) (download and o
   windows. A **Look** group of square drag pads sets the picture per camera for the HUD and the
   floating windows (contrast and brightness, colour and opacity, warmth and night boost,
   sharpness; double tap a pad to reset); a floating button hides or shows them all. **Web view** is a small browser with
-  bookmarks and history. Settings can be backed up to the relay.
+  tabs, bookmarks, history and downloads. A More menu holds Full screen (its own full-size page on
+  the centre screen), Mobile / Desktop site (remembered per tab), Bookmarks, History and Downloads.
+  Files save to Downloads and an APK opens the installer. Drag a window's corner line to resize it.
 - **Rev bar.** A throttle-pedal bar on the HUD (top, bottom, or a funnel on the right), with
   smooth / segmented / slanted styles, four colour schemes, size and edge-gap sliders and a live
   in-app preview. Press and hold the floating button for quick toggles (engine sound, rev bar,
@@ -32,12 +39,21 @@ One-pager: [docs/zcam-onepager.html](../docs/zcam-onepager.html) (download and o
   from OpenStreetMap (needs internet in the car; roads without a limit tag show nothing). A Road info text
   switch in the floating ring shows the matched road and its tag. The sign
   can glow and beep when you are over the limit. Place and resize it on the HUD layout pad.
-- **Engine sound.** A simulated engine that follows throttle and speed in every drive mode (V8,
-  turbo four and Civic Type R), played in the
+- **Engine sound.** A simulated engine that follows throttle and speed in every drive mode (Civic Type R,
+  American V8, Prototype V8 and Turbo four; Civic Type R is the default), played in the
   cabin, outside, or both. Gear changes have their own effects (upshift bang, ignition cut,
   downshift blip with crackle, gear thump), and the Civic Type R adds more bass while parked. The
   cabin and outside volumes are separate: in outside mode only the outside volume applies. Ported
   from Zeekr Shortcut (GPL-3.0).
+- **Apply default settings.** One button sets up windows, camera tuning, HUD, web window, engine
+  sound, driving profiles, trip widget and theme the way the author uses them. It asks first, works
+  without ZDash and keeps your relay link, bookmarks and history.
+- **Back up and restore.** Covers windows, camera tuning, HUD, web, engine sound, driving profiles,
+  the trip widget, rev bar and theme (needs a linked relay). Long press the button to choose which
+  groups a backup includes.
+- **Auto Camping-off.** Optionally turns Camping mode off when it was left on after getting out:
+  both front seats empty and the car locked for a chosen number of minutes. Any doubt restarts the wait.
+- **Data usage.** A built-in meter shows what the app sends and receives, per category and day.
 - **Driving profiles.** One profile per drive mode: engine sound, ambient light (follows speed),
   regen, steering weight and rev bar all follow the mode you switch to, with an optional silent
   profile per mode.
