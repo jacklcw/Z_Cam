@@ -12,7 +12,7 @@ import android.os.Looper;
  * engine sound only played while a video was running; a 1.5 s grab was audible for exactly that long). So while the engine sound is running
  * it holds a "may duck" focus, and gives it back when the last engine sound thread ends. The engine sound itself still ignores focus changes.
  */
-final class AudioWake {
+public final class AudioWake {
     private static final Handler MAIN = new Handler(Looper.getMainLooper());
     private static AudioFocusRequest held;
     private static int users;
@@ -24,6 +24,7 @@ final class AudioWake {
     private static long assertedAt;   // last time the focus was re-asserted
     private static AudioManager.AudioPlaybackCallback playbackCb;
     private static boolean lastOther;
+    private static long lastDump;
     private static final Runnable WATCH = new Runnable() {
         @Override
         public void run() {
@@ -40,6 +41,15 @@ final class AudioWake {
                     Shim.log("wake: other player " + (other ? "playing" : "gone") + " " + (now - lostAt) + " ms after losing focus (players " + am.getActivePlaybackConfigurations().size() + ", ours " + SoundOutput.LIVE.get() + ")");
                 }
                 lastOther = other;
+                if (lost && now - lastDump > 1000) {   // diagnostics: what the other players are doing while we have no focus (state shows started / paused)
+                    lastDump = now;
+                    StringBuilder sb = new StringBuilder();
+                    for (android.media.AudioPlaybackConfiguration c : am.getActivePlaybackConfigurations()) {
+                        String t = String.valueOf(c);
+                        sb.append("[").append(t.length() > 140 ? t.substring(0, 140) : t).append("] ");
+                    }
+                    Shim.log("wake: lost " + (now - lostAt) / 1000 + " s, other=" + other + " " + sb);
+                }
                 if (other) {
                     quietSince = 0;
                     if (lost) {
@@ -48,7 +58,7 @@ final class AudioWake {
                 } else if (quietSince == 0) {
                     quietSince = now;
                 }
-                if (lost && !other && (seenOther || now - lostAt > 8000)) {
+                if (lost && !other && (seenOther || now - lostAt > 8000)) {   // 4 s of quiet first: a video that ends hands the focus to the next one within ~2 s, and taking it back in between made the car mute the cabin for the whole switch
                     // whatever took the focus has stopped (music ended, video paused): take it back, or the car mutes the cabin speaker again.
                     // Never before it was seen playing, unless 8 s passed: a video that is still starting up has no player yet, and grabbing the focus then paused it after ~2 s.
                     int r = am.requestAudioFocus(held);
@@ -71,6 +81,28 @@ final class AudioWake {
     private static Context appCtx;
 
     private AudioWake() {
+    }
+
+    /**
+     * A web page in our own browser says its video/audio ended or paused. YouTube leaves a silent player open for ~10 s after a video ends (the "up next"
+     * countdown), which the player count above reads as "someone is still playing", so the focus was only taken back when that player finally closed
+     * and the car muted the cabin speaker meanwhile. This takes it back at once.
+     */
+    public static void webIdle() {
+        MAIN.post(() -> {
+            if (!lost || users <= 0 || held == null || appCtx == null) {
+                return;
+            }
+            try {
+                int r = appCtx.getSystemService(AudioManager.class).requestAudioFocus(held);
+                Shim.log("wake: web media idle, took the focus back early, result " + r);
+                lost = false;
+                seenOther = false;
+                assertedAt = android.os.SystemClock.uptimeMillis();
+            } catch (RuntimeException e) {
+                Shim.log("wake: webIdle " + e);
+            }
+        });
     }
 
     static void acquire(Context ctx) {

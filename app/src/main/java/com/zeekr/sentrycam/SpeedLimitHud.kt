@@ -368,6 +368,7 @@ class SpeedLimitHud(private val ctx: Context) {
 /** Round sign: white disc, red ring, black number; [setGlow] adds a pulsing red halo (drawn in the margin, the sign itself is 80% of the window). */
 class SignView(c: Context) : View(c) {
     var value = 0
+        set(v) { if (v != field) { field = v; invalidate() } }
     private var glow = false
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
     fun setGlow(on: Boolean) { if (on != glow) { glow = on; invalidate() } }
