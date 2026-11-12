@@ -151,6 +151,9 @@
                     <TextView android:id="@+id/campMinLabel" android:tag="m" android:layout_width="wrap_content" android:layout_height="wrap_content"
                         android:text="Wait: 15 min" android:paddingTop="6dp"/>
                     <SeekBar android:id="@+id/campMin" android:tag="seek" android:layout_width="match_parent" android:layout_height="wrap_content" android:max="55"/>
+                    <androidx.appcompat.widget.SwitchCompat android:id="@+id/campLock" android:tag="sw"
+                        android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="6dp"
+                        android:text="Lock the car again after Camping is turned off from ZDash (needs ZDash; nobody in the driver's seat)"/>
                 </LinearLayout>
                 <LinearLayout android:id="@+id/engCard" android:layout_width="match_parent" android:layout_height="wrap_content"
                     android:orientation="vertical" android:tag="card" android:layout_marginBottom="10dp">

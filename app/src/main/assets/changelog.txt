@@ -1,3 +1,6 @@
+0.91.3
+- New switch in Settings > Camping mode: lock the car again after Camping is turned off from ZDash. Turning Camping off wakes the car with its lights on even though it reads locked; ZDash then presses the real lock so the car runs its full lock sequence. Only when nobody is in the driver's seat, and it needs ZDash.
+
 0.91.2
 - Announce outside: the voice now plays at full track volume with a 4x boost (loud peaks are clipped), so it carries further on the outside speaker.
 - Camera: safety nets so nothing keeps the camera when no floating window or HUD uses it. The camera now releases itself within 2 s if it is left open with nothing drawing, and a path that could keep it open without a session is fixed. Helps other apps that need the camera.

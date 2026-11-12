@@ -267,6 +267,10 @@ class MainActivity : AppCompatActivity() {
             isChecked = p.getBoolean("campOff", false)
             setOnCheckedChangeListener { _, on -> p.edit().putBoolean("campOff", on).apply(); syncService() }
         }
+        findViewById<CompoundButton>(R.id.campLock).apply {
+            isChecked = p.getBoolean("campLock", false)
+            setOnCheckedChangeListener { _, on -> p.edit().putBoolean("campLock", on).apply() }
+        }
         run {
             val lbl = findViewById<TextView>(R.id.campMinLabel); val sb = findViewById<SeekBar>(R.id.campMin)
             val cur = p.getInt("campMin", 15).coerceIn(5, 60)

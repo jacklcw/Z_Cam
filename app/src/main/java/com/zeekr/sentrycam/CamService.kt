@@ -680,10 +680,12 @@ class CamService : Service() {
                     Thread {
                         try {
                             val ok = CampGuard.setCamping(this, want)
+                            // asked to lock the car again after Camping off (it wakes the car, lights stay on): only the relay can press the real lock, so flag it in the report; never with somebody in the driver's seat
+                            val wantLock = ok && !want && p.getBoolean("campLock", false) && CampGuard.driverSeated(this) == false
                             campSetTries++
                             if (ok || campSetTries >= 3) {
                                 p.edit().putLong("campSetApplied", seq).apply(); campSetTries = 0
-                                report(base, token, "Camping " + (if (want) "on" else "off") + " from ZDash: " + (if (ok) "done" else "the car did not accept it (see log)"))
+                                report(base, token, "Camping " + (if (want) "on" else "off") + " from ZDash: " + (if (ok) "done" else "the car did not accept it (see log)") + (if (wantLock) " [lock]" else ""))
                             }
                         } catch (e: Throwable) { Logger.log(this, "campguard: remote set failed ${e.javaClass.simpleName} ${e.message ?: ""}"); campSetTries++ }
                         finally { campSetBusy = false }
