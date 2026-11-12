@@ -1,3 +1,7 @@
+0.91.2
+- Announce outside: the voice now plays at full track volume with a 4x boost (loud peaks are clipped), so it carries further on the outside speaker.
+- Camera: safety nets so nothing keeps the camera when no floating window or HUD uses it. The camera now releases itself within 2 s if it is left open with nothing drawing, and a path that could keep it open without a session is fixed. Helps other apps that need the camera.
+
 0.91.1
 - Fixed: the speed limit sign on the HUD did not redraw when the limit changed (it could stay on the old number).
 - Engine sound no longer goes quiet for about 10 s when a YouTube video ends on its own: the page now tells the app when a video or audio ends or pauses, and the app takes the car audio focus back at once. Works for every web page.

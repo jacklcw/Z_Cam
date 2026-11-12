@@ -162,7 +162,11 @@ object CamHub {
     // (nothing reopened it before, so every window stayed dark until it was toggled).
     private val watchdog = object : Runnable {
         override fun run() {
-            if (outs.isEmpty()) { watching = false; return }
+            if (outs.isEmpty()) {
+                if (device != null || opening || locked) { log("camera still held with no output, releasing it"); try { teardown() } catch (_: Throwable) {} }   // safety net: nothing draws, so nothing may hold the camera
+                watching = false; return
+            }
+            if (outs.values.all { it.dead }) { log("only dead outputs left, releasing the camera"); outs.clear(); try { teardown() } catch (_: Throwable) {}; watching = false; return }
             try {
                 for ((k, o) in outs) {
                     if (o.dead || dpy == EGL14.EGL_NO_DISPLAY) continue
@@ -188,7 +192,7 @@ object CamHub {
         h.post {
             try {
                 ctx = c.applicationContext; outs[key] = o; attach(o); ensure(); log("add $key (outputs: ${outs.keys})")
-            } catch (e: Throwable) { log("add $key failed: ${e.javaClass.simpleName} ${e.message ?: ""}"); outs.remove(key) }   // a dead surface must not take the app down
+            } catch (e: Throwable) { log("add $key failed: ${e.javaClass.simpleName} ${e.message ?: ""}"); outs.remove(key); if (outs.isEmpty()) teardown() }   // a dead surface must not take the app down
             if (!watching) { watching = true; h.postDelayed(watchdog, 2000) }
         }
     }
@@ -366,7 +370,7 @@ object CamHub {
                     opening = false
                     if (outs.isEmpty()) { d.close(); unlock(); return }
                     device = d
-                    val surf = camSurface ?: return
+                    val surf = camSurface ?: run { closeCamera(); return }   // the GL side was torn down meanwhile: do not keep the camera without a session
                     try {
                         d.createCaptureSession(listOf(surf), object : CameraCaptureSession.StateCallback() {
                             override fun onConfigured(s: CameraCaptureSession) {

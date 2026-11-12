@@ -14,6 +14,7 @@ import com.zeekr.sentrycam.sound.CarSpeakers
 /** Live announcement: the cabin microphone is fed straight to the outside speaker while it runs (no recording, no file). */
 object LivePa {
     private const val RATE = 48_000
+    private const val GAIN = 4f          // digital boost on top of full track volume: the microphone is quiet next to the exterior speaker
     @Volatile private var running = false
     @Volatile var level = 0f          // 0..1 peak of the last block, for the meter
     @Volatile var status = ""         // empty = fine, else why it is not live
@@ -41,6 +42,7 @@ object LivePa {
                     .setTransferMode(AudioTrack.MODE_STREAM).setPerformanceMode(AudioTrack.PERFORMANCE_MODE_LOW_LATENCY).setBufferSizeInBytes(outMin * 2).build()
                 if (!trk.setPreferredDevice(dev)) { status = "Outside speaker refused"; return@Thread }
                 val buf = ShortArray(inMin / 2 / 2 + 240)
+                try { trk.setVolume(AudioTrack.getMaxVolume()) } catch (_: Throwable) {}
                 rec.startRecording(); trk.play()
                 while (running) {
                     val n = rec.read(buf, 0, buf.size)
@@ -48,6 +50,7 @@ object LivePa {
                     var pk = 0
                     for (i in 0 until n) { val a = Math.abs(buf[i].toInt()); if (a > pk) pk = a }
                     level = pk / 32768f
+                    for (i in 0 until n) { val x = buf[i] * GAIN; buf[i] = (if (x > 32767f) 32767f else if (x < -32768f) -32768f else x).toInt().toShort() }   // clipped, not wrapped
                     trk.write(buf, 0, n)
                 }
             } catch (e: Throwable) { status = "PA failed: ${e.message ?: ""}" }
