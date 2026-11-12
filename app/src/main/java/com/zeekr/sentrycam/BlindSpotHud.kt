@@ -112,6 +112,7 @@ class BlindSpotHud(private val ctx: Context) {
     private var hudH = 0
     private var hudW = 0
     private var arrow: SignalArrow? = null
+    @Volatile private var lastArrowRaw = 0
     private var arrowH = 0
     private var arrowW = 0
 
@@ -143,6 +144,8 @@ class BlindSpotHud(private val ctx: Context) {
     fun start() {
         if (running) return
         running = true
+        HudLayer.raisers["cam"] = { if (view != null) { removeViewNow(); showImpl(shownPanel) } }   // rare: the picture must sit in front of something added after it
+        HudLayer.raisers["arr"] = { if (arrow != null) { removeArrow(); updateArrow(lastArrowRaw) } }
         thread = HandlerThread("blindspot").apply { start() }
         bg = Handler(thread!!.looper).also { it.post(::poll) }
         Logger.log(ctx, "blindspot: started")
@@ -151,6 +154,7 @@ class BlindSpotHud(private val ctx: Context) {
     fun stop() {
         if (!running) return
         running = false
+        HudLayer.raisers.remove("cam"); HudLayer.raisers.remove("arr")
         bg?.post { closeCamera(); thread?.quitSafely() }
         main.post { removeArrow(); removeViewNow() }
         bg = null
@@ -189,6 +193,7 @@ class BlindSpotHud(private val ctx: Context) {
         // The in-app arrow editor stamps bsArrPrevUntil: show that side's arrow (blinking) even with the indicator off.
         val prevArrow = p.getLong("bsArrPrevUntil", 0L) > now
         val arrowRaw = if (raw == 1 || raw == 2) raw else if (prevArrow) (if (p.getInt("bsArrPrevSide", 1) == 1) 1 else 2) else 0
+        lastArrowRaw = arrowRaw
         if (p.getBoolean("bsSignal", true) || prevArrow) main.post { updateArrow(arrowRaw) } else main.post(::removeArrow)
         if (panel >= 0) {
             offSince = 0
@@ -297,7 +302,7 @@ class BlindSpotHud(private val ctx: Context) {
             }
             Logger.log(ctx, "blindspot: window type $wtype")
             view = tv
-            removeArrow()   // so the arrow is re-added above the camera picture
+            HudLayer.added(p, "cam")   // whatever is meant to be in front of the picture goes back on top
             Logger.log(ctx, "blindspot: HUD on (display ${hud.displayId}, ${if (panel == PANEL_LEFT) "left" else "right"})")
         } catch (e: Throwable) {
             Logger.log(ctx, "blindspot: HUD addView failed: ${e.javaClass.simpleName} ${e.message ?: ""}")
@@ -377,6 +382,7 @@ class BlindSpotHud(private val ctx: Context) {
             }
             arrow = v; arrowH = h; arrowW = hs.x; a = v
             Logger.log(ctx, "blindspot: arrow on (${if (left) "left" else "right"})")
+            HudLayer.added(p, "arr")
         }
         a.left = left
         a.icon = arrowGet(p, "bsArrIcon", left).coerceIn(0, ARROW_ICONS.size - 1)

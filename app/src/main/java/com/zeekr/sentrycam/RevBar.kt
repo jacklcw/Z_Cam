@@ -84,6 +84,7 @@ class RevBar(private val ctx: Context) {
     fun start() {
         if (running) return
         running = true; instance = this
+        HudLayer.raisers["rev"] = { raiseNow() }
         dm.registerDisplayListener(displayLog, main)
         thread = HandlerThread("revbar").apply { start() }
         bg = Handler(thread!!.looper).also { it.post(::tick) }
@@ -92,6 +93,7 @@ class RevBar(private val ctx: Context) {
     fun stop() {
         if (!running) return
         running = false; if (instance === this) instance = null
+        HudLayer.raisers.remove("rev")
         dm.unregisterDisplayListener(displayLog)
         thread?.quitSafely(); thread = null; bg = null
         main.post(::removeView)
@@ -190,8 +192,10 @@ class RevBar(private val ctx: Context) {
         }
     }
 
+    private var lastShow = false
     private fun update(show: Boolean) {
         if (!running) return
+        lastShow = show
         var v = view
         if (!show) { v?.let { if (it.visibility != View.GONE) it.visibility = View.GONE }; return }
         if (v != null) {
@@ -229,6 +233,7 @@ class RevBar(private val ctx: Context) {
             }
             view = nv; v = nv
             Logger.log(ctx, "revbar: on (display ${hud.displayId})")
+            HudLayer.added(p, "rev")
         }
         v.visibility = View.VISIBLE
         v.pos = pos(); v.inset = inset().toFloat(); v.vInset = hudH * p.getInt("revInset", 8).coerceIn(0, 20) / 100f; v.shape = p.getInt("revShape", 0).coerceIn(0, 2); v.scheme = p.getInt("revScheme", 0).coerceIn(0, 3)
@@ -245,8 +250,8 @@ class RevBar(private val ctx: Context) {
         }
     }
 
-    /** Drop the window so the next update re-adds it above windows created since (e.g. the web page on the HUD). */
-    fun raise() { main.post { removeView() } }
+    /** Re-add the window now, on top of everything added so far (see [HudLayer]). */
+    private fun raiseNow() { removeView(); if (lastShow) update(true) }
 
     private fun removeView() {
         val v = view ?: return

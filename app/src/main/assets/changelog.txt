@@ -1,3 +1,7 @@
+0.93.0
+- HUD layering: choose which item sits in front on the HUD. In the HUD layout editor tap an item (cam, arrow, web page, rev bar, speed limit), then Send back or Bring forward. Stack them any way you like; the order is saved and applies on the real HUD.
+- Blinker window: logs its position (floatcam lines in the log) to help track a position shift.
+
 0.92.0
 - New picture Look pads in the live view editor: drag a square puck instead of using sliders. Pad 1: contrast across, brightness up. Pad 2: colour across, opacity up. Pad 3: warmth across, night boost up. Pad 4: sharpness up. Double tap a pad to reset it.
 - The look is saved per camera and applies to both the HUD and the floating windows. It is included in Backup, Restore and the default settings preset.

@@ -285,6 +285,7 @@ class FloatCam(private val ctx: Context) {
                     w.blink = false; w.front = false
                     var rebuild = false
                     w.lp?.let { l -> if (w.root != null) { l.x = w.savedX; l.y = w.savedY; if (w.saved && w.savedW > 0 && (l.width != w.savedW || l.height != w.savedH)) { l.width = w.savedW; l.height = w.savedH; rebuild = true }; if (!rebuild) try { wm.updateViewLayout(w.root, l) } catch (_: Throwable) {} } }
+                    Logger.log(ctx, "floatcam: ${w.key} blink end restore x=${w.savedX} y=${w.savedY} w=${w.savedW} h=${w.savedH}")
                     w.saved = false; w.savedW = 0
                     // shrinking back: a fresh window at the small size (the camera surface is re-made) instead of resizing the live one in one jump
                     if (rebuild && w.root != null) raise(w, true)
@@ -322,7 +323,7 @@ class FloatCam(private val ctx: Context) {
                 }
                 if (w.blink && w.front && w.root != null) {
                     w.lp?.let { l ->
-                        if (!w.saved) { w.saved = true; w.savedX = l.x; w.savedY = l.y; w.savedW = l.width; w.savedH = l.height }   // once per blinker, not again when the window is re-fronted
+                        if (!w.saved) { w.saved = true; w.savedX = l.x; w.savedY = l.y; w.savedW = l.width; w.savedH = l.height }; Logger.log(ctx, "floatcam: ${w.key} blink start x=${l.x} y=${l.y} w=${l.width} h=${l.height} pref=${p.getInt(w.key + "X", -1)},${p.getInt(w.key + "Y", -1)} size%=${p.getInt("flBlinkSize", 0)} centre=${p.getBoolean("flBlinkCenter", false)}")   // once per blinker, not again when the window is re-fronted
                         val pct = p.getInt("flBlinkSize", 0)
                         if (pct > 0) {
                             // small window while idle, big while the blinker is on: same shape, grown about its own centre
@@ -441,7 +442,7 @@ class FloatCam(private val ctx: Context) {
             show(w)
             w.ovW = 0; w.ovH = 0
             w.lp?.let { l -> l.x = x; l.y = y; l.width = ww; l.height = hh; l.alpha = 1f; try { wm.updateViewLayout(w.root, l) } catch (_: Throwable) {} }
-            Logger.log(ctx, "floatcam: ${w.key} rebuilt for the blinker")
+            Logger.log(ctx, "floatcam: ${w.key} rebuilt for the blinker x=${w.lp?.x} y=${w.lp?.y} w=${w.lp?.width} h=${w.lp?.height}")
             main.post { OverlayTop.raise(ctx) }
             return
         }

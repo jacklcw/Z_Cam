@@ -95,6 +95,13 @@ class WebHud(private val ctx: Context) {
 
     fun start() {
         running = true; instance = this; main.post(tick)
+        HudLayer.raisers["web"] = {   // same view, re-added on top (the page keeps running)
+            val r = root
+            if (r != null && !direct && r.isAttachedToWindow) {
+                val wm = r.context.getSystemService(WindowManager::class.java); val l = r.layoutParams
+                try { wm.removeViewImmediate(r); wm.addView(r, l) } catch (e: Throwable) { Logger.log(ctx, "webhud: restack failed ${e.javaClass.simpleName}") }
+            }
+        }
         val f = android.content.IntentFilter().apply {
             addAction(android.content.Intent.ACTION_SCREEN_OFF)
             addAction(android.bluetooth.BluetoothDevice.ACTION_ACL_DISCONNECTED)
@@ -104,6 +111,7 @@ class WebHud(private val ctx: Context) {
 
     fun stop() {
         running = false; instance = null
+        HudLayer.raisers.remove("web")
         try { ctx.unregisterReceiver(leaveReceiver) } catch (_: Throwable) {}
         main.removeCallbacks(tick)
         main.post(::destroy)
@@ -442,7 +450,7 @@ class WebHud(private val ctx: Context) {
             return
         }
         root = container; web = wv; inner = big
-        RevBar.instance?.raise()   // the rev bar goes back on top of the web page
+        HudLayer.added(p, "web")   // whatever is meant to be in front of the page goes back on top
         // copy to the floating picture as soon as the page has painted a new frame (video included), instead of only on a timer
         big.viewTreeObserver.addOnDrawListener {
             if (floatRoot != null && android.os.SystemClock.uptimeMillis() - lastDrawAt >= 8L) main.post(floatDraw)

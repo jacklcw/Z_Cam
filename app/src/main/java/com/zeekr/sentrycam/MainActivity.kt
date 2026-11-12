@@ -1619,7 +1619,16 @@ class MainActivity : AppCompatActivity() {
                 e.apply(); if (i.id != "rev") preview(i); gdSync()
             }
         }, onRelease = { i -> if (i.id == "rev") DriveProfile.revEdited(this, revMode().first) })   // the bar shows on the HUD once the finger lifts
-        pad.items += listOf(radar, speed, camL, camR, web, rev, lim, arrL, arrR)   // guides first: they sit underneath
+        // layering: the pad draws in the saved HUD order (back to front); the real HUD windows follow it too (HudLayer)
+        val layerInfo = TextView(this).apply { tag = "m"; setPadding(0, dp(8), 0, 0) }
+        fun applyZ() {
+            pad.items.clear(); pad.items += listOf(radar, speed)   // guides first: they sit underneath
+            val ord = HudLayer.order(p)
+            for (id in ord) pad.items += when (id) { "cam" -> listOf(camL, camR); "arr" -> listOf(arrL, arrR); "web" -> listOf(web); "rev" -> listOf(rev); else -> listOf(lim) }
+            layerInfo.text = "Layers, back to front: " + ord.joinToString(" > ") { HudLayer.NAMES[it] ?: it } + "\nTap an item on the pad, then move it."
+            pad.invalidate()
+        }
+        applyZ()
         hudPadReload = { load() }
         host.addView(pad, LinearLayout.LayoutParams(-1, -2))
         // eye chips: lit = shown on the pad (editor only, the HUD itself is not affected)
@@ -1636,6 +1645,18 @@ class MainActivity : AppCompatActivity() {
             crow.addView(b, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply { if (n > 0) marginStart = dp(8) })
         }
         host.addView(crow)
+        host.addView(layerInfo, LinearLayout.LayoutParams(-1, -2))
+        val zrow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(0, dp(6), 0, 0) }
+        for ((n, step) in listOf("Send back" to -1, "Bring forward" to 1).withIndex()) {
+            val b = Button(this).apply { tag = "seg"; text = step.first; isAllCaps = false }
+            b.setOnClickListener {
+                val s = pad.sel?.takeIf { it.kind != 4 } ?: return@setOnClickListener
+                HudLayer.move(p, HudLayer.layerOf(s.id), step.second); applyZ()
+                HudLayer.restackAll(p)
+            }
+            zrow.addView(b, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply { if (n > 0) marginStart = dp(8) })
+        }
+        host.addView(zrow)
         // guide rectangles: show/hide, then exact width and height (the pad's pinch scales both together)
         val grow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(0, dp(6), 0, 0) }
         for ((n, pair) in listOf("Radar guide" to radar, "Speedo guide" to speed).withIndex()) {

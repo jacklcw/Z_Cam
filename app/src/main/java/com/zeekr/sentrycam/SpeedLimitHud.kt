@@ -83,6 +83,7 @@ class SpeedLimitHud(private val ctx: Context) {
         thread = HandlerThread("speedlimit").apply { start() }
         bg = Handler(thread!!.looper).also { it.post(tickRun) }
         instance = this
+        HudLayer.raisers["lim"] = { removeView(); if (lastShow > 0) update(lastShow, lastOver) }
         main.post(::listen)
     }
 
@@ -93,6 +94,7 @@ class SpeedLimitHud(private val ctx: Context) {
         if (!running) return
         running = false
         if (instance === this) instance = null
+        HudLayer.raisers.remove("lim")
         thread?.quitSafely(); thread = null; bg = null
         main.post {
             try { (ctx.getSystemService(Context.LOCATION_SERVICE) as? LocationManager)?.removeUpdates(listener) } catch (_: Throwable) {}
@@ -290,8 +292,10 @@ class SpeedLimitHud(private val ctx: Context) {
         }
     }
 
+    private var lastShow = 0; private var lastOver = false
     private fun update(show: Int, over: Boolean) {
         if (!running) return
+        lastShow = show; lastOver = over
         var v = view
         if (show <= 0) { v?.let { if (it.visibility != View.GONE) it.visibility = View.GONE }; return }
         if (v != null) {
@@ -322,6 +326,7 @@ class SpeedLimitHud(private val ctx: Context) {
             }
             view = nv; v = nv
             Logger.log(ctx, "speedlimit: on (display ${hud.displayId})")
+            HudLayer.added(p, "lim")
         }
         v.visibility = View.VISIBLE
         v.value = show; v.setGlow(over)
