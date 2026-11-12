@@ -336,6 +336,7 @@ class BlindSpotHud(private val ctx: Context) {
             it.yawDeg = rearYaw()
             it.rollDeg = gi("bsRoll", shownPanel).coerceIn(-45, 45).toFloat()
             it.mirror = gb("bsMirror", shownPanel)
+            CamTune.applyLook(p, if (shownPanel == PANEL_LEFT) "L" else "R", it)
         }
         val lp = v.layoutParams as? WindowManager.LayoutParams ?: return
         val ow = lp.width; val oh = lp.height; val og = lp.gravity; val ox = lp.x; val oy = lp.y
@@ -438,6 +439,7 @@ class BlindSpotHud(private val ctx: Context) {
         r.yawDeg = rearYaw()
         r.rollDeg = gi("bsRoll", shownPanel).coerceIn(-45, 45).toFloat()
         r.mirror = gb("bsMirror", shownPanel)
+        CamTune.applyLook(p, if (shownPanel == PANEL_LEFT) "L" else "R", r)
         renderer = r
         CamHub.add(ctx, HUB_KEY, r)
     }

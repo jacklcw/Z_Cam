@@ -42,7 +42,7 @@ object CamTune {
     fun flip(p: SharedPreferences, cam: String) = !side(cam) && p.getBoolean(flipKey(cam), false)
 
     /** Every pref key that belongs to [cam] (for "reset to default"). */
-    fun keys(cam: String) = if (isX(cam)) listOf("bsFov", "bsTilt", "bsYaw", "bsRoll", "bsShift").map { "${it}_$cam" } else listOf("bsSize", "bsAspect", "bsFov", "bsTilt", "bsYaw", "bsRoll").map { "${it}_$cam" } + mirrorKey(cam) + (if (side(cam)) emptyList() else listOf(flipKey(cam)))
+    fun keys(cam: String) = if (isX(cam)) listOf("bsFov", "bsTilt", "bsYaw", "bsRoll", "bsShift").map { "${it}_$cam" } else listOf("bsSize", "bsAspect", "bsFov", "bsTilt", "bsYaw", "bsRoll").map { "${it}_$cam" } + lookKeys(cam) + mirrorKey(cam) + (if (side(cam)) emptyList() else listOf(flipKey(cam)))
 
     /** [panel, fov, tilt, yaw, roll, mirror(0/1)] for [cam]. */
     private fun tuneOf(p: SharedPreferences, cam: String): FloatArray {
@@ -57,7 +57,27 @@ object CamTune {
         }
     }
 
+    // Picture look, per real camera ("lkBri_L" ...): brightness / contrast / saturation -100..100 (0 = off), opacity 20..100 (100 = off). Shared by HUD, floating windows and the editor.
+    val LOOK = listOf("lkBri", "lkCon", "lkSat", "lkOpa", "lkWrm", "lkNit", "lkShp")
+    fun lookDef(key: String) = when (key) { "lkOpa" -> 100; "lkShp" -> 50; else -> 0 }
+    fun lookMin(key: String) = when (key) { "lkOpa" -> 20; "lkNit", "lkShp" -> 0; else -> -100 }
+    fun lookGet(p: SharedPreferences, key: String, cam: String): Int {
+        val v = try { p.getInt("${key}_${base(cam)}", lookDef(key)) } catch (_: Throwable) { lookDef(key) }   // a restored/imported value of another type must never crash the app
+        return v.coerceIn(lookMin(key), 100)
+    }
+    fun lookKeys(cam: String) = LOOK.map { "${it}_${base(cam)}" }
+    fun applyLook(p: SharedPreferences, cam: String, r: PanelOut) {
+        r.bri = lookGet(p, "lkBri", cam) / 200f
+        r.con = 1f + lookGet(p, "lkCon", cam) / 200f * (if (lookGet(p, "lkCon", cam) < 0) 1.6f else 2f)
+        r.sat = 1f + lookGet(p, "lkSat", cam) / 100f
+        r.opa = lookGet(p, "lkOpa", cam) / 100f
+        r.warm = lookGet(p, "lkWrm", cam) / 100f
+        r.nite = lookGet(p, "lkNit", cam) / 100f
+        r.shp = lookGet(p, "lkShp", cam) / 50f
+    }
+
     fun apply(p: SharedPreferences, cam: String, r: PanelOut) {
+        applyLook(p, cam, r)
         val t = tuneOf(p, cam)
         r.stitch = false
         r.panel = t[0].toInt(); r.fovDeg = t[1]; r.tiltDeg = t[2]; r.yawDeg = t[3]; r.rollDeg = t[4]; r.mirror = t[5] > 0.5f
@@ -66,6 +86,7 @@ object CamTune {
     /** Left/right camera stitched with the rear (mirror order: left blinker = side | rear, right = rear | side) when [on]; otherwise plain [apply]. */
     fun applyStitch(p: SharedPreferences, cam: String, r: PanelOut, on: Boolean) {
         if (!on || !side(cam)) { apply(p, cam, r); return }
+        applyLook(p, cam, r)
         val s = tuneOf(p, "X${cam}s"); val b = tuneOf(p, "X${cam}r")
         val l = if (cam == "L") s else b; val rt = if (cam == "L") b else s
         r.split = stSeam(p, cam) / 100f; r.blend = stBlend(p, cam) / 100f

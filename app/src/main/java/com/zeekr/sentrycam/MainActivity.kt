@@ -672,6 +672,27 @@ class MainActivity : AppCompatActivity() {
                 p.edit().putInt("${fkey}W", dp(v)).putLong("flSizeStamp", System.currentTimeMillis()).apply(); frame.requestLayout(); syncService() }
             addSlider("Window height (dp)", { 160 }, { ((resources.displayMetrics.heightPixels - dp(20)) / d).toInt() }, { (winPx("H") / d).toInt() }) { v ->
                 p.edit().putInt("${fkey}H", dp(v)).putLong("flSizeStamp", System.currentTimeMillis()).apply(); frame.requestLayout(); syncService() }
+            // iOS-photo-style look: two square pads (drag the puck, double tap resets). Pad 1 = contrast across / brightness up, pad 2 = colour across / opacity up
+            val lookCam = { bsSide }
+            fun lk(k: String) = CamTune.lookGet(p, k, lookCam())
+            fun lkPut(a: String, av: Int, b: String, bv: Int) { p.edit().putInt("${a}_${CamTune.base(lookCam())}", av).putInt("${b}_${CamTune.base(lookCam())}", bv).apply() }
+            val pad1 = LookPadView(this, "Contrast", "Brightness", -100, 100, 0, -100, 100, 0) { cx, by -> lkPut("lkCon", cx, "lkBri", by) }
+            val pad2 = LookPadView(this, "Colour", "Opacity", -100, 100, 0, 20, 100, 100) { sx, oy -> lkPut("lkSat", sx, "lkOpa", oy) }
+            val pad3 = LookPadView(this, "Warmth", "Night boost", -100, 100, 0, 0, 100, 0) { wx, ny -> lkPut("lkWrm", wx, "lkNit", ny) }
+            val pad4 = LookPadView(this, "", "Sharpness", 0, 0, 0, 0, 100, 50) { _, sy -> p.edit().putInt("lkShp_${CamTune.base(lookCam())}", sy).apply() }
+            fun syncPads() { pad1.x = lk("lkCon"); pad1.y = lk("lkBri"); pad2.x = lk("lkSat"); pad2.y = lk("lkOpa"); pad3.x = lk("lkWrm"); pad3.y = lk("lkNit"); pad4.y = lk("lkShp"); for (v in listOf(pad1, pad2, pad3, pad4)) v.invalidate() }
+            updates += ::syncPads; syncPads()
+            val padRow = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                addView(pad1, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+                addView(pad2, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+            }
+            val padRow2 = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                addView(pad3, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+                addView(pad4, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+            }
+            col.addView(padRow2, 0); col.addView(padRow, 0)
             fun refreshAll() {
                 which.text = if (CamTune.isX(bsSide)) "${if (bsSide[1] == 'L') "LEFT" else "RIGHT"} STITCH, ${if (bsSide.endsWith("s")) "SIDE" else "REAR"} CAMERA" else "${CamTune.name(bsSide).uppercase()} CAMERA"
                 updates.forEach { it() }
@@ -1298,7 +1319,7 @@ class MainActivity : AppCompatActivity() {
     private val BACKUP_SKIP = setOf("bsPreviewUntil", "bsNoHoldUntil", "bsPreviewSide", "bsArrPrevUntil", "bsArrPrevSide", "flSizeStamp", "revPreviewUntil", "slPreviewUntil", "slBeepPrev", "twSnapSeq", "twReset", "pfTab", "revTab")
     private fun backupCat(k: String): String? = when {
         k in BACKUP_SKIP -> null
-        k.startsWith("bs") || k.startsWith("sl") || k.startsWith("fl") || k.startsWith("fm") || k.startsWith("stitch") || k.startsWith("stSeam") || k.startsWith("stBlend") || k == "parkCut" -> "cam"
+        k.startsWith("lk") || k.startsWith("bs") || k.startsWith("sl") || k.startsWith("fl") || k.startsWith("fm") || k.startsWith("stitch") || k.startsWith("stSeam") || k.startsWith("stBlend") || k == "parkCut" -> "cam"
         k == "webBookmarks" || k == "webHistory" || k == "webTabs" || k == "webTabsDesk" || k == "webTabIdx" || k == "webUrl" -> "webdata"
         k.startsWith("web") -> "web"
         k.startsWith("eng") || k.startsWith("welcome") || k.startsWith("lock") -> "eng"
@@ -1320,6 +1341,7 @@ class MainActivity : AppCompatActivity() {
         m["flHeader"] = 56; m["flCorner"] = 0; m["flFade"] = 0
         for (c in CamTune.CAMS) {
             for (k in listOf("bsSize", "bsAspect", "bsFov", "bsTilt", "bsYaw", "bsRoll")) if ((k != "bsSize" && k != "bsAspect") || CamTune.side(c)) m["${k}_$c"] = CamTune.def(k, c)
+            for (k in CamTune.LOOK) m["${k}_$c"] = CamTune.lookDef(k)
             m[CamTune.mirrorKey(c)] = CamTune.mirrorDef(c)
             if (!CamTune.side(c)) m[CamTune.flipKey(c)] = false
         }

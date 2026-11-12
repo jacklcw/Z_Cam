@@ -1,3 +1,7 @@
+0.92.0
+- New picture Look pads in the live view editor: drag a square puck instead of using sliders. Pad 1: contrast across, brightness up. Pad 2: colour across, opacity up. Pad 3: warmth across, night boost up. Pad 4: sharpness up. Double tap a pad to reset it.
+- The look is saved per camera and applies to both the HUD and the floating windows. It is included in Backup, Restore and the default settings preset.
+
 0.91.3
 - New switch in Settings > Camping mode: lock the car again after Camping is turned off from ZDash. Turning Camping off wakes the car with its lights on even though it reads locked; ZDash then presses the real lock so the car runs its full lock sequence. Only when nobody is in the driver's seat, and it needs ZDash.
 

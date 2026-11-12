@@ -40,6 +40,15 @@ class PanelOut(val st: SurfaceTexture) {
     @Volatile var shift2 = 0f
     /** Soft fade at the picture's edges, as a fraction of its size (0 = hard edge); the output is premultiplied-alpha. */
     @Volatile var feather = 0f
+    /** Picture look (see CamTune.applyLook): brightness -1..1 (0 = off), contrast / saturation multipliers (1 = off), opacity 0..1. */
+    @Volatile var bri = 0f
+    @Volatile var con = 1f
+    @Volatile var sat = 1f
+    @Volatile var opa = 1f
+    /** warmth -1..1, night boost 0..1 (lifts shadows), sharpness multiplier of the built-in unsharp mask (1 = as before). */
+    @Volatile var warm = 0f
+    @Volatile var nite = 0f
+    @Volatile var shp = 1f
     @Volatile var split = 0.5f
     @Volatile var blend = 0.12f
     /** Size of the owner's view in pixels (0 = unknown), set from its TextureView callbacks: the viewport and aspect come from it, so one output never borrows another's size. */
@@ -79,6 +88,7 @@ object CamHub {
         uniform float tilt;   // radians, positive = look up from the (downward-pointing) camera axis
         uniform vec2 texel;  // one source pixel in panel coordinates
         uniform float aspect; // window width / height: the angle is the vertical one, the angle applies to the longer side, so a wide window crops top/bottom instead of stretching
+        uniform float bri; uniform float con; uniform float sat; uniform float opa; uniform float warm; uniform float nite; uniform float shp;
         uniform float stitch; uniform float split; uniform float blend; uniform float feather;
         uniform float shift1; uniform float shift2u; uniform float fov2; uniform float tilt2; uniform float yaw2; uniform float roll2; uniform float panel2; uniform float mirror2;
         vec4 cam(vec2 uvv, float fv, float tl, float yw, float rl, float pn, float mr, float asp, float sh){
@@ -101,7 +111,7 @@ object CamHub {
             // light unsharp mask: the fisheye flatten + bilinear sampling softens the picture
             vec4 c0 = texture2D(s, (st * vec4(su.x, 1.0 - (pn + 1.0 - su.y) / 4.0, 0.0, 1.0)).xy);
             vec4 nb = vec4(0.0);
-            float ks = 0.3 + 0.35 * clamp((fv - 1.047) / 1.047, 0.0, 1.0);   // wider angle = more scene per pixel: sharpen harder to keep it crisp
+            float ks = (0.3 + 0.35 * clamp((fv - 1.047) / 1.047, 0.0, 1.0)) * shp;   // wider angle = more scene per pixel: sharpen harder to keep it crisp
             for (int i = 0; i < 4; i++) {
                 vec2 o = (i == 0 ? vec2(texel.x, 0.0) : i == 1 ? vec2(-texel.x, 0.0) : i == 2 ? vec2(0.0, texel.y) : vec2(0.0, -texel.y));
                 vec2 sn = clamp(su + o, 0.0, 1.0);
@@ -110,9 +120,12 @@ object CamHub {
             return vec4(clamp(c0.rgb * (1.0 + 4.0 * ks) - nb.rgb * ks, 0.0, 1.0), 1.0);
         }
         vec4 fe(vec3 c) {
-            if (feather <= 0.0) return vec4(c, 1.0);
-            vec2 q = min(uv, 1.0 - uv);
-            float a = smoothstep(0.0, feather, q.x) * smoothstep(0.0, feather, q.y);
+            c = pow(clamp(c, 0.0, 1.0), vec3(1.0 - 0.5 * nite));
+            c = clamp(c + vec3(warm * 0.12, 0.0, -warm * 0.12), 0.0, 1.0);
+            c = clamp((c + bri - 0.5) * con + 0.5, 0.0, 1.0);
+            c = clamp(mix(vec3(dot(c, vec3(0.299, 0.587, 0.114))), c, sat), 0.0, 1.0);
+            float a = opa;
+            if (feather > 0.0) { vec2 q = min(uv, 1.0 - uv); a *= smoothstep(0.0, feather, q.x) * smoothstep(0.0, feather, q.y); }
             return vec4(c * a, a);
         }
         void main(){
@@ -147,6 +160,7 @@ object CamHub {
     private var prog = 0; private var tex = 0
     private var uSt = 0; private var uFov = 0; private var uFin = 0; private var uPanel = 0
     private var uTexel = 0; private var bufW = 1; private var bufH = 1; private var uAspect = 0; private var uMirror = 0; private var uTilt = 0; private var uYaw = 0; private var uRoll = 0
+    private var uBri = 0; private var uCon = 0; private var uSat = 0; private var uOpa = 0; private var uWarm = 0; private var uNite = 0; private var uShp = 0
     private var uShift1 = 0; private var uShift2 = 0; private var uFeather = 0; private var uStitch = 0; private var uSplit = 0; private var uBlend = 0; private var uFov2 = 0; private var uTilt2 = 0; private var uYaw2 = 0; private var uRoll2 = 0; private var uPanel2 = 0; private var uMirror2 = 0
     private var camSt: SurfaceTexture? = null
     private var camSurface: Surface? = null
@@ -268,7 +282,7 @@ object CamHub {
         uFin = GLES20.glGetUniformLocation(prog, "fin"); uPanel = GLES20.glGetUniformLocation(prog, "panel")
         uMirror = GLES20.glGetUniformLocation(prog, "mirror"); uTilt = GLES20.glGetUniformLocation(prog, "tilt")
         uTexel = GLES20.glGetUniformLocation(prog, "texel"); uAspect = GLES20.glGetUniformLocation(prog, "aspect"); uYaw = GLES20.glGetUniformLocation(prog, "yaw"); uRoll = GLES20.glGetUniformLocation(prog, "roll")
-        for ((n, f) in listOf("feather" to { l: Int -> uFeather = l }, "stitch" to { l: Int -> uStitch = l }, "shift1" to { l: Int -> uShift1 = l }, "shift2u" to { l: Int -> uShift2 = l }, "split" to { l: Int -> uSplit = l }, "blend" to { l: Int -> uBlend = l }, "fov2" to { l: Int -> uFov2 = l },
+        for ((n, f) in listOf("bri" to { l: Int -> uBri = l }, "con" to { l: Int -> uCon = l }, "sat" to { l: Int -> uSat = l }, "opa" to { l: Int -> uOpa = l }, "warm" to { l: Int -> uWarm = l }, "nite" to { l: Int -> uNite = l }, "shp" to { l: Int -> uShp = l }, "feather" to { l: Int -> uFeather = l }, "stitch" to { l: Int -> uStitch = l }, "shift1" to { l: Int -> uShift1 = l }, "shift2u" to { l: Int -> uShift2 = l }, "split" to { l: Int -> uSplit = l }, "blend" to { l: Int -> uBlend = l }, "fov2" to { l: Int -> uFov2 = l },
             "tilt2" to { l: Int -> uTilt2 = l }, "yaw2" to { l: Int -> uYaw2 = l }, "roll2" to { l: Int -> uRoll2 = l }, "panel2" to { l: Int -> uPanel2 = l }, "mirror2" to { l: Int -> uMirror2 = l }))
             f(GLES20.glGetUniformLocation(prog, n))
         val t = IntArray(1); GLES20.glGenTextures(1, t, 0); tex = t[0]
@@ -323,6 +337,8 @@ object CamHub {
                 GLES20.glUniform1f(uMirror, if (o.mirror) 1f else 0f)
                 GLES20.glUniform1f(uStitch, if (o.stitch) 1f else 0f)
                 GLES20.glUniform1f(uFeather, o.feather)
+                GLES20.glUniform1f(uBri, o.bri); GLES20.glUniform1f(uCon, o.con); GLES20.glUniform1f(uSat, o.sat); GLES20.glUniform1f(uOpa, o.opa)
+                GLES20.glUniform1f(uWarm, o.warm); GLES20.glUniform1f(uNite, o.nite); GLES20.glUniform1f(uShp, o.shp)
                 if (o.stitch) {
                     GLES20.glUniform1f(uShift1, o.shift); GLES20.glUniform1f(uShift2, o.shift2); GLES20.glUniform1f(uSplit, o.split); GLES20.glUniform1f(uBlend, o.blend)
                     GLES20.glUniform1f(uFov2, Math.toRadians(o.fov2.toDouble()).toFloat())
