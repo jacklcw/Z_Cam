@@ -7,7 +7,7 @@ features. Current version: see `app/build.gradle.kts`.
 
 One-pager: [open the one-pager](https://jacklcw.github.io/Z_Cam/docs/zcam-onepager.html).
 
-![Z_Cam one-pager](docs/zcam-onepager.png?v=0.92.1)
+![Z_Cam one-pager](docs/zcam-onepager.png?v=0.92.2)
 
 Dashboard layout: [open the wireframe](https://jacklcw.github.io/Z_Cam/docs/zcam-dashboard.html)
 
