@@ -40,7 +40,7 @@ object FloatQuick {
         Item(LIVE, "Floating windows"),
         Item(APP, "Open Z Cam"))
     private val GROUPS = mapOf(
-        HUD to listOf(Item("revOn", "Rev bar"), Item("webHudOn", "Web on HUD"), Item("bsHud", "HUD side cam"), Item("bsSignal", "Turn arrow on HUD"), Item("slOn", "Speed limit on HUD"), Item("slBeep", "Speed limit sound")),
+        HUD to listOf(Item("revOn", "Rev bar"), Item("webHudOn", "Web on HUD"), Item("bsHud", "HUD side cam"), Item("bsSignal", "Turn arrow on HUD"), Item("slOn", "Speed limit on HUD"), Item("slBeep", "Speed limit sound"), Item("slDebug", "Road info text")),
         LIVE to listOf(Item("flLeft", "Left window"), Item("flRight", "Right window"), Item("flRear", "Rear window"), Item("flFront", "Front window"), Item("webFloatOn", "Web window"), Item("twOn", "Trip widget")))
     private const val IDLE_MS = 7_000L
 
@@ -411,6 +411,9 @@ object FloatQuick {
                 "slOn" -> {   // speed limit sign: ring with a bar inside
                     line.strokeWidth = 3.4f * d; cv.drawCircle(cx, cy, h, line); line.strokeWidth = 2.4f * d
                     cv.drawLine(cx - h * 0.4f, cy, cx + h * 0.4f, cy, line)
+                }
+                "slDebug" -> {   // text lines
+                    cv.drawLine(cx - h, cy - h * 0.6f, cx + h, cy - h * 0.6f, line); cv.drawLine(cx - h, cy, cx + h * 0.5f, cy, line); cv.drawLine(cx - h, cy + h * 0.6f, cx + h, cy + h * 0.6f, line)
                 }
                 "slBeep" -> {   // speaker with one wave
                     q.moveTo(cx - h, cy - h * 0.35f); q.lineTo(cx - h * 0.45f, cy - h * 0.35f); q.lineTo(cx + h * 0.1f, cy - h * 0.85f)

@@ -33,9 +33,10 @@ import java.net.URL
 class SpeedLimitHud(private val ctx: Context) {
     companion object {
         @Volatile var instance: SpeedLimitHud? = null
-        private val MIRRORS = listOf("https://overpass-api.de/api/interpreter", "https://overpass.kumi.systems/api/interpreter")
-        private const val RADIUS_M = 200          // roads loaded around each query point
-        private const val REQUERY_M = 100.0       // ask again after moving this far from the last query point
+        private val MIRRORS = listOf("https://overpass-api.de/api/interpreter", "https://overpass.kumi.systems/api/interpreter", "https://overpass.private.coffee/api/interpreter", "https://maps.mail.ru/osm/tools/overpass/api/interpreter")
+        @Volatile private var mirrorFirst = 0   // the mirror that answered last goes first next time
+        private const val RADIUS_M = 500          // roads loaded around each query point
+        private const val REQUERY_M = 300.0       // ask again after moving this far from the last query point
         private const val MIN_GAP_MS = 4_000L
         private const val MAX_SNAP_M = 40.0       // further than this from every road = off the map, show nothing
         private const val HUD_W = 1440; private const val HUD_H = 480
@@ -44,7 +45,7 @@ class SpeedLimitHud(private val ctx: Context) {
     }
 
     private val tickRun = Runnable { tick() }
-    private class Road(val limit: Int, val lat: DoubleArray, val lon: DoubleArray)
+    private class Road(val limit: Int, val lat: DoubleArray, val lon: DoubleArray, val name: String = "", val raw: String = "")
 
     private val p = ctx.getSharedPreferences("cfg", Context.MODE_PRIVATE)
     private val main = Handler(Looper.getMainLooper())
@@ -66,6 +67,10 @@ class SpeedLimitHud(private val ctx: Context) {
     @Volatile private var loading = false
     @Volatile private var qLat = 0.0; @Volatile private var qLon = 0.0; private var qAt = 0L; @Volatile private var haveQ = false
     @Volatile private var limit = 0       // km/h, 0 = unknown
+    @Volatile private var nomFirst = true; @Volatile private var nomRoad: Road? = null
+    @Volatile private var lastLoad = "none yet"; @Volatile private var lastLoadAt = 0L
+    @Volatile private var dbgRoad: Road? = null; @Volatile private var dbgDist = -1.0
+    private var dbgView: android.widget.TextView? = null
     private var sensor: Any? = null; private var latest: java.lang.reflect.Method? = null; private var lastTry = 0L
 
     private var view: SignView? = null    // main thread only
@@ -116,7 +121,7 @@ class SpeedLimitHud(private val ctx: Context) {
         val pos = position()
         if (pos != null) {
             val now = System.currentTimeMillis()
-            val far = !haveQ || dist(pos.first, pos.second, qLat, qLon) > REQUERY_M
+            val far = !haveQ || dist(pos.first, pos.second, qLat, qLon) > (if (roads.isEmpty()) 120.0 else REQUERY_M)
             if (far && now - qAt >= MIN_GAP_MS && !loading) {   // the network call runs on its own thread: it can take 30 s offline and must not hold up the sign (or the preview)
                 qAt = now; loading = true
                 val la = pos.first; val lo = pos.second
@@ -124,7 +129,7 @@ class SpeedLimitHud(private val ctx: Context) {
             }
             limit = nearest(pos.first, pos.second)
         } else limit = 0
-        val show = if (preview) 60 else limit
+        val show = if (preview) 60 else if (p.getBoolean("slOn", false)) limit else 0
         val bp = p.getLong("slBeepPrev", 0L)
         if (bp > beepPrevSeen) { if (bp > System.currentTimeMillis() - 5_000) beep(); beepPrevSeen = bp }   // the preview button: sound once, whatever the switch says
         val speeding = !preview && limit > 0 && speedKmh() > limit
@@ -133,7 +138,8 @@ class SpeedLimitHud(private val ctx: Context) {
             val now = System.currentTimeMillis()
             if (now - beepAt >= 30_000) { beepAt = now; beep() }   // once on crossing the limit, again every 30 s while still over
         } else if (!speeding) beepAt = 0L
-        main.post { update(show, over) }
+        val info = debugText(pos)
+        main.post { update(show, over); debugView(info) }
         h.postDelayed(tickRun, 1000L)
     }
 
@@ -175,30 +181,63 @@ class SpeedLimitHud(private val ctx: Context) {
     }
 
     private fun load(lat: Double, lon: Double) {
-        val q = "[out:json][timeout:8];way(around:$RADIUS_M,$lat,$lon)[highway~\"^(motorway|trunk|primary|secondary|tertiary|unclassified|residential|living_street|service|motorway_link|trunk_link|primary_link|secondary_link|tertiary_link)\$\"];out tags geom;"
-        for (base in MIRRORS) {
+        // fast driving: main roads only (a much smaller answer, so the public servers cope far better)
+        val classes = if (speedKmh() > 50) "motorway|trunk|primary|secondary|motorway_link|trunk_link|primary_link|secondary_link" else "motorway|trunk|primary|secondary|tertiary|unclassified|residential|living_street|service|motorway_link|trunk_link|primary_link|secondary_link|tertiary_link"
+        val q = "[out:json][timeout:8];way(around:$RADIUS_M,$lat,$lon)[highway~\"^($classes)\$\"];out tags geom;"
+        if (nomFirst && nominatim(lat, lon)) return   // Nominatim first: one small road answer, reliable in the car (Overpass is the fallback)
+        for (k in MIRRORS.indices) {
+            val mi = (mirrorFirst + k) % MIRRORS.size; val base = MIRRORS[mi]
             try {
                 val c = URL(base).openConnection() as HttpURLConnection
-                c.requestMethod = "POST"; c.doOutput = true; c.connectTimeout = 6000; c.readTimeout = 10000
+                c.requestMethod = "POST"; c.doOutput = true; c.connectTimeout = 4000; c.readTimeout = 9000
                 c.setRequestProperty("User-Agent", "ZCam-speedlimit/1.0")
                 c.setRequestProperty("Content-Type", "application/x-www-form-urlencoded")
                 c.outputStream.use { it.write(("data=" + java.net.URLEncoder.encode(q, "UTF-8")).toByteArray()) }
-                if (c.responseCode !in 200..299) { c.errorStream?.close(); continue }
+                if (c.responseCode !in 200..299) { c.errorStream?.close(); lastLoad = "FAILED HTTP ${c.responseCode}"; lastLoadAt = System.currentTimeMillis(); continue }
                 val txt = c.inputStream.bufferedReader().use { it.readText() }
                 DataMeter.request(base, q.length.toLong(), txt.length.toLong())
                 val els = JSONObject(txt).optJSONArray("elements") ?: continue
-                val out = ArrayList<Road>()
-                for (i in 0 until els.length()) {
-                    val e = els.getJSONObject(i)
-                    val g = e.optJSONArray("geometry") ?: continue
-                    val la = DoubleArray(g.length()); val lo = DoubleArray(g.length())
-                    for (j in 0 until g.length()) { val pt = g.getJSONObject(j); la[j] = pt.getDouble("lat"); lo[j] = pt.getDouble("lon") }
-                    out += Road(parseLimit(e.optJSONObject("tags")?.optString("maxspeed", "") ?: ""), la, lo)
-                }
+                val out = parseRoads(els)
                 roads = out; qLat = lat; qLon = lon; haveQ = true
+                mirrorFirst = mi; lastLoad = "ok, ${out.size} roads, " + base.substringAfter("//").substringBefore("/"); lastLoadAt = System.currentTimeMillis()
                 return
-            } catch (_: Throwable) {}
+            } catch (e: Throwable) { lastLoad = "FAILED " + e.javaClass.simpleName + " " + (e.message ?: "").take(40); lastLoadAt = System.currentTimeMillis() }
         }
+        if (!nomFirst) { nomFirst = nominatim(lat, lon) }
+    }
+
+    /** Fallback source: Nominatim reverse geocoding returns just the one road under the point, with its maxspeed tag (extratags). Tiny answer, other host. */
+    private fun nominatim(lat: Double, lon: Double): Boolean {
+        try {
+            val u = "https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=17&extratags=1&lat=$lat&lon=$lon"
+            val c = URL(u).openConnection() as HttpURLConnection
+            c.connectTimeout = 5000; c.readTimeout = 8000
+            c.setRequestProperty("User-Agent", "ZCam-speedlimit/1.0")
+            if (c.responseCode !in 200..299) { c.errorStream?.close(); lastLoad += " | nominatim HTTP ${c.responseCode}"; return false }
+            val txt = c.inputStream.bufferedReader().use { it.readText() }
+            DataMeter.request("nominatim.openstreetmap.org", u.length.toLong(), txt.length.toLong())
+            val j = JSONObject(txt)
+            if (j.has("error")) { lastLoad += " | nominatim: no road here"; nomRoad = null; roads = emptyList(); qLat = lat; qLon = lon; haveQ = true; return true }
+            val raw = j.optJSONObject("extratags")?.optString("maxspeed", "") ?: ""
+            val nm = listOf(j.optString("name", ""), j.optJSONObject("extratags")?.optString("ref", "") ?: "", j.optString("type", "")).filter { it.isNotEmpty() }.joinToString(" | ")
+            nomRoad = Road(parseLimit(raw), doubleArrayOf(lat, lat), doubleArrayOf(lon, lon), nm, raw)
+            roads = emptyList(); qLat = lat; qLon = lon; haveQ = true
+            lastLoad = "ok, via nominatim"; lastLoadAt = System.currentTimeMillis()
+            return true
+        } catch (e: Throwable) { lastLoad += " | nominatim FAILED " + e.javaClass.simpleName; lastLoadAt = System.currentTimeMillis(); return false }
+    }
+
+    private fun parseRoads(els: org.json.JSONArray): List<Road> {
+        val out = ArrayList<Road>()
+        for (i in 0 until els.length()) {
+            val e = els.getJSONObject(i)
+            val g = e.optJSONArray("geometry") ?: continue
+            val la = DoubleArray(g.length()); val lo = DoubleArray(g.length())
+            for (j in 0 until g.length()) { val pt = g.getJSONObject(j); la[j] = pt.getDouble("lat"); lo[j] = pt.getDouble("lon") }
+            val tg = e.optJSONObject("tags"); val raw = tg?.optString("maxspeed", "") ?: ""
+            out += Road(parseLimit(raw), la, lo, listOf(tg?.optString("name", "") ?: "", tg?.optString("ref", "") ?: "", tg?.optString("highway", "") ?: "").filter { it.isNotEmpty() }.joinToString(" | "), raw)
+        }
+        return out
     }
 
     /** "60" -> 60, "40 mph" -> 64, "none"/"signals"/"walk" -> 0 (unknown). */
@@ -216,15 +255,18 @@ class SpeedLimitHud(private val ctx: Context) {
     /** Limit of the road closest to the position (0 if none within [MAX_SNAP_M] or it has no usable maxspeed). */
     private fun nearest(lat: Double, lon: Double): Int {
         val kx = 111_320.0 * Math.cos(Math.toRadians(lat)); val ky = 111_320.0
-        var best = Double.MAX_VALUE; var lim = 0
+        var best = Double.MAX_VALUE; var lim = 0; var bestRoad: Road? = null
         for (r in roads) for (i in 0 until r.lat.size - 1) {
             val ax = (r.lon[i] - lon) * kx; val ay = (r.lat[i] - lat) * ky
             val bx = (r.lon[i + 1] - lon) * kx; val by = (r.lat[i + 1] - lat) * ky
             val dx = bx - ax; val dy = by - ay; val l2 = dx * dx + dy * dy
             val t = if (l2 == 0.0) 0.0 else (-(ax * dx + ay * dy) / l2).coerceIn(0.0, 1.0)
             val d = Math.hypot(ax + t * dx, ay + t * dy)
-            if (d < best) { best = d; lim = r.limit }
+            if (d < best) { best = d; lim = r.limit; bestRoad = r }
         }
+        val nr = nomRoad
+        if (roads.isEmpty() && nr != null) { val dn = dist(lat, lon, nr.lat[0], nr.lon[0]); dbgRoad = nr; dbgDist = dn; return if (dn <= 150.0) nr.limit else 0 }
+        dbgRoad = bestRoad; dbgDist = if (bestRoad == null) -1.0 else best
         return if (best <= MAX_SNAP_M) lim else 0
     }
 
@@ -292,7 +334,31 @@ class SpeedLimitHud(private val ctx: Context) {
         }
     }
 
+    /** Plain-text diagnostics of what the car knows about the road (the "Road info text" switch in the floating ring, HUD group). */
+    private fun debugText(pos: Pair<Double, Double>?): String? {
+        if (!p.getBoolean("slDebug", false)) return null
+        val f = fix; val r = dbgRoad
+        val road = if (r == null) "no road loaded" else (r.name.ifEmpty { "(unnamed)" } + (if (dbgDist > MAX_SNAP_M) "  [too far, " + dbgDist.toInt() + " m]" else "  " + dbgDist.toInt() + " m"))
+        val gps = if (pos == null) "NO POSITION" else String.format(java.util.Locale.US, "%.5f, %.5f", pos.first, pos.second) + if (f != null) "  age " + (System.currentTimeMillis() - f.time) / 1000 + "s  +-" + f.accuracy.toInt() + "m" else "  (no live fix)"
+        val ago = if (lastLoadAt == 0L) "" else "  " + (System.currentTimeMillis() - lastLoadAt) / 1000 + "s ago"
+        return "ROAD  $road\nOSM maxspeed  " + (if (r == null) "-" else if (r.raw.isEmpty()) "NOT TAGGED" else r.raw) + "   shown: " + (if (limit > 0) "$limit" else "none") +
+            "\nSPEED  " + speedKmh().toInt() + " km/h\nGPS  $gps\nLOOKUP  $lastLoad$ago"
+    }
+
+    private fun debugView(text: String?) {
+        if (text == null) { dbgView?.let { try { it.context.getSystemService(WindowManager::class.java).removeView(it) } catch (_: Throwable) {} }; dbgView = null; return }
+        val v = dbgView ?: android.widget.TextView(ctx).apply {
+            setTextColor(Color.WHITE); setBackgroundColor(0xB0000000.toInt()); setPadding(24, 16, 24, 16); textSize = 18f; typeface = android.graphics.Typeface.MONOSPACE
+            val lp = WindowManager.LayoutParams(WindowManager.LayoutParams.WRAP_CONTENT, WindowManager.LayoutParams.WRAP_CONTENT, WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS, PixelFormat.TRANSLUCENT).apply { gravity = Gravity.TOP or Gravity.LEFT; x = 40; y = 120 }
+            try { ctx.getSystemService(WindowManager::class.java).addView(this, lp) } catch (_: Throwable) { return }
+            dbgView = this
+        }
+        v.text = text
+    }
+
     private fun removeView() {
+        debugView(null)
         val v = view ?: return
         view = null
         try { v.context.getSystemService(WindowManager::class.java).removeView(v) } catch (_: Throwable) {}

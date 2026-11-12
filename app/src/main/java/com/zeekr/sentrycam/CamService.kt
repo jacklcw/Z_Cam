@@ -332,7 +332,8 @@ class CamService : Service() {
 
     // Speed limit sign on the HUD follows the "slOn" pref; MainActivity re-sends a start intent on toggle.
     private fun syncSpeedLimit() {
-        val on = getSharedPreferences("cfg", MODE_PRIVATE).getBoolean("slOn", false)
+        val sp = getSharedPreferences("cfg", MODE_PRIVATE)
+        val on = sp.getBoolean("slOn", false) || sp.getBoolean("slDebug", false)
         if (on && speedLimit == null) speedLimit = SpeedLimitHud(this).also { it.start() }
         if (!on) { speedLimit?.stop(); speedLimit = null }
     }

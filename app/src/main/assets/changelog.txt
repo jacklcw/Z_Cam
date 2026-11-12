@@ -1,3 +1,7 @@
+0.91.0
+- Speed limit sign: the road is now looked up on Nominatim (OpenStreetMap), a small one-road answer that works reliably in the car. Overpass is kept as the fallback. Fixes the sign never showing because of timeouts.
+- New switch in the floating button ring, HUD group: Road info text. A small text on the main screen shows the matched road name, its OpenStreetMap speed limit tag, the car speed, the GPS fix and the lookup status, to compare with your navigation app.
+
 0.90.0
 - New floating button ring sector, Announce outside: slide onto it and your voice goes live to the outside speaker through the car microphone (nothing is recorded). Slide off or lift to stop. A level meter shows in the name pill. The app asks for the microphone permission once.
 - Web browser: the video diagnostics script no longer runs on every page, so browsing is lighter. It is now a switch in the web More menu (Debug stats), off by default.
