@@ -28,7 +28,7 @@ public final class CarSpeakers {
         return "bus11".equals(route) ? OUTSIDE_PLAYBACK : OUTSIDE_NOTIFY;
     }
 
-    static AudioDeviceInfo find(Context context, String address) {
+    public static AudioDeviceInfo find(Context context, String address) {
         AudioManager audio = context.getSystemService(AudioManager.class);
         if (audio == null) {
             return null;

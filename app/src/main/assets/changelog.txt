@@ -1,3 +1,7 @@
+0.90.0
+- New floating button ring sector, Announce outside: slide onto it and your voice goes live to the outside speaker through the car microphone (nothing is recorded). Slide off or lift to stop. A level meter shows in the name pill. The app asks for the microphone permission once.
+- Web browser: the video diagnostics script no longer runs on every page, so browsing is lighter. It is now a switch in the web More menu (Debug stats), off by default.
+
 0.89.0
 - Speed limit sign on the HUD: the road you are on is matched to OpenStreetMap (needs internet in the car) and its speed limit shows as a round sign. Roads without a limit in OpenStreetMap show nothing.
 - Over the limit the sign glows, and an optional beep plays (once, then every 30 s while over). Both are switches under Settings > HUD > Speed limit sign, with a show/hide preview button.

@@ -349,7 +349,7 @@ class WebHud(private val ctx: Context) {
                 override fun onPageStarted(v: WebView, u: String?, f: android.graphics.Bitmap?) {
                     if (v === web) navAt = System.currentTimeMillis()
                     // Ask sites for H.264 only: VP9 / AV1 / VP8 are decoded in software on the car and cannot keep up, so the picture fell behind the sound.
-                    v.evaluateJavascript("(function(){if(window.__vq)return;window.__vq=1;var raf=0,vf=0,t0=0,c0=0,tf0=0,hv=null;function r(){raf++;requestAnimationFrame(r)}requestAnimationFrame(r);setInterval(function(){var v=document.querySelector('video');if(!v||v.paused||!v.videoWidth){ZCam.q('');return}if(v!==hv){hv=v;if(v.requestVideoFrameCallback){(function f(){vf++;v.requestVideoFrameCallback(f)})()}}var q=v.getVideoPlaybackQuality?v.getVideoPlaybackQuality():{};var n=performance.now(),c=v.currentTime;var rate=t0?((c-c0)/((n-t0)/1000)).toFixed(2):'-';var dt=t0?(n-t0)/1000:1;var tf=q.totalVideoFrames||0;ZCam.q('page '+Math.round(raf/dt)+' fps|shown '+Math.round(vf/dt)+' fps|decoded '+Math.round((tf-tf0)/dt)+' fps|dropped '+(q.droppedVideoFrames||0)+' of '+tf+'|speed x'+rate+'|'+v.videoHeight+'p');tf0=tf;raf=0;vf=0;t0=n;c0=c},1000)})()", null)
+                    if (p.getBoolean("webDebug", false)) v.evaluateJavascript("(function(){if(window.__vq)return;window.__vq=1;var raf=0,vf=0,t0=0,c0=0,tf0=0,hv=null;function r(){raf++;requestAnimationFrame(r)}requestAnimationFrame(r);setInterval(function(){var v=document.querySelector('video');if(!v||v.paused||!v.videoWidth){ZCam.q('');return}if(v!==hv){hv=v;if(v.requestVideoFrameCallback){(function f(){vf++;v.requestVideoFrameCallback(f)})()}}var q=v.getVideoPlaybackQuality?v.getVideoPlaybackQuality():{};var n=performance.now(),c=v.currentTime;var rate=t0?((c-c0)/((n-t0)/1000)).toFixed(2):'-';var dt=t0?(n-t0)/1000:1;var tf=q.totalVideoFrames||0;ZCam.q('page '+Math.round(raf/dt)+' fps|shown '+Math.round(vf/dt)+' fps|decoded '+Math.round((tf-tf0)/dt)+' fps|dropped '+(q.droppedVideoFrames||0)+' of '+tf+'|speed x'+rate+'|'+v.videoHeight+'p');tf0=tf;raf=0;vf=0;t0=n;c0=c},1000)})()", null)
                     v.evaluateJavascript("(function(){if(window.__h264)return;window.__h264=1;var bad=/vp0?[89]|av0?1/i;var ms=window.MediaSource;if(ms&&ms.isTypeSupported){var o=ms.isTypeSupported.bind(ms);ms.isTypeSupported=function(t){return bad.test(t)?false:o(t)}}var cp=HTMLMediaElement.prototype.canPlayType;HTMLMediaElement.prototype.canPlayType=function(t){return bad.test(t)?'':cp.call(this,t)}})()", null)
                 }
                 override fun onPageFinished(v: WebView, u: String?) {
@@ -918,6 +918,7 @@ class WebHud(private val ctx: Context) {
             addView(menuItem(IconButton.Kind.STAR, { "Bookmarks" }) { panelTab = 0; setMode(3) }, rowLp())
             addView(menuItem(IconButton.Kind.HISTORY, { "History" }) { panelTab = 1; setMode(3) }, rowLp())
             addView(menuItem(IconButton.Kind.DOWNLOAD, { "Downloads" }) { panelTab = 2; setMode(3) }, rowLp())
+            addView(menuItem(IconButton.Kind.DESKTOP, { "Debug stats: " + (if (p.getBoolean("webDebug", false)) "On" else "Off") }) { p.edit().putBoolean("webDebug", !p.getBoolean("webDebug", false)).apply(); web?.reload() }, rowLp())
         }
         val host = android.widget.ScrollView(ctx).apply { visibility = View.GONE; addView(menu) }
         menuBox = menu
@@ -925,7 +926,7 @@ class WebHud(private val ctx: Context) {
             val on = host.visibility != View.VISIBLE
             if (on) {
                 for (i in 0 until menu.childCount) (menu.getChildAt(i) as? LinearLayout)?.let { row -> @Suppress("UNCHECKED_CAST") (row.tag as? (() -> String))?.let { (row.getChildAt(1) as? TextView)?.text = it() } }
-                host.layoutParams = (host.layoutParams as FrameLayout.LayoutParams).apply { height = minOf(5 * (rowH + dp(6)) + dp(16), (padH - dp(16)).coerceAtLeast(dp(120))) }
+                host.layoutParams = (host.layoutParams as FrameLayout.LayoutParams).apply { height = minOf(6 * (rowH + dp(6)) + dp(16), (padH - dp(16)).coerceAtLeast(dp(120))) }
             }
             host.visibility = if (on) View.VISIBLE else View.GONE; moreBtn?.on = on
         }

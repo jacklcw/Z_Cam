@@ -60,7 +60,8 @@ Dashboard layout: [open the wireframe](https://jacklcw.github.io/Z_Cam/docs/zcam
   - **Press and hold** (keep your finger still) to open the quick-toggle ring. Slide to a sector
     and lift to flip it; the name shows at the top. Sectors: Engine sound, Volume (cabin / outside
     arcs), Sound direction, HUD (rev bar, web on HUD, HUD side camera, turn arrow, speed limit and its sound), Acceleration
-    mode, Floating windows (left, right, rear, front, web, trip) and Open Z Cam. Lift away from
+    mode, Floating windows (left, right, rear, front, web, trip), Announce outside (hold on it and
+    speak: your voice plays live on the outside speaker) and Open Z Cam. Lift away from
     every sector to close the ring.
   - **Drag** the button to move it, **pinch** it to resize it. It can be switched off with
     "Quick-hide button" under Floating windows in settings.

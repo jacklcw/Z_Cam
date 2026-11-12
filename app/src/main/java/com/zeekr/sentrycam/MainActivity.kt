@@ -2244,6 +2244,8 @@ class MainActivity : AppCompatActivity() {
             need.add(Manifest.permission.ACCESS_FINE_LOCATION)   // geo-tag snapshots
         if (Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED)
             need.add(Manifest.permission.POST_NOTIFICATIONS)
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED)
+            need.add(Manifest.permission.RECORD_AUDIO)   // live announcement to the outside speaker
         // USB Sentry video detection (UsbVideoWatcher) -- MediaStore video query.
         val videoPerm = if (Build.VERSION.SDK_INT >= 33) Manifest.permission.READ_MEDIA_VIDEO else Manifest.permission.READ_EXTERNAL_STORAGE
         if (ContextCompat.checkSelfPermission(this, videoPerm) != PackageManager.PERMISSION_GRANTED) need.add(videoPerm)

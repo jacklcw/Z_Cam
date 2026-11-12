@@ -28,13 +28,14 @@ object FloatQuick {
     private const val APP = "@app"       // not a switch either: lifting on it opens the Z Cam app
     private const val VOL = "@vol"       // not a switch: hovering it opens arc sliders for the cabin and outside volume
     private const val DIR = "@dir"       // not a switch either: lifting on it flips the engine sound between the cabin and the outside speaker
+    private const val PA = "@pa"         // not a switch: hovering it broadcasts the microphone live to the outside speaker until the finger leaves
     private const val HUD = "@hud"       // group sectors: hovering one opens a second layer with its switches
     private const val HCAM = "@hcam"
     private const val LIVE = "@live"
     private fun isAction(key: String) = key.startsWith("@")
     private class Item(val key: String, val label: String)
     private val ITEMS = listOf(
-        Item("engOn", "Engine sound"), Item(VOL, "Volume"), Item(DIR, "Sound direction"), Item(HUD, "HUD"),
+        Item("engOn", "Engine sound"), Item(VOL, "Volume"), Item(DIR, "Sound direction"), Item(PA, "Announce outside"), Item(HUD, "HUD"),
         Item(DRIVE, "Acceleration mode"),
         Item(LIVE, "Floating windows"),
         Item(APP, "Open Z Cam"))
@@ -69,6 +70,7 @@ object FloatQuick {
     fun close() {
         val v = view ?: return
         view = null
+        LivePa.stop()
         main.removeCallbacks(closer)
         try { v.context.getSystemService(WindowManager::class.java).removeView(v) } catch (_: Throwable) {}
     }
@@ -109,6 +111,9 @@ object FloatQuick {
         private var gopen = -1                      // first-layer index of the group sector whose switches are showing
         private val g0 = DoubleArray(n); private val gSweep = DoubleArray(n) { 30.0 }
         private val volIdx = ITEMS.indexOfFirst { it.key == VOL }
+        private val paIdx = ITEMS.indexOfFirst { it.key == PA }
+        private var looping = false
+        private fun redrawLoop() { if (LivePa.live() || hover == paIdx) { invalidate(); main.postDelayed({ redrawLoop() }, 80L) } else looping = false }
         private val modes = DriveProfile.MODES.reversed()   // the ring runs clockwise, so this puts Comfort on the left and Sport on the right
         private val curMode: Int? = try { DriveProfile.currentMode(c) } catch (_: Throwable) { null }
         private var hover = -1                      // 0 until n = first layer, n + j = drive mode j
@@ -299,6 +304,7 @@ object FloatQuick {
         fun hoverAt(x: Float, y: Float) {
             if (lockBand >= 0) { setVol(lockBand, x, y); invalidate(); return }
             val h = at(x, y)
+            if (h == paIdx) { if (!LivePa.live()) LivePa.start(context); if (!looping) { looping = true; main.post { redrawLoop() } } } else LivePa.stop()
             val was = open
             val wasV = vopen
             val wasG = gopen
@@ -310,6 +316,7 @@ object FloatQuick {
 
         /** Lift/tap at the point: true = keep the ring open (the Drive mode sector only opens its modes). */
         fun releaseAt(x: Float, y: Float): Boolean {
+            LivePa.stop()
             if (lockBand >= 0) { setVol(lockBand, x, y); lockBand = -1; invalidate(); return true }
             val h = at(x, y)
             if (grp(h) != null) { gopen = h; open = false; vopen = false; hover = h; invalidate(); return true }
@@ -331,7 +338,7 @@ object FloatQuick {
 
         fun toggleAt(x: Float, y: Float) {
             val i = at(x, y)
-            if (i < 0 || i == driveIdx || i == volIdx || grp(i) != null || i >= 1000) return
+            if (i < 0 || i == paIdx || i == driveIdx || i == volIdx || grp(i) != null || i >= 1000) return
             if (i >= n) { DriveProfile.switchMode(context, modes[i - n].first); futureClick(); return }
             if (ITEMS[i].key == DIR) { p.edit().putString("engOut", if (outside()) "cabin" else "outside").apply(); syncSoon(); return }
             if (ITEMS[i].key == APP) {
@@ -433,6 +440,11 @@ object FloatQuick {
                 "webHudOn", "webFloatOn" -> {
                     cv.drawCircle(cx, cy, h, line); cv.drawOval(RectF(cx - h * 0.45f, cy - h, cx + h * 0.45f, cy + h), line); cv.drawLine(cx - h, cy, cx + h, cy, line)
                 }
+                PA -> {   // microphone: capsule, holder arc, stem and base
+                    cv.drawRoundRect(cx - h * 0.35f, cy - h, cx + h * 0.35f, cy + h * 0.2f, h * 0.35f, h * 0.35f, fill)
+                    cv.drawArc(RectF(cx - h * 0.7f, cy - h * 0.5f, cx + h * 0.7f, cy + h * 0.55f), 0f, 180f, false, line)
+                    cv.drawLine(cx, cy + h * 0.55f, cx, cy + h, line); cv.drawLine(cx - h * 0.4f, cy + h, cx + h * 0.4f, cy + h, line)
+                }
                 DIR -> {   // car body: a dot inside for the cabin speaker, an arrow leaving it for the outside one
                     cv.drawRoundRect(cx - h, cy - h * 0.55f, cx + h * 0.3f, cy + h * 0.55f, 3 * d, 3 * d, line)
                     if (outside()) {
@@ -531,13 +543,14 @@ object FloatQuick {
             cv.drawCircle(bx, by, r0 - 2f * d, line)
             for ((i, it) in ITEMS.withIndex()) {
                 val on = if (grp(i) != null) grp(i)!!.any { h -> p.getBoolean(h.key, false) } else !isAction(it.key) && p.getBoolean(it.key, false)
-                drawSector(a0[i], sweep1, r0, r1, on, hover == i || (i == driveIdx && open) || (i == volIdx && vopen) || (i == gopen), it.key, !isAction(it.key) && !on)
+                drawSector(a0[i], sweep1, r0, r1, on || (it.key == PA && LivePa.live()), hover == i || (i == driveIdx && open) || (i == volIdx && vopen) || (i == gopen), it.key, !isAction(it.key) && !on)
             }
             if (gopen >= 0) for ((k, it) in grp(gopen)!!.withIndex()) { val on = p.getBoolean(it.key, false); drawSector((g0[gopen] + gSweep[gopen] * k).toFloat(), gSweep[gopen].toFloat(), r2a, r2, on, hover == 2000 + k, it.key, !on) }
             if (open) for ((j, m) in modes.withIndex()) drawSector(b0[j], sweep2, r2a, r2, m.first == curMode, hover == n + j, modeIcon(m.first))
             if (vopen) { val vb = visBands(); for (s in vb.indices) drawBand(s, vb[s]) }
             // name of the sector under the finger, at the top of the screen
             val label = when {
+                hover == paIdx -> if (LivePa.status.isNotEmpty()) LivePa.status else "LIVE outside  " + "|".repeat((LivePa.level * 20).toInt().coerceIn(0, 20))
                 hover in 0 until n -> ITEMS[hover].label + if (ITEMS[hover].key == DIR) (if (outside()) ": Outside" else ": Cabin") else if (ITEMS[hover].key == APP || ITEMS[hover].key == VOL || grp(hover) != null) "" else if (hover != driveIdx) (if (p.getBoolean(ITEMS[hover].key, false)) ": ON" else ": OFF") else (curMode?.let { c -> modes.firstOrNull { it.first == c }?.second?.let { m -> ": $m" } } ?: "")
                 hover >= 2000 -> grp(gopen)!![hover - 2000].label + if (p.getBoolean(grp(gopen)!![hover - 2000].key, false)) ": ON" else ": OFF"
                 hover >= 1000 -> bandName[hover - 1000] + ": " + bandText(hover - 1000)
