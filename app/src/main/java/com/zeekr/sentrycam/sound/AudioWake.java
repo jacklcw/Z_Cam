@@ -22,6 +22,8 @@ final class AudioWake {
     private static long lostAt;       // when we lost the focus
     private static long quietSince;   // since when nobody but us has been playing
     private static long assertedAt;   // last time the focus was re-asserted
+    private static AudioManager.AudioPlaybackCallback playbackCb;
+    private static boolean lastOther;
     private static final Runnable WATCH = new Runnable() {
         @Override
         public void run() {
@@ -34,6 +36,10 @@ final class AudioWake {
                 long now = android.os.SystemClock.uptimeMillis();
                 // somebody else is playing when there are more active players than our own tracks
                 boolean other = am.getActivePlaybackConfigurations().size() > SoundOutput.LIVE.get();
+                if (lost && other != lastOther) {
+                    Shim.log("wake: other player " + (other ? "playing" : "gone") + " " + (now - lostAt) + " ms after losing focus (players " + am.getActivePlaybackConfigurations().size() + ", ours " + SoundOutput.LIVE.get() + ")");
+                }
+                lastOther = other;
                 if (other) {
                     quietSince = 0;
                     if (lost) {
@@ -59,7 +65,7 @@ final class AudioWake {
                 Shim.log("wake: watch " + e);
             }
             watching = true;
-            MAIN.postDelayed(this, 1000);
+            MAIN.postDelayed(this, lost ? 150 : 1000);   // while another app holds the focus, watch closely: a track change leaves only a short gap to refill
         }
     };
     private static Context appCtx;
@@ -87,6 +93,7 @@ final class AudioWake {
                             Shim.log("wake: focus change " + change);
                             if (change < 0) {
                                 lost = true; seenOther = false; lostAt = android.os.SystemClock.uptimeMillis();
+                                MAIN.removeCallbacks(WATCH); MAIN.postDelayed(WATCH, 150);
                             }
                         })
                         .build();
@@ -95,6 +102,19 @@ final class AudioWake {
                 held = req;
                 appCtx = ctx.getApplicationContext();
                 lost = false;
+                if (playbackCb == null) {
+                    // react the moment a player starts or stops (a track change) instead of waiting for the next poll
+                    playbackCb = new AudioManager.AudioPlaybackCallback() {
+                        @Override
+                        public void onPlaybackConfigChanged(java.util.List<android.media.AudioPlaybackConfiguration> configs) {
+                            if (lost && users > 0) {
+                                MAIN.removeCallbacks(WATCH);
+                                MAIN.post(WATCH);
+                            }
+                        }
+                    };
+                    am.registerAudioPlaybackCallback(playbackCb, MAIN);
+                }
                 if (!watching) {
                     watching = true;
                     MAIN.postDelayed(WATCH, 1000);
@@ -118,6 +138,10 @@ final class AudioWake {
                 }
                 held = null;
                 lost = false;
+                if (playbackCb != null) {
+                    try { ctx.getSystemService(AudioManager.class).unregisterAudioPlaybackCallback(playbackCb); } catch (RuntimeException ignored) { }
+                    playbackCb = null;
+                }
                 MAIN.removeCallbacks(WATCH);
                 watching = false;
                 Shim.log("wake: audio focus released");

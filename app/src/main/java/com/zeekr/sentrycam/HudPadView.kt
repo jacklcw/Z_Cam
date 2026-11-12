@@ -13,14 +13,15 @@ import android.view.View
  * Touch an item to select it, drag to move, pinch to resize. Items can be hidden on the pad (editor only) so stacked ones can be pulled apart.
  */
 class HudPadView(c: Context, private val onSelect: (Item) -> Unit, private val onChange: (Item) -> Unit, private val onRelease: (Item) -> Unit = {}) : View(c) {
+    /** kind 5 = speed limit sign (square, size = % of the HUD height). */
     /** kind 4 = free guide rectangle (default radar / speedometer area, editor only): centre x/y in %, size in HUD pixels gw x gh. */
     /** kind 0 = camera box (square), 1 = web page box (9:16), 2 = turn arrow (2:1), 3 = rev bar (a strip on the top/bottom/right edge: pos 0/1/2, size = thickness %, gap = distance from the edge %). x/y = centre in % of the HUD, size = % of the HUD height. */
     class Item(val id: String, var label: String, val kind: Int, val left: Boolean, val tint: Int) {
         var x = 16; var y = 50; var size = 50; var shown = true
         var gw = 300; var gh = 200   // kind 4 only: width/height in HUD pixels (1440 x 480)
         var aspect = 100; var icon = 0; var color = BlindSpotHud.ARROW_GREEN; var pos = 1; var gap = 0
-        fun min() = when (kind) { 0 -> 40; 1 -> 20; 3 -> 2; else -> 5 }
-        fun max() = when (kind) { 0 -> 100; 1 -> 200; 3 -> 30; else -> 40 }
+        fun min() = when (kind) { 0 -> 40; 1 -> 20; 3 -> 2; 5 -> 10; else -> 5 }
+        fun max() = when (kind) { 0 -> 100; 1 -> 200; 3 -> 30; 5 -> 80; else -> 40 }
     }
     val items = ArrayList<Item>()      // drawn in this order, so later ones sit on top
     var sel: Item? = null
@@ -51,7 +52,7 @@ class HudPadView(c: Context, private val onSelect: (Item) -> Unit, private val o
             return RectF(cx - gw / 2, cy - gh / 2, cx + gw / 2, cy + gh / 2)
         }
         val hh = h * i.size / 100f
-        val ww = when (i.kind) { 0 -> hh * i.aspect / 100f; 1 -> hh * 9f / 16f; else -> hh * 2f }
+        val ww = when (i.kind) { 0 -> hh * i.aspect / 100f; 1 -> hh * 9f / 16f; 5 -> hh; else -> hh * 2f }
         val cx = w * i.x / 100f; val cy = h * i.y / 100f
         return RectF(cx - ww / 2, cy - hh / 2, cx + ww / 2, cy + hh / 2)
     }

@@ -39,7 +39,7 @@ object FloatQuick {
         Item(LIVE, "Floating windows"),
         Item(APP, "Open Z Cam"))
     private val GROUPS = mapOf(
-        HUD to listOf(Item("revOn", "Rev bar"), Item("webHudOn", "Web on HUD"), Item("bsHud", "HUD side cam"), Item("bsSignal", "Turn arrow on HUD")),
+        HUD to listOf(Item("revOn", "Rev bar"), Item("webHudOn", "Web on HUD"), Item("bsHud", "HUD side cam"), Item("bsSignal", "Turn arrow on HUD"), Item("slOn", "Speed limit on HUD"), Item("slBeep", "Speed limit sound")),
         LIVE to listOf(Item("flLeft", "Left window"), Item("flRight", "Right window"), Item("flRear", "Rear window"), Item("flFront", "Front window"), Item("webFloatOn", "Web window"), Item("twOn", "Trip widget")))
     private const val IDLE_MS = 7_000L
 
@@ -400,6 +400,16 @@ object FloatQuick {
                 LIVE -> {   // screen with a play triangle
                     cv.drawRoundRect(cx - h, cy - h * 0.7f, cx + h, cy + h * 0.7f, 3 * d, 3 * d, line)
                     q.moveTo(cx - h * 0.25f, cy - h * 0.35f); q.lineTo(cx + h * 0.35f, cy); q.lineTo(cx - h * 0.25f, cy + h * 0.35f); q.close(); cv.drawPath(q, fill)
+                }
+                "slOn" -> {   // speed limit sign: ring with a bar inside
+                    line.strokeWidth = 3.4f * d; cv.drawCircle(cx, cy, h, line); line.strokeWidth = 2.4f * d
+                    cv.drawLine(cx - h * 0.4f, cy, cx + h * 0.4f, cy, line)
+                }
+                "slBeep" -> {   // speaker with one wave
+                    q.moveTo(cx - h, cy - h * 0.35f); q.lineTo(cx - h * 0.45f, cy - h * 0.35f); q.lineTo(cx + h * 0.1f, cy - h * 0.85f)
+                    q.lineTo(cx + h * 0.1f, cy + h * 0.85f); q.lineTo(cx - h * 0.45f, cy + h * 0.35f); q.lineTo(cx - h, cy + h * 0.35f); q.close()
+                    cv.drawPath(q, fill)
+                    cv.drawArc(RectF(cx - h * 0.4f, cy - h * 0.55f, cx + h * 0.6f, cy + h * 0.55f), -45f, 90f, false, line)
                 }
                 "bsSignal" -> {   // turn arrow
                     cv.drawLine(cx - h, cy, cx + h * 0.3f, cy, line); q.moveTo(cx + h * 0.2f, cy - h * 0.6f); q.lineTo(cx + h, cy); q.lineTo(cx + h * 0.2f, cy + h * 0.6f); q.close(); cv.drawPath(q, fill)

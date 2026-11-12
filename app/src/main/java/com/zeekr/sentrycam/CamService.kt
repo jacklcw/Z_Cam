@@ -64,6 +64,7 @@ class CamService : Service() {
     private var revBar: RevBar? = null
     private var floatCam: FloatCam? = null
     private var tripWidget: TripWidget? = null
+    private var speedLimit: SpeedLimitHud? = null
     private val mainH = android.os.Handler(android.os.Looper.getMainLooper())
     // Wakes the poll loop's sleep early (network back, shutdown) WITHOUT Thread.interrupt(): an interrupt landing
     // mid-capture aborted the camera open and used to leave the camera held open.
@@ -141,7 +142,7 @@ class CamService : Service() {
             return
         }
         CampGuard.sync(this, false); WelcomeWatch.sync(this, false)
-        DriveProfile.sync(this, getSharedPreferences("cfg", MODE_PRIVATE).getBoolean("pfOn", false)); syncBlindSpot(); syncRevBar(); syncWebHud(); syncFloatCam(); syncTripWidget(); syncPark()
+        DriveProfile.sync(this, getSharedPreferences("cfg", MODE_PRIVATE).getBoolean("pfOn", false)); syncBlindSpot(); syncRevBar(); syncWebHud(); syncFloatCam(); syncTripWidget(); syncSpeedLimit(); syncPark()
         try { com.zeekr.sentrycam.sound.DriveSound.refresh(this) } catch (e: Throwable) { Logger.log(this, "enginesound: ${e.javaClass.simpleName} ${e.message ?: ""}") }
     }
 
@@ -327,6 +328,13 @@ class CamService : Service() {
         val on = p.getBoolean("webHudOn", false) || p.getBoolean("webFloatOn", false)
         if (on && webHud == null) webHud = WebHud(this).also { it.start() }
         if (!on) { webHud?.stop(); webHud = null }
+    }
+
+    // Speed limit sign on the HUD follows the "slOn" pref; MainActivity re-sends a start intent on toggle.
+    private fun syncSpeedLimit() {
+        val on = getSharedPreferences("cfg", MODE_PRIVATE).getBoolean("slOn", false)
+        if (on && speedLimit == null) speedLimit = SpeedLimitHud(this).also { it.start() }
+        if (!on) { speedLimit?.stop(); speedLimit = null }
     }
 
     // Trip widget (floating driving statistics) follows the "twOn" pref; settings changes just re-send a start intent.

@@ -33,6 +33,9 @@ Dashboard layout: [open the wireframe](https://jacklcw.github.io/Z_Cam/docs/zcam
   smooth / segmented / slanted styles, four colour schemes, size and edge-gap sliders and a live
   in-app preview. Press and hold the floating button for quick toggles (engine sound, rev bar,
   web on HUD, HUD side camera, rear/front window): slide to one and lift to flip it.
+- **Speed limit sign.** Shows the speed limit of the road you are on as a round sign on the HUD,
+  from OpenStreetMap (needs internet in the car; roads without a limit tag show nothing). The sign
+  can glow and beep when you are over the limit. Place and resize it on the HUD layout pad.
 - **Engine sound.** A simulated engine that follows throttle and speed in every drive mode (Civic Type R,
   American V8, Prototype V8 and Turbo four; Civic Type R is the default), played in the
   cabin, outside, or both. Gear changes have their own effects (upshift bang, ignition cut,
@@ -56,7 +59,7 @@ Dashboard layout: [open the wireframe](https://jacklcw.github.io/Z_Cam/docs/zcam
     the bar at the top centre. Tap it again: they all come back.
   - **Press and hold** (keep your finger still) to open the quick-toggle ring. Slide to a sector
     and lift to flip it; the name shows at the top. Sectors: Engine sound, Volume (cabin / outside
-    arcs), Sound direction, HUD (rev bar, web on HUD, HUD side camera, turn arrow), Acceleration
+    arcs), Sound direction, HUD (rev bar, web on HUD, HUD side camera, turn arrow, speed limit and its sound), Acceleration
     mode, Floating windows (left, right, rear, front, web, trip) and Open Z Cam. Lift away from
     every sector to close the ring.
   - **Drag** the button to move it, **pinch** it to resize it. It can be switched off with

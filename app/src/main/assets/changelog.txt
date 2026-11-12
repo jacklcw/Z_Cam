@@ -1,3 +1,12 @@
+0.89.0
+- Speed limit sign on the HUD: the road you are on is matched to OpenStreetMap (needs internet in the car) and its speed limit shows as a round sign. Roads without a limit in OpenStreetMap show nothing.
+- Over the limit the sign glows, and an optional beep plays (once, then every 30 s while over). Both are switches under Settings > HUD > Speed limit sign, with a show/hide preview button.
+- Place and resize the sign on the HUD layout pad (Limit). Floating button ring > HUD: two new switches, Speed limit on HUD and Speed limit sound.
+- The speed limit settings are now part of the settings backup and the default settings.
+- Settings > HUD is reordered: Show on HUD, Turn arrow look, Rev bar, Speed limit sign, Exit animation, and the layout pad last.
+- Fixed: Apply default settings could crash the app on the next start (one profile setting was saved as a number instead of text).
+- Engine sound no longer cuts out when the web player changes song (YouTube Music next): the web sound delay hook that caused it is removed.
+
 0.88.0
 - Web window on the HUD: pinch out to magnify the picture past the HUD size (up to 4x), pan with two fingers, pinch in to go back. The Mini button resets it.
 - HUD layout pad: the Web box can be pinched up to 200% of the HUD height, so the web window can be larger than the HUD (the overhang is cropped).

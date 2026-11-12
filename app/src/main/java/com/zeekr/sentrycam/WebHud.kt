@@ -520,9 +520,6 @@ class WebHud(private val ctx: Context) {
     /** Web page volume (0-100 %), a multiplier on top of the car's media volume; independent of the engine sound volume. */
     fun applyVolume() {
         val v = p.getInt("webVol", 100).coerceIn(0, 100) / 100f
-        val ad = 250   // ms: lines the sound up with the picture
-        // sound delay: the page's audio goes through a Web Audio delay line (a site whose media blocks cross-origin access would go silent, so it is only hooked when a delay is set)
-        web?.evaluateJavascript("(function(ms){window.__ad=ms/1000;function h(m){if(m.__adn)return;try{var C=window.AudioContext||window.webkitAudioContext;var cx=window.__ac||(window.__ac=new C());var s=cx.createMediaElementSource(m);var d=cx.createDelay(3);d.delayTime.value=window.__ad;s.connect(d);d.connect(cx.destination);m.__adn=d}catch(e){}}function a(){document.querySelectorAll('video,audio').forEach(function(m){if(window.__ad>0&&!m.__adn)h(m);if(m.__adn)m.__adn.delayTime.value=window.__ad});if(window.__ac&&window.__ac.state=='suspended')window.__ac.resume()}a();if(!window.__adi){window.__adi=setInterval(a,1000);document.addEventListener('play',a,true)}})($ad)", null)
         web?.evaluateJavascript("(function(v){window.__zv=v;function a(){document.querySelectorAll('video,audio').forEach(function(m){if(m.volume!==window.__zv)m.volume=window.__zv})}a();if(!window.__zvi){window.__zvi=setInterval(a,1000);document.addEventListener('play',a,true)}})($v)", null)
     }
     fun resetZoom() { zoom = 1f; vz = 1f; tx = 0f; ty = 0f; applyZoom(); applyView() }

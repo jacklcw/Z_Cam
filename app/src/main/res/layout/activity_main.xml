@@ -172,19 +172,16 @@
                     <androidx.appcompat.widget.SwitchCompat android:id="@+id/bsSignal" android:tag="sw"
                         android:layout_width="match_parent" android:layout_height="wrap_content"
                         android:text="Turn signal arrow"/>
+                    <androidx.appcompat.widget.SwitchCompat android:id="@+id/slOn" android:tag="sw"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:text="Speed limit sign"/>
+                    <TextView android:tag="m" android:text="Shows the speed limit of the road you are on, from OpenStreetMap. Requires internet access in the car (no data, no sign). Roads without a speed limit in OpenStreetMap show nothing. Place and resize it on the HUD pad under Layout (Limit). Alert options are in the Speed limit section below."
+                        android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingBottom="4dp"/>
                     <androidx.appcompat.widget.SwitchCompat android:id="@+id/webOn" android:tag="sw"
                         android:layout_width="match_parent" android:layout_height="wrap_content"
                         android:text="Web page (yields to the side camera)"/>
                     <TextView android:tag="m" android:text="The rev bar is switched on or off per drive mode, under Rev bar below."
                         android:layout_width="wrap_content" android:layout_height="wrap_content" android:paddingTop="4dp"/>
-                    <View android:tag="chip" android:layout_width="match_parent" android:layout_height="1dp" android:layout_marginTop="18dp"/>
-                    <TextView android:tag="accent" android:text="LAYOUT" android:textStyle="bold" android:letterSpacing="0.08"
-                        android:layout_width="wrap_content" android:layout_height="wrap_content" android:paddingTop="14dp" android:paddingBottom="4dp"/>
-                    <TextView android:tag="m" android:text="Touch an item on the pad, drag to move it, pinch to resize it (the rev bar snaps to an edge). The HUD shows it while you edit. Use the chips to hide items that are in the way."
-                        android:layout_width="wrap_content" android:layout_height="wrap_content" android:paddingBottom="8dp"/>
-                    <LinearLayout android:id="@+id/arrHost" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical"/>
-                    <Button android:id="@+id/arrReset" android:tag="btn2" android:text="Reset HUD layout to default"
-                        android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp"/>
                     <View android:tag="chip" android:layout_width="match_parent" android:layout_height="1dp" android:layout_marginTop="18dp"/>
                     <TextView android:tag="accent" android:text="TURN ARROW LOOK" android:textStyle="bold" android:letterSpacing="0.08"
                         android:layout_width="wrap_content" android:layout_height="wrap_content" android:paddingTop="14dp" android:paddingBottom="4dp"/>
@@ -201,6 +198,19 @@
                         android:layout_width="wrap_content" android:layout_height="wrap_content" android:paddingTop="14dp" android:paddingBottom="4dp"/>
                     <LinearLayout android:id="@+id/revBody" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical"/>
                     <View android:tag="chip" android:layout_width="match_parent" android:layout_height="1dp" android:layout_marginTop="18dp"/>
+                    <TextView android:tag="accent" android:text="SPEED LIMIT SIGN" android:textStyle="bold" android:letterSpacing="0.08"
+                        android:layout_width="wrap_content" android:layout_height="wrap_content" android:paddingTop="14dp" android:paddingBottom="4dp"/>
+                    <androidx.appcompat.widget.SwitchCompat android:id="@+id/slGlow" android:tag="sw"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:text="Sign glows when over the speed limit"/>
+                    <androidx.appcompat.widget.SwitchCompat android:id="@+id/slBeep" android:tag="sw"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:text="Beep when over the speed limit (every 30 s while over)"/>
+                    <Button android:id="@+id/slPreview" android:tag="btn2" android:text="Show preview of sign and alert"
+                        android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="6dp"/>
+                    <TextView android:tag="m" android:text="Shows a sample sign on the HUD whatever road you are on, with the glow and one beep. Stays until you press again to hide it. Needs the speed limit sign switched on above."
+                        android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingTop="4dp"/>
+                    <View android:tag="chip" android:layout_width="match_parent" android:layout_height="1dp" android:layout_marginTop="18dp"/>
                     <TextView android:tag="accent" android:text="EXIT ANIMATION" android:textStyle="bold" android:letterSpacing="0.08"
                         android:layout_width="wrap_content" android:layout_height="wrap_content" android:paddingTop="14dp" android:paddingBottom="4dp"/>
                                         <Button android:id="@+id/bsExitAnim" android:tag="btn2" android:layout_width="match_parent" android:layout_height="wrap_content"
@@ -214,6 +224,14 @@
                         <Button android:id="@+id/bsExitPrevHud" android:tag="btn2" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"
                             android:layout_marginStart="8dp" android:text="Preview on HUD" android:textAllCaps="false"/>
                     </LinearLayout>
+                    <View android:tag="chip" android:layout_width="match_parent" android:layout_height="1dp" android:layout_marginTop="18dp"/>
+                    <TextView android:tag="accent" android:text="LAYOUT" android:textStyle="bold" android:letterSpacing="0.08"
+                        android:layout_width="wrap_content" android:layout_height="wrap_content" android:paddingTop="14dp" android:paddingBottom="4dp"/>
+                    <TextView android:tag="m" android:text="Touch an item on the pad, drag to move it, pinch to resize it (the rev bar snaps to an edge). The HUD shows it while you edit. Use the chips to hide items that are in the way."
+                        android:layout_width="wrap_content" android:layout_height="wrap_content" android:paddingBottom="8dp"/>
+                    <LinearLayout android:id="@+id/arrHost" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical"/>
+                    <Button android:id="@+id/arrReset" android:tag="btn2" android:text="Reset HUD layout to default"
+                        android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp"/>
                 </LinearLayout>
 
                 <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
