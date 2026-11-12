@@ -161,7 +161,7 @@ class WebHud(private val ctx: Context) {
     private fun landW() = minOf(hudH * 73 / 100, hudH * 16 / 9)
     // Free placement from the app's HUD layout pad (webPosX/webPosY = centre as % of the HUD, webSize = box height as % of the HUD height); else the fixed legacy spot above.
     private fun placed() = hudW > 0 && p.contains("webPosX")
-    private fun freeH(): Int { var h = hudH * p.getInt("webSize", 100).coerceIn(20, 100) / 100; if (land) h = minOf(h, hudW * 9 / 16); return h }
+    private fun freeH(): Int { var h = hudH * p.getInt("webSize", 100).coerceIn(20, 200) / 100; if (land) h = minOf(h, hudW * 9 / 16); return h }
     // Full screen: the box takes the centre screen's aspect at full HUD height, so the page lays out like it would on that screen.
     private var fullScreen = false
     private fun fullW(): Int {
@@ -171,8 +171,8 @@ class WebHud(private val ctx: Context) {
     }
     private fun hudWpx() = if (placed()) (if (land) freeH() * 16 / 9 else freeH() * 9 / 16) else if (land) landW() else portH() * 9 / 16
     private fun hudHpx() = if (placed()) freeH() else if (land) landW() * 9 / 16 else portH()
-    private fun offX() = if (placed()) (hudW * p.getInt("webPosX", 17) / 100 - hudWpx() / 2).coerceIn(0, (hudW - hudWpx()).coerceAtLeast(0)) else hudH * 24 / 100
-    private fun offY() = if (placed()) (hudH * p.getInt("webPosY", 50) / 100 - hudHpx() / 2).coerceIn(0, (hudH - hudHpx()).coerceAtLeast(0)) else if (land) hudH * 14 / 100 else 0
+    private fun offX() = if (placed()) (hudW * p.getInt("webPosX", 17) / 100 - hudWpx() / 2).coerceIn(minOf(0, hudW - hudWpx()), maxOf(0, hudW - hudWpx())) else hudH * 24 / 100
+    private fun offY() = if (placed()) (hudH * p.getInt("webPosY", 50) / 100 - hudHpx() / 2).coerceIn(minOf(0, hudH - hudHpx()), maxOf(0, hudH - hudHpx())) else if (land) hudH * 14 / 100 else 0
     private fun hudGrav() = if (placed()) (Gravity.TOP or Gravity.LEFT) else (if (land) Gravity.TOP else Gravity.CENTER_VERTICAL) or Gravity.LEFT
 
     // ---- tabs: one WebView per tab, only the active one is attached (and so drawn); the others are paused ----
@@ -427,7 +427,7 @@ class WebHud(private val ctx: Context) {
         big.addView(wv, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
         container.addView(big, FrameLayout.LayoutParams(hudWpx() * SS, hudHpx() * SS))
         val lp = WindowManager.LayoutParams(hudWpx(), hudHpx(), WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
+            WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
                 WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED, PixelFormat.TRANSLUCENT
         ).apply { gravity = hudGrav(); x = offX(); y = offY() }
         try { wctx.getSystemService(WindowManager::class.java).addView(container, lp) }
@@ -458,7 +458,7 @@ class WebHud(private val ctx: Context) {
         val cur = b.layoutParams
         if (cur == null || cur.width != w || cur.height != h) b.layoutParams = FrameLayout.LayoutParams(w, h)
         b.pivotX = 0f; b.pivotY = 0f
-        if (padW > 0 && padH > 0 && b.parent === floatPadFrame) { b.scaleX = padW / w.toFloat(); b.scaleY = padH / h.toFloat() } else { b.scaleX = 1f; b.scaleY = 1f }
+        if (padW > 0 && padH > 0 && b.parent === floatPadFrame) { b.scaleX = padW / w.toFloat() * vz; b.scaleY = padH / h.toFloat() * vz; b.translationX = tx * padW; b.translationY = ty * padH } else { b.scaleX = 1f; b.scaleY = 1f; b.translationX = 0f; b.translationY = 0f }
     }
     private var floatPadFrame: FrameLayout? = null
 
@@ -466,7 +466,7 @@ class WebHud(private val ctx: Context) {
     private fun parkBig() {
         val b = bigRef ?: return
         (b.parent as? ViewGroup)?.removeView(b)
-        b.scaleX = 1f; b.scaleY = 1f
+        b.scaleX = 1f; b.scaleY = 1f; b.translationX = 0f; b.translationY = 0f
         val w = hudWpx() * SS; val h = hudHpx() * SS
         if (parkWin == null) {
             val h1 = FrameLayout(ctx)
@@ -500,7 +500,8 @@ class WebHud(private val ctx: Context) {
         val r = inner ?: return false
         if (r.width <= 0 || r.height <= 0) return false
         c.drawColor(Color.BLACK)
-        c.scale(w.toFloat() / r.width, h.toFloat() / r.height)
+        c.translate(tx * w, ty * h)
+        c.scale(vz * w / r.width, vz * h / r.height)
         r.draw(c)
         return true
     }
@@ -524,10 +525,25 @@ class WebHud(private val ctx: Context) {
         web?.evaluateJavascript("(function(ms){window.__ad=ms/1000;function h(m){if(m.__adn)return;try{var C=window.AudioContext||window.webkitAudioContext;var cx=window.__ac||(window.__ac=new C());var s=cx.createMediaElementSource(m);var d=cx.createDelay(3);d.delayTime.value=window.__ad;s.connect(d);d.connect(cx.destination);m.__adn=d}catch(e){}}function a(){document.querySelectorAll('video,audio').forEach(function(m){if(window.__ad>0&&!m.__adn)h(m);if(m.__adn)m.__adn.delayTime.value=window.__ad});if(window.__ac&&window.__ac.state=='suspended')window.__ac.resume()}a();if(!window.__adi){window.__adi=setInterval(a,1000);document.addEventListener('play',a,true)}})($ad)", null)
         web?.evaluateJavascript("(function(v){window.__zv=v;function a(){document.querySelectorAll('video,audio').forEach(function(m){if(m.volume!==window.__zv)m.volume=window.__zv})}a();if(!window.__zvi){window.__zvi=setInterval(a,1000);document.addEventListener('play',a,true)}})($v)", null)
     }
-    fun resetZoom() { zoom = 1f; applyZoom() }
+    fun resetZoom() { zoom = 1f; vz = 1f; tx = 0f; ty = 0f; applyZoom(); applyView() }
+    // Pinch out beyond the page size: the whole picture is magnified past the HUD box (cropped there) and two fingers pan it.
+    // vz = magnification (1..4), tx / ty = where the page's top-left sits, as a fraction of the box (0 .. 1 - vz). Pinch in below 1 shrinks the page itself (CSS zoom 0.4..1).
+    private var vz = 1f; private var tx = 0f; private var ty = 0f
+    private var padVw = 1f; private var padVh = 1f; private var pfx = 0f; private var pfy = 0f
+    private fun applyView() {
+        if (direct) fitBig()
+        else inner?.let { it.scaleX = vz / SS; it.scaleY = vz / SS; it.translationX = tx * hudWpx(); it.translationY = ty * hudHpx() }
+        main.post(floatDraw)
+    }
     private val pinch = android.view.ScaleGestureDetector(ctx, object : android.view.ScaleGestureDetector.SimpleOnScaleGestureListener() {
+        override fun onScaleBegin(d: android.view.ScaleGestureDetector): Boolean { pfx = d.focusX / padVw; pfy = d.focusY / padVh; return true }
         override fun onScale(d: android.view.ScaleGestureDetector): Boolean {
-            zoom = (zoom * d.scaleFactor).coerceIn(0.4f, 4f); applyZoom(); return true
+            val f = d.scaleFactor; val fx = d.focusX / padVw; val fy = d.focusY / padVh
+            if (vz == 1f && (f < 1f || zoom < 1f)) { zoom = (zoom * f).coerceIn(0.4f, 1f); applyZoom(); pfx = fx; pfy = fy; return true }
+            val p0x = (pfx - tx) / vz; val p0y = (pfy - ty) / vz
+            vz = (vz * f).coerceIn(1f, 4f)
+            tx = (fx - p0x * vz).coerceIn(1f - vz, 0f); ty = (fy - p0y * vz).coerceIn(1f - vz, 0f)
+            pfx = fx; pfy = fy; applyView(); return true
         }
     })
     private var pinching = false
@@ -535,8 +551,10 @@ class WebHud(private val ctx: Context) {
 
     /** Touch from a mirror pad [v]: one finger scrolls/clicks the page, two fingers pinch-zoom it. */
     fun padTouch(e: MotionEvent, v: View) {
+        padVw = v.width.coerceAtLeast(1).toFloat(); padVh = v.height.coerceAtLeast(1).toFloat()
         pinch.onTouchEvent(e)
-        val nx = (e.x / v.width).coerceIn(0f, 1f); val ny = (e.y / v.height).coerceIn(0f, 1f)
+        // a touch on the (possibly magnified) picture lands on this spot of the page
+        val nx = ((e.x / v.width - tx) / vz).coerceIn(0f, 1f); val ny = ((e.y / v.height - ty) / vz).coerceIn(0f, 1f)
         if (e.pointerCount > 1 || pinch.isInProgress) {
             if (!pinching) { pinching = true; send(MotionEvent.ACTION_CANCEL, e.downTime, e.eventTime, lastNx, lastNy) }
             return

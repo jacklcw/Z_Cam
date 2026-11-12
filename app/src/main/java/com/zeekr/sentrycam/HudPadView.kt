@@ -20,7 +20,7 @@ class HudPadView(c: Context, private val onSelect: (Item) -> Unit, private val o
         var gw = 300; var gh = 200   // kind 4 only: width/height in HUD pixels (1440 x 480)
         var aspect = 100; var icon = 0; var color = BlindSpotHud.ARROW_GREEN; var pos = 1; var gap = 0
         fun min() = when (kind) { 0 -> 40; 1 -> 20; 3 -> 2; else -> 5 }
-        fun max() = when (kind) { 0 -> 100; 1 -> 100; 3 -> 30; else -> 40 }
+        fun max() = when (kind) { 0 -> 100; 1 -> 200; 3 -> 30; else -> 40 }
     }
     val items = ArrayList<Item>()      // drawn in this order, so later ones sit on top
     var sel: Item? = null

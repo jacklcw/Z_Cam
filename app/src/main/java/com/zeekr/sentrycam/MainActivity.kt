@@ -1532,7 +1532,7 @@ class MainActivity : AppCompatActivity() {
                 rev.pos = (p.getString("pfRevPos_$h", DriveProfile.revDef(code, "pfRevPos"))?.toIntOrNull() ?: 1).coerceIn(0, 2)
                 rev.size = p.getInt("pfRevSize_$h", DriveProfile.REV_SIZE).coerceIn(2, 30); rev.gap = p.getInt("pfRevInset_$h", DriveProfile.REV_GAP).coerceIn(0, 20)
             }
-            web.size = p.getInt("webSize", 100).coerceIn(20, 100); web.x = p.getInt("webPosX", 17); web.y = p.getInt("webPosY", 50)
+            web.size = p.getInt("webSize", 100).coerceIn(20, 200); web.x = p.getInt("webPosX", 17); web.y = p.getInt("webPosY", 50)
             for (a in listOf(arrL, arrR)) {
                 val l = a.left
                 a.x = BlindSpotHud.arrowGet(p, "bsArrX", l); a.y = BlindSpotHud.arrowGet(p, "bsArrY", l); a.size = BlindSpotHud.arrowGet(p, "bsArrSize", l)
