@@ -35,7 +35,7 @@ object FloatQuick {
     private fun isAction(key: String) = key.startsWith("@")
     private class Item(val key: String, val label: String)
     private val ITEMS = listOf(
-        Item("engOn", "Engine sound"), Item(VOL, "Volume"), Item(DIR, "Sound direction"), Item(PA, "Announce outside"), Item(HUD, "HUD"),
+        Item("engOn", "Engine sound"), Item("mcOn", "Zed"), Item(VOL, "Volume"), Item(DIR, "Sound direction"), Item(PA, "Announce outside"), Item(HUD, "HUD"),
         Item(DRIVE, "Acceleration mode"),
         Item(LIVE, "Floating windows"),
         Item(APP, "Open Z Cam"))
@@ -107,6 +107,7 @@ object FloatQuick {
         private val loc = IntArray(2)
         private val n = ITEMS.size
         private val driveIdx = ITEMS.indexOfFirst { it.key == DRIVE }
+        private fun flag(key: String) = p.getBoolean(key, key == "mcOn")   // Zed is on unless switched off
         private fun grp(i: Int): List<Item>? = if (i in 0 until n) GROUPS[ITEMS[i].key] else null
         private var gopen = -1                      // first-layer index of the group sector whose switches are showing
         private val g0 = DoubleArray(n); private val gSweep = DoubleArray(n) { 30.0 }
@@ -283,7 +284,7 @@ object FloatQuick {
             val wasG = gopen
             if (h == driveIdx) { open = true; vopen = false; gopen = -1 } else if (h == volIdx) { vopen = true; open = false; gopen = -1 } else if (grp(h) != null) { gopen = h; open = false; vopen = false } else if (h in 0 until n) { open = false; vopen = false; gopen = -1 }
             if (h in 1000 until 2000) { lockBand = h - 1000; setVol(lockBand, x, y) }
-            if (h != hover && h >= 0) tick(if (h >= 2000) !p.getBoolean(grp(gopen)!![h - 2000].key, false) else h < n && !isAction(ITEMS[h].key) && !p.getBoolean(ITEMS[h].key, false))
+            if (h != hover && h >= 0) tick(if (h >= 2000) !p.getBoolean(grp(gopen)!![h - 2000].key, false) else h < n && !isAction(ITEMS[h].key) && !flag(ITEMS[h].key))
             if (h != hover || was != open || wasV != vopen || wasG != gopen || h >= 1000) { hover = h; invalidate() }
         }
 
@@ -318,7 +319,7 @@ object FloatQuick {
                 try { context.startActivity(Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)) } catch (e: Throwable) { Logger.log(context, "floatquick: open app failed ${e.message ?: ""}") }
                 return
             }
-            p.edit().putBoolean(ITEMS[i].key, !p.getBoolean(ITEMS[i].key, false)).apply()
+            p.edit().putBoolean(ITEMS[i].key, !flag(ITEMS[i].key)).apply()
             syncSoon()
         }
 
@@ -408,6 +409,12 @@ object FloatQuick {
                     cv.drawRoundRect(cx - h, cy - h * 0.8f, cx + h, cy + h * 0.8f, 3 * d, 3 * d, line)
                     val s = if (kind == "flLeft") 1f else -1f
                     q.moveTo(cx + s * h * 0.35f, cy - h * 0.4f); q.lineTo(cx - s * h * 0.35f, cy); q.lineTo(cx + s * h * 0.35f, cy + h * 0.4f); q.close(); cv.drawPath(q, fill)
+                }
+                "mcOn" -> {   // Zed: rounded body, visor strip with a light bar, two wheels, antenna
+                    cv.drawRoundRect(cx - h, cy - h * 0.55f, cx + h, cy + h * 0.65f, 3 * d, 3 * d, line)
+                    cv.drawLine(cx - h * 0.55f, cy - h * 0.05f, cx + h * 0.55f, cy - h * 0.05f, line)
+                    cv.drawCircle(cx - h * 0.5f, cy + h * 0.95f, h * 0.2f, fill); cv.drawCircle(cx + h * 0.5f, cy + h * 0.95f, h * 0.2f, fill)
+                    cv.drawLine(cx, cy - h * 0.55f, cx, cy - h, line)
                 }
                 "revOn" -> {   // gauge: open arc and a needle
                     cv.drawArc(RectF(cx - h, cy - h, cx + h, cy + h), 150f, 240f, false, line)
@@ -525,7 +532,7 @@ object FloatQuick {
             line.style = Paint.Style.STROKE; line.strokeWidth = 2.5f * d; line.color = edge
             cv.drawCircle(bx, by, r0 - 2f * d, line)
             for ((i, it) in ITEMS.withIndex()) {
-                val on = if (grp(i) != null) grp(i)!!.any { h -> p.getBoolean(h.key, false) } else !isAction(it.key) && p.getBoolean(it.key, false)
+                val on = if (grp(i) != null) grp(i)!!.any { h -> p.getBoolean(h.key, false) } else !isAction(it.key) && flag(it.key)
                 drawSector(a0[i], sweep1, r0, r1, on || (it.key == PA && LivePa.live()), hover == i || (i == driveIdx && open) || (i == volIdx && vopen) || (i == gopen), it.key, !isAction(it.key) && !on)
             }
             if (gopen >= 0) for ((k, it) in grp(gopen)!!.withIndex()) { val on = p.getBoolean(it.key, false); drawSector((g0[gopen] + gSweep[gopen] * k).toFloat(), gSweep[gopen].toFloat(), r2a, r2, on, hover == 2000 + k, it.key, !on) }
@@ -534,7 +541,7 @@ object FloatQuick {
             // name of the sector under the finger, at the top of the screen
             val label = when {
                 hover == paIdx -> if (LivePa.status.isNotEmpty()) LivePa.status else "LIVE outside  " + "|".repeat((LivePa.level * 20).toInt().coerceIn(0, 20))
-                hover in 0 until n -> ITEMS[hover].label + if (ITEMS[hover].key == DIR) (if (outside()) ": Outside" else ": Cabin") else if (ITEMS[hover].key == APP || ITEMS[hover].key == VOL || grp(hover) != null) "" else if (hover != driveIdx) (if (p.getBoolean(ITEMS[hover].key, false)) ": ON" else ": OFF") else (curMode?.let { c -> modes.firstOrNull { it.first == c }?.second?.let { m -> ": $m" } } ?: "")
+                hover in 0 until n -> ITEMS[hover].label + if (ITEMS[hover].key == DIR) (if (outside()) ": Outside" else ": Cabin") else if (ITEMS[hover].key == APP || ITEMS[hover].key == VOL || grp(hover) != null) "" else if (hover != driveIdx) (if (flag(ITEMS[hover].key)) ": ON" else ": OFF") else (curMode?.let { c -> modes.firstOrNull { it.first == c }?.second?.let { m -> ": $m" } } ?: "")
                 hover >= 2000 -> grp(gopen)!![hover - 2000].label + if (p.getBoolean(grp(gopen)!![hover - 2000].key, false)) ": ON" else ": OFF"
                 hover >= 1000 -> bandName[hover - 1000] + ": " + bandText(hover - 1000)
                 hover >= n -> modes[hover - n].second + if (modes[hover - n].first == curMode) " (current)" else ""

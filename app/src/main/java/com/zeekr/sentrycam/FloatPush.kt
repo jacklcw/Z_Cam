@@ -23,6 +23,18 @@ object FloatPush {
         return Rect(i.lp.x, i.lp.y, i.lp.x + w, i.lp.y + h)
     }
 
+    /** Every visible floating window in screen pixels (the mascot walks on their tops). */
+    fun screenRects(): List<Rect> {
+        val out = ArrayList<Rect>(); val loc = IntArray(2)
+        for (i in items.values) {
+            val v = i.view() ?: continue
+            if (!v.isAttachedToWindow || v.visibility != View.VISIBLE || i.lp.alpha < 0.5f || v.width <= 0 || v.height <= 0) continue
+            v.getLocationOnScreen(loc)
+            out.add(Rect(loc[0], loc[1], loc[0] + v.width, loc[1] + v.height))
+        }
+        return out
+    }
+
     fun overlapsOther(key: String): Boolean {
         val m = items[key] ?: return false
         val mr = rect(m)

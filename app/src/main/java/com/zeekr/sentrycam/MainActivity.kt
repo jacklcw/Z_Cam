@@ -300,6 +300,7 @@ class MainActivity : AppCompatActivity() {
         }
         buildProfileCard()
         buildTripCard { syncService() }
+        buildMascotCard { syncService() }
         findViewById<SeekBar>(R.id.flHdr).apply {
             val lab = this@MainActivity.findViewById<TextView>(R.id.flHdrLabel)
             progress = p.getInt("flHeader", 56).coerceIn(36, 96) - 36
@@ -763,6 +764,67 @@ class MainActivity : AppCompatActivity() {
     // Driving profiles card: per drive mode an ambient colour (swatches) and an engine-sound style (picker), plus an optional start mode.
     private val pfRefresh = ArrayList<() -> Unit>()
     private var feelListener: android.content.SharedPreferences.OnSharedPreferenceChangeListener? = null   // prefs only hold it weakly
+    /** Mascot card: the pixel pet that roams the screen (see Mascot). Every control writes an "mc*" pref and re-sends the start intent. */
+    private fun buildMascotCard(sync: () -> Unit) {
+        val body = findViewById<LinearLayout>(R.id.mcBody)
+        val d = ZScale.density(this)
+        fun dp(x: Int) = (x * d).toInt()
+        val mode = ZTheme.Mode.of(p.getString("theme", null))
+        fun add(v: View, top: Int = 8) = body.addView(v, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(top) })
+        fun sw(key: String, text: String, def: Boolean, onChange: () -> Unit = {}) = androidx.appcompat.widget.SwitchCompat(this).apply {
+            tag = "sw"; this.text = text; isChecked = p.getBoolean(key, def)
+            setOnCheckedChangeListener { _, on -> p.edit().putBoolean(key, on).apply(); onChange(); sync() }
+        }
+        fun seek(key: String, text: String, min: Int, max: Int, def: Int, fmt: (Int) -> String): View {
+            val box = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+            val lab = TextView(this).apply { tag = "m"; textSize = 13f }
+            box.addView(lab)
+            box.addView(SeekBar(this).apply {
+                tag = "seek"; this.max = max - min; progress = p.getInt(key, def).coerceIn(min, max) - min
+                lab.text = text + ": " + fmt(progress + min)
+                setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+                    override fun onProgressChanged(sb: SeekBar, v: Int, fromUser: Boolean) { lab.text = text + ": " + fmt(v + min); if (fromUser) p.edit().putInt(key, v + min).apply() }
+                    override fun onStartTrackingTouch(sb: SeekBar) {}
+                    override fun onStopTrackingTouch(sb: SeekBar) { sync() }
+                })
+            }, LinearLayout.LayoutParams(-1, -2))
+            return box
+        }
+        body.addView(TextView(this).apply { tag = "m"; text = "Zed, a little pixel creature that lives on the screen: it walks, hops onto the floating windows, crawls up the walls and over the ceiling, naps and plays with a ball or a bug. It rests at night, goes hyper in the evening, and sometimes reacts when the car goes very fast." })
+        add(sw("mcOn", "Show Zed", true) { if (p.getBoolean("mcOn", true) && !android.provider.Settings.canDrawOverlays(this@MainActivity)) try { startActivity(Intent(android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName"))) } catch (_: Throwable) {} })
+        // colour: preset swatches, a custom colour and a rainbow mode
+        val swatches = listOf(0xFFB6FF3B.toInt(), 0xFFE07B53.toInt(), 0xFF3BD9FF.toInt(), 0xFFFF6FA5.toInt(), 0xFFA78BFA.toInt(), 0xFFFFD43B.toInt(), 0xFFFF5A5A.toInt(), 0xFFF2F2F7.toInt())
+        val dots = ArrayList<View>()
+        fun mark() { val c = p.getInt("mcColor", swatches[0]); dots.forEachIndexed { i, v -> v.background = android.graphics.drawable.GradientDrawable().apply { shape = android.graphics.drawable.GradientDrawable.OVAL; setColor(swatches[i]); setStroke(dp(if (swatches[i] == c) 3 else 1), if (swatches[i] == c) 0xFFFFFFFF.toInt() else 0x66888888) } } }
+        val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+        swatches.forEach { col ->
+            val v = View(this).apply { setOnClickListener { p.edit().putInt("mcColor", col).putBoolean("mcRainbow", false).apply(); mark(); sync() } }
+            dots.add(v); row.addView(v, LinearLayout.LayoutParams(dp(30), dp(30)).apply { marginEnd = dp(8) })
+        }
+        mark()
+        add(TextView(this).apply { tag = "m"; text = "Colour"; textSize = 13f }, 12)
+        add(row, 4)
+        add(Button(this).apply { tag = "btn2"; isAllCaps = false; text = "Custom colour"
+            setOnClickListener { ColorPicker.show(this@MainActivity, ZTheme.palette(mode), "Zed colour", p.getInt("mcColor", swatches[0]), onLive = {}, onDone = { c -> if (c != 0) { p.edit().putInt("mcColor", c).putBoolean("mcRainbow", false).apply(); mark(); sync() } }) } })
+        add(sw("mcRainbow", "Rainbow (the colour keeps changing)", false))
+        add(Button(this).apply { tag = "seg"; isAllCaps = false
+            val names = listOf("Screen (two LED eyes)", "Lenses (two round eyes)", "Visor (one light bar)")
+            fun show() { text = "Face: " + names[p.getInt("mcFace", 2).coerceIn(0, 2)] }
+            show()
+            setOnClickListener { ZDialog.choose(this@MainActivity, "Face", names, p.getInt("mcFace", 2).coerceIn(0, 2)) { i -> p.edit().putInt("mcFace", i).apply(); show(); sync() } } })
+        add(seek("mcSize", "Size", 3, 12, 5) { "$it" }, 12)
+        add(seek("mcSpeed", "Pace", 40, 220, 100) { "$it%" }, 8)
+        add(TextView(this).apply { tag = "m"; text = "What it does"; textSize = 13f }, 12)
+        add(sw("mcJump", "Hop onto the floating windows", true), 4)
+        add(sw("mcClimb", "Crawl up the walls and over the ceiling", true), 0)
+        add(sw("mcToys", "Play with a ball and chase a bug", true), 0)
+        add(sw("mcNap", "Take naps", true), 0)
+        add(sw("mcLife", "Daily life: eat, shower, toilet, sports, charging", true), 0)
+        add(sw("mcReact", "Sometimes react when the car is very fast", true), 0)
+        add(Button(this).apply { tag = "btn2"; isAllCaps = false; text = "Play now"; setOnClickListener { sync(); Mascot.cheer() } }, 12)
+        applyTheme()
+    }
+
     /** Trip widget card: a floating driving-statistics window (see TripWidget). Every control writes a "tw*" pref and re-sends the start intent. */
     private fun buildTripCard(sync: () -> Unit) {
         val body = findViewById<LinearLayout>(R.id.twBody)
@@ -1194,7 +1256,7 @@ class MainActivity : AppCompatActivity() {
     private fun openSet(): MutableSet<String> = (p.getString("openSections", null) ?: "Driving profiles").split("|").filter { it.isNotEmpty() }.toMutableSet()
     private val SECTION_ICONS = mapOf("Relay" to R.drawable.ic_sec_relay, "Cameras" to R.drawable.ic_sec_camera, "Backup" to R.drawable.ic_sec_backup,
         "Driving profiles" to R.drawable.ic_sec_profile, "Engine sound" to R.drawable.ic_sec_engine, "HUD" to R.drawable.ic_sec_blind, "Camping mode" to R.drawable.ic_sec_camp,
-        "360° live view" to R.drawable.ic_sec_live, "Web view" to R.drawable.ic_sec_web, "Floating windows" to R.drawable.ic_sec_float, "Trip widget" to R.drawable.ic_sec_trip, "Snapshot (works with ZDash)" to R.drawable.ic_sec_sentry)
+        "360° live view" to R.drawable.ic_sec_live, "Web view" to R.drawable.ic_sec_web, "Floating windows" to R.drawable.ic_sec_float, "Trip widget" to R.drawable.ic_sec_trip, "Zed" to R.drawable.ic_sec_mascot, "Snapshot (works with ZDash)" to R.drawable.ic_sec_sentry)
     private val SIDE_BUTTONS = mapOf(R.id.checkUpdate to R.drawable.ic_btn_update, R.id.applyDefaults to R.drawable.ic_btn_reset, R.id.backupCard to R.drawable.ic_sec_backup, R.id.dataUsage to R.drawable.ic_btn_data,
         R.id.viewLog to R.drawable.ic_btn_log, R.id.whatsNew to R.drawable.ic_btn_whatsnew, R.id.unlink to R.drawable.ic_btn_unlink, R.id.restartApp to R.drawable.ic_btn_restart, R.id.credits to R.drawable.ic_btn_credits, R.id.resetAll to R.drawable.ic_btn_reset)
     private fun addSectionIcons(v: View) {
@@ -1237,6 +1299,7 @@ class MainActivity : AppCompatActivity() {
         "Web view" to "browser on the HUD and in a window",
         "Floating windows" to "windows, button, animations",
         "Trip widget" to "driving stats window",
+        "Zed" to "your pixel pet that roams the screen",
         "Snapshot (works with ZDash)" to "remote snapshots, live view, clips")
     private fun headerText(title: String): CharSequence {
         val d = SECTION_DESC[title] ?: return title
@@ -1321,7 +1384,7 @@ class MainActivity : AppCompatActivity() {
     // Backup groups: what goes up to the relay, and what the long press on the Backup button can leave out.
     private val BACKUP_CATS = listOf(
         "cam" to "Camera windows, HUD and tuning", "web" to "Web window settings", "webdata" to "Web bookmarks, history and tabs",
-        "eng" to "Engine sound and welcome sound", "pf" to "Driving profiles", "tw" to "Trip widget", "rev" to "Rev bar", "ui" to "Theme")
+        "eng" to "Engine sound and welcome sound", "pf" to "Driving profiles", "tw" to "Trip widget", "mc" to "Zed", "rev" to "Rev bar", "ui" to "Theme")
     private val BACKUP_SKIP = setOf("bsPreviewUntil", "bsNoHoldUntil", "bsPreviewSide", "bsArrPrevUntil", "bsArrPrevSide", "flSizeStamp", "revPreviewUntil", "slPreviewUntil", "slBeepPrev", "webPreviewUntil", "twSnapSeq", "twReset", "pfTab", "revTab")
     private fun backupCat(k: String): String? = when {
         k in BACKUP_SKIP -> null
@@ -1331,6 +1394,7 @@ class MainActivity : AppCompatActivity() {
         k.startsWith("eng") || k.startsWith("welcome") || k.startsWith("lock") -> "eng"
         k.startsWith("pf") -> "pf"
         k.startsWith("tw") -> "tw"
+        k.startsWith("mc") -> "mc"
         k.startsWith("rev") -> "rev"
         k == "theme" || k.startsWith("openSection") -> "ui"
         else -> null

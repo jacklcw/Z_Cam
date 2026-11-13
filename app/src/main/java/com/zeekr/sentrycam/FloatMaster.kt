@@ -171,5 +171,5 @@ object FloatMaster {
 
 /** The collapsed dock and the floating button must never be covered by a floating window: dock first, button on top of it. */
 object OverlayTop {
-    fun raise(ctx: Context) { if (FloatMaster.yieldToBlink) return; BubbleRow.raise(ctx); FloatMaster.raise() }
+    fun raise(ctx: Context) { if (FloatMaster.yieldToBlink) return; Mascot.raise(); BubbleRow.raise(ctx); FloatMaster.raise() }
 }

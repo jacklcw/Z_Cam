@@ -142,7 +142,7 @@ class CamService : Service() {
             return
         }
         CampGuard.sync(this, false); WelcomeWatch.sync(this, false)
-        DriveProfile.sync(this, getSharedPreferences("cfg", MODE_PRIVATE).let { it.getBoolean("pfOn", false) || it.getBoolean("mmOn", false) }); syncBlindSpot(); syncRevBar(); syncWebHud(); syncFloatCam(); syncTripWidget(); syncSpeedLimit(); syncPark()
+        DriveProfile.sync(this, getSharedPreferences("cfg", MODE_PRIVATE).let { it.getBoolean("pfOn", false) || it.getBoolean("mmOn", false) }); syncBlindSpot(); syncRevBar(); syncWebHud(); syncFloatCam(); syncTripWidget(); syncSpeedLimit(); syncPark(); Mascot.sync(this)
         try { com.zeekr.sentrycam.sound.DriveSound.refresh(this) } catch (e: Throwable) { Logger.log(this, "enginesound: ${e.javaClass.simpleName} ${e.message ?: ""}") }
     }
 
@@ -364,7 +364,7 @@ class CamService : Service() {
         revBar?.stop(); revBar = null
         floatCam?.stop(); floatCam = null
         tripWidget?.stop(); tripWidget = null
-        FloatMaster.stop()
+        FloatMaster.stop(); Mascot.stop()
         try { netCallback?.let { connMgr?.unregisterNetworkCallback(it) } } catch (_: Throwable) {}
         netCallback = null
         usbVideoWatcher?.stop(); usbVideoWatcher = null

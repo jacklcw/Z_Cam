@@ -107,6 +107,9 @@ object DriveProfile {
     }
 
     /** Car speed in km/h from the speed sensor (m/s), or null. */
+    fun speedKmhPublic(ctx: Context): Float? = speedKmh(ctx)
+    /** HV battery % from the car (same sensor id the trip widget uses), or null. */
+    fun battPctPublic(ctx: Context): Float? = try { if (!connect(ctx)) null else (latestFn?.invoke(sensor, 0x00404000) as? Number)?.toFloat()?.takeIf { it in 0f..100f } } catch (_: Throwable) { null }
     private fun speedKmh(ctx: Context): Float? = try {
         if (!connect(ctx)) null else (latestFn?.invoke(sensor, 0x00100100) as? Number)?.toFloat()?.takeIf { !it.isNaN() && it != 255f && it != -65535f }?.times(3.6f)
     } catch (_: Throwable) { null }

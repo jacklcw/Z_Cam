@@ -345,6 +345,11 @@
                     </LinearLayout>
                 </LinearLayout>
 
+                <LinearLayout android:id="@+id/mcBody" android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:orientation="vertical" android:tag="card" android:layout_marginBottom="10dp">
+                    <TextView android:tag="h" android:text="Zed" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+                </LinearLayout>
+
                 <LinearLayout android:id="@+id/twBody" android:layout_width="match_parent" android:layout_height="wrap_content"
                     android:orientation="vertical" android:tag="card" android:layout_marginBottom="10dp">
                     <TextView android:tag="h" android:text="Trip widget" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
