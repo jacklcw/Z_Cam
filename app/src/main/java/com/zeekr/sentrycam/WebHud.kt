@@ -911,7 +911,7 @@ class WebHud(private val ctx: Context) {
                 val nx = if (left) x0 + w0 - nw else x0; val ny = if (top) y0 + h0 - padHFor(nw) else y0
                 val grow = padHFor(nw) - padH
                 // bumping into another window, or off the screen: stop growing (height is wrap-content, so add the picture's growth)
-                if (nx >= 0 && ny >= 0) {   // windows may overlap now, so only the screen edge stops the growth
+                if ((!left || nx >= 0) && (!top || ny >= 0)) {   // only a corner that moves the window towards the screen edge is stopped there (a window already partly off-screen can still grow from its other corners)
                     padW = nw; padH = padHFor(padW); lp.x = nx; lp.y = ny; winX = nx; winY = ny; applySize()
                 }
             }, { p.edit().putInt("webFloatW", padW).putInt("webFloatX", lp.x).putInt("webFloatY", lp.y).apply() })
