@@ -208,6 +208,23 @@ class MainActivity : AppCompatActivity() {
             slPrevLabel()
         }
         slPrevLabel()
+        fun slSeek(id: Int, lab: Int, key: String, def: Int, min: Int, name: String) {
+            val l = findViewById<TextView>(lab)
+            findViewById<SeekBar>(id).apply {
+                progress = p.getInt(key, def).coerceIn(min, min + max) - min
+                l.text = "$name: ${progress + min}%"
+                setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+                    override fun onProgressChanged(sb: SeekBar, v: Int, fromUser: Boolean) {
+                        l.text = "$name: ${v + min}%"
+                        if (fromUser) { p.edit().putInt(key, v + min).apply(); SpeedLimitHud.instance?.kick() }
+                    }
+                    override fun onStartTrackingTouch(sb: SeekBar) {}
+                    override fun onStopTrackingTouch(sb: SeekBar) {}
+                })
+            }
+        }
+        slSeek(R.id.slRing, R.id.slRingLabel, "slRing", 28, 8, "Red border thickness")
+        slSeek(R.id.slNum, R.id.slNumLabel, "slNum", 100, 50, "Number size")
         findViewById<CompoundButton>(R.id.slBeep).apply {
             isChecked = p.getBoolean("slBeep", false)
             setOnCheckedChangeListener { _, on -> p.edit().putBoolean("slBeep", on).apply() }
@@ -1408,7 +1425,7 @@ class MainActivity : AppCompatActivity() {
         val m = LinkedHashMap<String, Any>()
         for (k in listOf("flLeft", "flRight", "flRear", "flFront", "flOnly_L", "flOnly_R", "flBlinkCenter", "flBlackBg", "bsHud", "bsRightPos", "revOn", "slOn", "slBeep", "mmOn", "webHudOn", "webFloatOn", "webFloatAlways")) m[k] = false
         for (k in listOf("flMaster", "parkCut", "bsSignal", "slGlow")) m[k] = true
-        m["flHeader"] = 56; m["flCorner"] = 0; m["flFade"] = 0
+        m["flHeader"] = 56; m["flCorner"] = 0; m["flFade"] = 0; m["slRing"] = 28; m["slNum"] = 100
         for (c in CamTune.CAMS) {
             for (k in listOf("bsSize", "bsAspect", "bsFov", "bsTilt", "bsYaw", "bsRoll")) if ((k != "bsSize" && k != "bsAspect") || CamTune.side(c)) m["${k}_$c"] = CamTune.def(k, c)
             for (k in CamTune.LOOK) m["${k}_$c"] = CamTune.lookDef(k)

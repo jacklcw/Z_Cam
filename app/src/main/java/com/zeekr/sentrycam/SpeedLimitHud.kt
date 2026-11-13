@@ -332,6 +332,7 @@ class SpeedLimitHud(private val ctx: Context) {
     private fun update(show: Int, over: Boolean) {
         if (!running) return
         lastShow = show; lastOver = over
+        view?.invalidate()   // picks up the ring/number sliders
         var v = view
         if (show <= 0) { v?.let { if (it.visibility != View.GONE) it.visibility = View.GONE }; return }
         if (v != null) {
@@ -414,6 +415,7 @@ class SignView(c: Context) : View(c) {
         set(v) { if (v != field) { field = v; invalidate() } }
     private var glow = false
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val cfg = c.getSharedPreferences("cfg", Context.MODE_PRIVATE)
     fun setGlow(on: Boolean) { if (on != glow) { glow = on; invalidate() } }
     override fun onDraw(cv: Canvas) {
         val s = minOf(width, height).toFloat(); val c = s / 2f; val r = c * 0.8f
@@ -425,10 +427,10 @@ class SignView(c: Context) : View(c) {
             postInvalidateOnAnimation()
         }
         paint.color = Color.RED; cv.drawCircle(c, c, r, paint)
-        paint.color = Color.WHITE; cv.drawCircle(c, c, r * 0.72f, paint)
+        paint.color = Color.WHITE; cv.drawCircle(c, c, r * (1f - cfg.getInt("slRing", 28).coerceIn(8, 45) / 100f), paint)
         paint.color = Color.BLACK; paint.textAlign = Paint.Align.CENTER; paint.typeface = android.graphics.Typeface.DEFAULT_BOLD
         val t = value.toString()
-        paint.textSize = r * 2f * (if (t.length >= 3) 0.34f else 0.46f)
+        paint.textSize = r * 2f * (if (t.length >= 3) 0.34f else 0.46f) * cfg.getInt("slNum", 100).coerceIn(50, 150) / 100f
         cv.drawText(t, c, c - (paint.ascent() + paint.descent()) / 2f, paint)
     }
 }

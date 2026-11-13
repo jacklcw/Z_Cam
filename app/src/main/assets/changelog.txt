@@ -1,3 +1,6 @@
+0.98.0
+- Speed limit sign: new sliders to adjust the red border thickness and the number size (included in settings backup).
+
 0.97.0
 - Zed has a natural body-shaped shadow (soft drop shadow plus a thin dark contour) so he stays visible on any background.
 - Zed now spends little time on the right 30% of the screen, where the steering wheel hides it: he mostly walks, hops, hangs and climbs on the left.

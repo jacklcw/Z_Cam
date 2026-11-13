@@ -221,6 +221,12 @@
                     <androidx.appcompat.widget.SwitchCompat android:id="@+id/slGlow" android:tag="sw"
                         android:layout_width="match_parent" android:layout_height="wrap_content"
                         android:text="Sign glows when over the speed limit"/>
+                    <TextView android:id="@+id/slRingLabel" android:tag="m" android:text="Red border thickness: 28%"
+                        android:layout_width="wrap_content" android:layout_height="wrap_content" android:paddingTop="6dp"/>
+                    <SeekBar android:id="@+id/slRing" android:tag="seek" android:layout_width="match_parent" android:layout_height="wrap_content" android:max="37"/>
+                    <TextView android:id="@+id/slNumLabel" android:tag="m" android:text="Number size: 100%"
+                        android:layout_width="wrap_content" android:layout_height="wrap_content" android:paddingTop="6dp"/>
+                    <SeekBar android:id="@+id/slNum" android:tag="seek" android:layout_width="match_parent" android:layout_height="wrap_content" android:max="100"/>
                     <androidx.appcompat.widget.SwitchCompat android:id="@+id/slBeep" android:tag="sw"
                         android:layout_width="match_parent" android:layout_height="wrap_content"
                         android:text="Beep when over the speed limit (every 30 s while over)"/>
