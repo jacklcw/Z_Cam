@@ -152,6 +152,7 @@ object Mascot {
         // mood and speed
         private var mood = 1f; private var moodAt = 0L
         @Volatile private var kmh = 0f; @Volatile private var batt = -1f
+        @Volatile private var fit = 0f; private var fitShown = 0f; private var dayKm = -1f; private var dayKey = 0; private var kmAt = 0L   // fitness: km driven today, back to round at midnight
         private var pollBusy = false; private var pollAt = 0L; private var reactAt = 0L; private var reactPending = false; private var secT = 0f
         private var prev = Rect(); private var cur = Rect()
 
@@ -264,11 +265,22 @@ object Mascot {
             }
         }
 
+        private fun addKm(raw: Float, now: Long) {
+            val cal = Calendar.getInstance(); val key = cal.get(Calendar.YEAR) * 1000 + cal.get(Calendar.DAY_OF_YEAR)
+            val sp = context.getSharedPreferences("cfg", Context.MODE_PRIVATE)
+            if (dayKm < 0f) { dayKey = sp.getInt("mcFitDay", key); dayKm = sp.getFloat("mcFitKm", 0f); kmAt = now }
+            if (key != dayKey) { dayKey = key; dayKm = 0f }   // midnight: round again
+            val dtS = ((now - kmAt) / 1000f).coerceIn(0f, 10f); kmAt = now
+            if (raw > 1f) dayKm += raw * dtS / 3600f
+            fit = (dayKm / 60f).coerceIn(0f, 1f)   // 60 km in a day = fully fit
+            sp.edit().putInt("mcFitDay", dayKey).putFloat("mcFitKm", dayKm).apply()
+        }
+
         private fun speedPoll(now: Long) {
             if (pollBusy || now - pollAt < 2000L) return
             pollAt = now; pollBusy = true
             Thread {
-                try { kmh = if (reactOn) DriveProfile.speedKmhPublic(context) ?: 0f else 0f } catch (_: Throwable) { kmh = 0f }
+                try { val raw = DriveProfile.speedKmhPublic(context) ?: 0f; kmh = if (reactOn) raw else 0f; addKm(raw, now) } catch (_: Throwable) { kmh = 0f }
                 try { batt = DriveProfile.battPctPublic(context) ?: -1f } catch (_: Throwable) { batt = -1f }
                 pollBusy = false
             }.start()
@@ -310,6 +322,7 @@ object Mascot {
             val nowMs = SystemClock.uptimeMillis()
             if (nowMs - moodAt > 30_000L) { mood = moodNow(); moodAt = nowMs }
             speedPoll(nowMs)
+            fitShown += (fit - fitShown) * 0.02f
             refreshPlats()
             val battF = if (batt < 0f) 1f else if (batt >= 50f) 1f else if (batt >= 30f) 0.85f else if (batt >= 20f) 0.65f else if (batt >= 10f) 0.5f else 0.4f   // a low car battery slows the pet down
             val dt = dt0 * pace * mood.coerceAtLeast(0.5f) * battF
@@ -397,6 +410,7 @@ object Mascot {
             var r = rnd.nextInt(tot)
             var pick = 0
             for (o in opts) { r -= o.second; if (r < 0) { pick = o.first; break } }
+            if (x > W * RZ && rnd.nextFloat() < 0.85f) pick = 0   // in the hidden zone: walk back out
             when (pick) {
                 0 -> startWalk()
                 1 -> if (!randomJump()) startWalk()
@@ -404,7 +418,7 @@ object Mascot {
                 3 -> hopFlip()
                 4 -> { st = St.WAVE; stT = 0f; stDur = 2f; burst(x, y - 8 * u, 3, 1, pink(), 120f) }
                 5 -> { st = St.GLITCH; stT = 0f; stDur = 1.1f; sub = 0 }
-                6 -> { goalX = if (x < W / 2) 3 * u else W - 3 * u; climbAfter = true; face = if (goalX > x) 1 else -1; st = St.WALK; stT = 0f }
+                6 -> { goalX = if (climbSide() == Sf.LEFT) 3 * u else W - 3 * u; climbAfter = true; face = if (goalX > x) 1 else -1; st = St.WALK; stT = 0f }
                 7 -> { st = St.SLEEP; stT = 0f; stDur = (if (rest) 14f else 6f) + rnd.nextFloat() * 8f }
                 8 -> startBall()
                 10 -> if (!startHang()) startWalk()
@@ -424,11 +438,15 @@ object Mascot {
             }
         }
 
+        private val RZ = 0.7f   // right part of the screen the steering wheel covers: Zed spends little time there
+        private fun climbSide(): Sf = if (x < W / 2 || rnd.nextFloat() < 0.9f) Sf.LEFT else Sf.RIGHT
+
         private fun startWalk() {
             st = St.WALK; stT = 0f
             support(x, y)
             val a = if (sr > sl) sl + 2 * u else 3 * u; val b = if (sr > sl) sr - 2 * u else W - 3 * u
             goalX = if (b > a) a + rnd.nextFloat() * (b - a) else x
+            if (goalX > W * RZ && rnd.nextFloat() < 0.9f && min(b, W * RZ) > a) goalX = a + rnd.nextFloat() * (min(b, W * RZ) - a)   // steering wheel hides the right side
             face = if (goalX >= x) 1 else -1
             climbAfter = false
         }
@@ -470,6 +488,7 @@ object Mascot {
             val p = c[rnd.nextInt(c.size)]
             hangL = p.l; hangR = p.r
             val tx = p.l + (p.r - p.l) * (0.2f + 0.6f * rnd.nextFloat())
+            if (tx > W * RZ && rnd.nextFloat() < 0.85f) return false
             launch(tx, p.b, 40 * d, 0); hangPending = true; angT = 180f
             return true
         }
@@ -547,6 +566,7 @@ object Mascot {
             fun tryT(l: Float, tp: Float, r: Float) {
                 val tx = l + (r - l) * (0.15f + 0.7f * rnd.nextFloat())
                 val up = y - tp; val dx = abs(tx - x)
+                if (tx > W * RZ && rnd.nextFloat() < 0.85f) return
                 if (up <= H * 0.55f && dx <= W * 0.6f && (abs(tp - y) > 4 * d || dx > 12 * u)) c.add(floatArrayOf(tx, tp))
             }
             for (p in plats) { if (abs(p.t - y) < 6 * d && x >= p.l && x <= p.r) continue; tryT(p.l, p.t, p.r) }
@@ -655,7 +675,7 @@ object Mascot {
             support(x, y)
             val lo = if (sr > sl) sl + u else 2 * u; val hi = if (sr > sl) sr - u else W - 2 * u
             if (hi - lo < 24 * u) { startWalk(); return }
-            bgx = if (x - lo > hi - x) lo + 4 * u else hi - 4 * u; bgv = 0f; bug = true; pouncing = false
+            bgx = if (x - lo > hi - x || hi - 4 * u > W * RZ) lo + 4 * u else hi - 4 * u; bgv = 0f; bug = true; pouncing = false
             st = St.BUG; stT = 0f; stDur = 12f
         }
         private fun playBug(dt: Float) {
@@ -680,7 +700,7 @@ object Mascot {
                 val c = ArrayList<FloatArray>()
                 for (p in plats) c.add(floatArrayOf(p.l + (p.r - p.l) * rnd.nextFloat(), p.t))
                 c.add(floatArrayOf(4 * u + rnd.nextFloat() * (W - 8 * u), H))
-                val k = c[rnd.nextInt(c.size)]; x = k[0]; y = k[1]
+                val k = c[rnd.nextInt(c.size)]; x = if (k[0] > W * RZ) k[0] * RZ else k[0]; y = k[1]
                 burst(x, y - 4 * u, 8, 0, 0xFFFF2BD6.toInt(), 300f)
             }
             if (stT > stDur) idle(0.4f)
@@ -711,7 +731,7 @@ object Mascot {
                     scare = 0.3f; hop = 0f; if (stT > stDur) idle(0.5f) }
             }
         }
-        private fun startClimbHold() { startClimb(if (x < W / 2) Sf.LEFT else Sf.RIGHT); stDur = 4f; y = H - 14 * u; scare = 4f }
+        private fun startClimbHold() { startClimb(climbSide()); stDur = 4f; y = H - 14 * u; scare = 4f }
 
         private fun updatePts(dt: Float) {
             val it = pts.iterator()
@@ -773,14 +793,14 @@ object Mascot {
             val ink = 0xFF1B1B1F.toInt()
             val suffer = batt in 0f..20f && !(st == St.ACT && act == 4) && st != St.HELD; val bliss = (st == St.ACT && act == 4) || (st == St.HELD && hsub == 2)
             val alarmed = st == St.REACT || (st == St.HELD && (hsub == 0 || hsub == 1 || hsub == 4))
-            val sy = (1f + sq) * (if (suffer) 0.94f else 1f); val sx = 1f / sy
+            val sy = (1f + sq) * (if (suffer) 0.94f else 1f); val sx = (1f / sy) * (1.18f - 0.3f * fitShown)   // round when rested, slim when fit
             val shake = (if (scare > 0f) sin(t * 70f) * 0.35f * u else if (suffer) sin(t * 35f) * 0.12f * u else 0f) + wig + (if (st == St.HELD && hsub == 2) sin(t * 45f) * 0.08f * u else 0f)
             val sleeping = st == St.SLEEP
             val walking = st == St.WALK || st == St.CLIMB || st == St.DRAG || (st == St.BALL || st == St.BUG) || (st == St.REACT && (sub == 1 || sub == 3))
             val air = st == St.JUMP || st == St.FALL || st == St.DRAG
-            fun pass(ox: Float, col: Int, aMul: Float) {
+            fun pass(ox: Float, col: Int, aMul: Float, oy: Float = 0f) {
                 cv.save()
-                cv.translate(x + ox + shake, y - hop)
+                cv.translate(x + ox + shake, y - hop + oy)
                 cv.rotate(ang)
                 if (flip != 0f) { cv.translate(0f, -4 * u); cv.rotate(flip * face); cv.translate(0f, 4 * u) }
                 cv.scale(sx * face, sy)
@@ -874,6 +894,9 @@ object Mascot {
                 pass(-o, 0xFF00E5FF.toInt(), 0.55f); pass(o, 0xFFFF2BD6.toInt(), 0.55f)
                 if (rnd.nextFloat() < 0.4f) return
             }
+            // body-shaped shadow: a soft drop shadow under him and a thin dark contour, so he stays visible on any background
+            pass(0.9f * u, 0xFF000000.toInt(), 0.28f, 1.4f * u); pass(0.5f * u, 0xFF000000.toInt(), 0.22f, 0.9f * u)
+            for (q in arrayOf(-1f to 0f, 1f to 0f, 0f to -1f, 0f to 1f)) pass(q.first * 0.45f * u, 0xFF000000.toInt(), 0.35f, q.second * 0.45f * u)
             pass(0f, 0, 1f)
         }
     }

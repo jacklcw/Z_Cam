@@ -1,6 +1,5 @@
-0.96.0
-- New: Zed, a little pixel pet that lives on the center screen. It crawls the screen edges and ceiling, hops onto and hangs under your floating windows, plays with a ball and bugs, and eats, showers, uses the toilet and does sport on its own.
-- Zed follows the time of day (calm at night, lively by day), reacts to fast driving, gets tired and suffers when the car battery is low, and looks very satisfied while charging.
-- Tap Zed for a small reaction, press and hold to tickle it (it pushes the finger away, struggles or relaxes), drag it anywhere.
-- Zed settings card in the app: on/off, colour or rainbow, face (Visor, Lenses, Screen), size, pace, and toggles for hopping, crawling, toys, naps, daily life and reactions. It can also be hidden from the floating ring.
+0.97.0
+- Zed has a natural body-shaped shadow (soft drop shadow plus a thin dark contour) so he stays visible on any background.
+- Zed now spends little time on the right 30% of the screen, where the steering wheel hides it: he mostly walks, hops, hangs and climbs on the left.
+- Zed is round when rested and gets slimmer the more you drive today (60 km is fully fit). At midnight he smoothly returns to his round body.
 
