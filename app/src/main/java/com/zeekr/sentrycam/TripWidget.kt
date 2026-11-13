@@ -67,6 +67,7 @@ class TripWidget(private val ctx: Context) {
     private var function: Any? = null; private var getFn: java.lang.reflect.Method? = null
     private var lastTry = 0L; private var slowAt = 0L
     private var gear = "-"; private var mode = ""; private var regen = false
+    private val meter = RegenMeter { Logger.log(ctx, "tripwidget: $it") }
 
     // relay values (written by the relay thread, read by the poll thread)
     @Volatile private var batt: Double? = null; @Volatile private var range: Double? = null
@@ -186,6 +187,8 @@ class TripWidget(private val ctx: Context) {
             num(THROTTLE)?.let { o.put("thr", it.coerceIn(0f, 100f)) }
             num(BRAKE)?.let { o.put("brk", (it / BRAKE_FULL * 100f).coerceIn(0f, 100f)) }
             val now = System.currentTimeMillis()
+            if (fn(POWER_FLOW) in REGEN_FLOWS) meter.flowSeen(now)   // every read: the 500 ms flag below is too slow and flickers
+            o.put("rg", meter.step(now, num(SPEED), num(BRAKE), num(THROTTLE) ?: 0f).toDouble())   // same estimate as the HUD rev bar
             if (now - slowAt >= 500) {
                 slowAt = now
                 try {

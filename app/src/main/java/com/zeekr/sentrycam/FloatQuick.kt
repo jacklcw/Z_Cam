@@ -40,7 +40,7 @@ object FloatQuick {
         Item(LIVE, "Floating windows"),
         Item(APP, "Open Z Cam"))
     private val GROUPS = mapOf(
-        HUD to listOf(Item("revOn", "Rev bar"), Item("webHudOn", "Web on HUD"), Item("bsHud", "HUD side cam"), Item("bsSignal", "Turn arrow on HUD"), Item("slOn", "Speed limit on HUD"), Item("slBeep", "Speed limit sound"), Item("slDebug", "Road info text")),
+        HUD to listOf(Item("revOn", "Rev bar"), Item("webHudOn", "Web on HUD"), Item("bsHud", "HUD side cam"), Item("bsSignal", "Turn arrow on HUD"), Item("slOn", "Speed limit on HUD"), Item("slBeep", "Speed limit sound"), Item("slDebug", "Road info text"), Item("mmOn", "Drive mode on HUD")),
         LIVE to listOf(Item("flLeft", "Left window"), Item("flRight", "Right window"), Item("flRear", "Rear window"), Item("flFront", "Front window"), Item("webFloatOn", "Web window"), Item("twOn", "Trip widget")))
     private const val IDLE_MS = 7_000L
 
@@ -259,31 +259,7 @@ object FloatQuick {
         private fun outside() = p.getString("engOut", "cabin") == "outside"
 
         // futuristic click for a drive mode switch: a rising chirp, then a short ring-modulated high blip
-        private var clickTrack: AudioTrack? = null
-        private fun futureClick() {
-            try {
-                val t = clickTrack ?: run {
-                    val rate = 44_100
-                    val a = rate * 38 / 1000; val gap = rate * 12 / 1000; val b = rate * 45 / 1000
-                    val pcm = ShortArray(a + gap + b)
-                    var ph = 0.0
-                    for (i in 0 until a) {
-                        val u = i / a.toDouble(); ph += 2 * Math.PI * (1200 + 3000 * u * u) / rate
-                        pcm[i] = (Math.sin(ph) * Math.exp(-u * 3.0) * 11000).toInt().toShort()
-                    }
-                    for (i in 0 until b) {
-                        val u = i / b.toDouble(); val tt = i / rate.toDouble()
-                        val v = Math.sin(2 * Math.PI * 5600 * tt) * (0.6 + 0.4 * Math.sin(2 * Math.PI * 140 * tt)) * Math.exp(-u * 5.0)
-                        pcm[a + gap + i] = (v * 9000).toInt().toShort()
-                    }
-                    AudioTrack.Builder()
-                        .setAudioAttributes(AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ASSISTANCE_SONIFICATION).setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build())
-                        .setAudioFormat(AudioFormat.Builder().setEncoding(AudioFormat.ENCODING_PCM_16BIT).setSampleRate(rate).setChannelMask(AudioFormat.CHANNEL_OUT_MONO).build())
-                        .setTransferMode(AudioTrack.MODE_STATIC).setBufferSizeInBytes(pcm.size * 2).build().also { it.write(pcm, 0, pcm.size); clickTrack = it }
-                }
-                t.stop(); t.reloadStaticData(); t.play()
-            } catch (_: Throwable) {}
-        }
+        private fun futureClick() = ModeClick.play()
         private var tickOn: AudioTrack? = null
         private var tickOff: AudioTrack? = null
         private fun tick(off: Boolean) {
@@ -295,9 +271,6 @@ object FloatQuick {
         override fun onDetachedFromWindow() {
             super.onDetachedFromWindow()
             try { tickOn?.release(); tickOff?.release() } catch (_: Throwable) {}
-            // the click track is left to play out: the ring closes right after a mode switch, so release it a moment later
-            val ct = clickTrack; clickTrack = null
-            if (ct != null) main.postDelayed({ try { ct.release() } catch (_: Throwable) {} }, 400L)
             tickOn = null; tickOff = null
         }
 
@@ -420,6 +393,13 @@ object FloatQuick {
                     q.lineTo(cx + h * 0.1f, cy + h * 0.85f); q.lineTo(cx - h * 0.45f, cy + h * 0.35f); q.lineTo(cx - h, cy + h * 0.35f); q.close()
                     cv.drawPath(q, fill)
                     cv.drawArc(RectF(cx - h * 0.4f, cy - h * 0.55f, cx + h * 0.6f, cy + h * 0.55f), -45f, 90f, false, line)
+                }
+                "mmOn" -> {   // three rising bars (Comfort / Standard / Sport)
+                    line.strokeWidth = 3.4f * d
+                    cv.drawLine(cx - h * 0.7f, cy + h * 0.8f, cx - h * 0.7f, cy + h * 0.1f, line)
+                    cv.drawLine(cx, cy + h * 0.8f, cx, cy - h * 0.3f, line)
+                    cv.drawLine(cx + h * 0.7f, cy + h * 0.8f, cx + h * 0.7f, cy - h * 0.8f, line)
+                    line.strokeWidth = 2.4f * d
                 }
                 "bsSignal" -> {   // turn arrow
                     cv.drawLine(cx - h, cy, cx + h * 0.3f, cy, line); q.moveTo(cx + h * 0.2f, cy - h * 0.6f); q.lineTo(cx + h, cy); q.lineTo(cx + h * 0.2f, cy + h * 0.6f); q.close(); cv.drawPath(q, fill)

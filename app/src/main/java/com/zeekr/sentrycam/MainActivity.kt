@@ -218,7 +218,7 @@ class MainActivity : AppCompatActivity() {
         }
         findViewById<CompoundButton>(R.id.slOn).apply {
             isChecked = p.getBoolean("slOn", false)
-            setOnCheckedChangeListener { _, on ->
+            fun apply(on: Boolean) {
                 p.edit().putBoolean("slOn", on).putLong("slPreviewUntil", if (on) System.currentTimeMillis() + 6000 else 0L).apply()
                 if (on && !android.provider.Settings.canDrawOverlays(this@MainActivity)) {
                     try { startActivity(Intent(android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName"))) }
@@ -226,6 +226,14 @@ class MainActivity : AppCompatActivity() {
                 }
                 val i = Intent(this@MainActivity, CamService::class.java)
                 if (Build.VERSION.SDK_INT >= 26) startForegroundService(i) else startService(i)
+            }
+            setOnCheckedChangeListener { btn, on ->
+                if (!on) { apply(false); return@setOnCheckedChangeListener }
+                ZDialog.show(this@MainActivity, "Speed limit: for reference only",
+                    "Where the limit comes from: OpenStreetMap, a volunteer-edited map, looked up online from the car's GPS position (public servers: Overpass, or Nominatim as a fallback). Z_Cam does not read real road signs.\n\n" +
+                    "How reliable: speed limits can be missing, outdated or wrong, temporary and variable limits (roadworks, smart motorways, school zones) are not known, and GPS drift can pick a neighbouring road. The sign can disappear when the road has no limit in the map or the lookup is slow or offline.\n\n" +
+                    "Use it only as a hint. The posted road signs and the law always come first, and you stay responsible for your speed.",
+                    "I understand", "Cancel", cancelable = false, onNegative = { btn.isChecked = false }) { apply(true) }
             }
         }
         findViewById<CompoundButton>(R.id.bsHud).apply {
@@ -1267,6 +1275,20 @@ class MainActivity : AppCompatActivity() {
     // Stops the service and kills the whole process (floating windows, HUD, camera hub). Nothing brings it back; open the app again to start it.
     // The built-in preset (assets/default_settings.json): replaces every backed-up setting except the personal web data (bookmarks, history, tabs), then reloads.
     private val STRING_PREFS = listOf("pfRev", "pfRevShape", "pfRevScheme", "pfRevPos", "pfSpd", "pfRegen", "pfRegenColor", "pfSteer", "pfSound", "pfColor", "pfSlow", "pfFastC", "pfStart", "pfVoice")
+    /** One pref from a preset or backup; the profile pickers read their keys as strings, so a number there would crash the settings screen. Anything unexpected is skipped, never thrown. */
+    private fun putPref(e: android.content.SharedPreferences.Editor, k: String, v: Any?): Boolean {
+        try {
+            val asText = STRING_PREFS.any { k == it || k.startsWith(it + "_") }
+            when (v) {
+                is Boolean -> if (asText) e.putString(k, v.toString()) else e.putBoolean(k, v)
+                is Int -> if (asText) e.putString(k, v.toString()) else e.putInt(k, v)
+                is Long -> if (asText) e.putString(k, v.toString()) else e.putLong(k, v)
+                is String -> e.putString(k, v)
+                else -> return false
+            }
+            return true
+        } catch (_: Throwable) { return false }
+    }
     private fun applyDefaultSettings() {
         val cfg = try { JSONObject(assets.open("default_settings.json").bufferedReader().use { it.readText() }) } catch (e: Throwable) { Toast.makeText(this, "Default settings missing", Toast.LENGTH_LONG).show(); return }
         val keep = setOf("webBookmarks", "webHistory", "webTabs", "webTabsDesk", "webTabIdx", "webUrl")
@@ -1275,10 +1297,7 @@ class MainActivity : AppCompatActivity() {
         var n = 0
         for (k in cfg.keys()) {
             if (k in keep) continue
-            // the profile pickers read these as strings: a number there would crash the settings screen on every start
-            val asText = STRING_PREFS.any { k == it || k.startsWith(it + "_") }
-            when (val v = cfg.get(k)) { is Boolean -> e.putBoolean(k, v); is Int -> if (asText) e.putString(k, v.toString()) else e.putInt(k, v); is Long -> if (asText) e.putString(k, v.toString()) else e.putLong(k, v); is String -> e.putString(k, v); else -> continue }
-            n++
+            putPref(e, k, cfg.get(k)).let { if (it) n++ }
         }
         e.putLong("flSizeStamp", System.currentTimeMillis())   // windows re-read their saved sizes
         e.commit()
@@ -1319,7 +1338,7 @@ class MainActivity : AppCompatActivity() {
     private val BACKUP_SKIP = setOf("bsPreviewUntil", "bsNoHoldUntil", "bsPreviewSide", "bsArrPrevUntil", "bsArrPrevSide", "flSizeStamp", "revPreviewUntil", "slPreviewUntil", "slBeepPrev", "twSnapSeq", "twReset", "pfTab", "revTab")
     private fun backupCat(k: String): String? = when {
         k in BACKUP_SKIP -> null
-        k.startsWith("lk") || k.startsWith("bs") || k.startsWith("sl") || k.startsWith("fl") || k.startsWith("fm") || k.startsWith("stitch") || k.startsWith("stSeam") || k.startsWith("stBlend") || k == "parkCut" -> "cam"
+        k.startsWith("lk") || k.startsWith("bs") || k.startsWith("sl") || k.startsWith("fl") || k.startsWith("fm") || k.startsWith("stitch") || k.startsWith("stSeam") || k.startsWith("stBlend") || k == "parkCut" || k.startsWith("mm") || k.startsWith("gd") || k == "hudZ" -> "cam"
         k == "webBookmarks" || k == "webHistory" || k == "webTabs" || k == "webTabsDesk" || k == "webTabIdx" || k == "webUrl" -> "webdata"
         k.startsWith("web") -> "web"
         k.startsWith("eng") || k.startsWith("welcome") || k.startsWith("lock") -> "eng"
@@ -1336,7 +1355,7 @@ class MainActivity : AppCompatActivity() {
     // (the window switches, camera tuning...). Defaults go in first, saved values override them.
     private fun backupDefaults(): Map<String, Any> {
         val m = LinkedHashMap<String, Any>()
-        for (k in listOf("flLeft", "flRight", "flRear", "flFront", "flOnly_L", "flOnly_R", "flBlinkCenter", "flBlackBg", "bsHud", "bsRightPos", "revOn", "slOn", "slBeep", "webHudOn", "webFloatOn", "webFloatAlways")) m[k] = false
+        for (k in listOf("flLeft", "flRight", "flRear", "flFront", "flOnly_L", "flOnly_R", "flBlinkCenter", "flBlackBg", "bsHud", "bsRightPos", "revOn", "slOn", "slBeep", "mmOn", "webHudOn", "webFloatOn", "webFloatAlways")) m[k] = false
         for (k in listOf("flMaster", "parkCut", "bsSignal", "slGlow")) m[k] = true
         m["flHeader"] = 56; m["flCorner"] = 0; m["flFade"] = 0
         for (c in CamTune.CAMS) {
@@ -1397,8 +1416,7 @@ class MainActivity : AppCompatActivity() {
                     val e = p.edit(); var n = 0
                     for (k in cfg.keys()) {
                         if (!backupKey(k)) continue
-                        when (val v = cfg.get(k)) { is Boolean -> e.putBoolean(k, v); is Int -> e.putInt(k, v); is Long -> e.putLong(k, v); is String -> e.putString(k, v); else -> continue }
-                        n++
+                        if (putPref(e, k, cfg.get(k))) n++
                     }
                     e.apply()
                     st.text = "Restored $n settings"
@@ -1544,6 +1562,7 @@ class MainActivity : AppCompatActivity() {
         val arrR = HudPadView.Item("arrR", "", 2, false, 0)
         val rev = HudPadView.Item("rev", "REV BAR", 3, true, 0xFFFF6E6E.toInt())
         val lim = HudPadView.Item("lim", "LIMIT", 5, true, 0xFFFF4D4D.toInt())
+        val mm = HudPadView.Item("mm", "DRIVE MODE", 6, true, 0xFF00E5FF.toInt())
         // guides: where the car's own radar / surround display and speedometer sit by default (measured on the car; user moves are kept in prefs "gd*")
         val radar = HudPadView.Item("radar", "RADAR", 4, true, 0xFFB48EFF.toInt()).apply { x = 62; y = 49; gw = 432; gh = 408 }
         val speed = HudPadView.Item("speed", "SPEEDO", 4, true, 0xFFFFD166.toInt()).apply { x = 38; y = 44; gw = 96; gh = 142 }
@@ -1593,6 +1612,7 @@ class MainActivity : AppCompatActivity() {
                 rev.pos = (p.getString("pfRevPos_$h", DriveProfile.revDef(code, "pfRevPos"))?.toIntOrNull() ?: 1).coerceIn(0, 2)
                 rev.size = p.getInt("pfRevSize_$h", DriveProfile.REV_SIZE).coerceIn(2, 30); rev.gap = p.getInt("pfRevInset_$h", DriveProfile.REV_GAP).coerceIn(0, 20)
             }
+            mm.x = p.getInt("mmX", 50); mm.y = p.getInt("mmY", 35); mm.size = p.getInt("mmSize", 22).coerceIn(8, 60)
             lim.x = p.getInt("slX", 88); lim.y = p.getInt("slY", 50); lim.size = p.getInt("slSize", 25).coerceIn(10, 80)
             web.size = p.getInt("webSize", 100).coerceIn(20, 200); web.x = p.getInt("webPosX", 17); web.y = p.getInt("webPosY", 50)
             for (a in listOf(arrL, arrR)) {
@@ -1610,6 +1630,7 @@ class MainActivity : AppCompatActivity() {
                 val e = p.edit(); val k = sfx(i.left)
                 when (i.id) {
                     "rev" -> { val h = DriveProfile.hex(revMode().first); e.putString("pfRevPos_$h", i.pos.toString()).putInt("pfRevSize_$h", i.size) }
+                    "mm" -> e.putInt("mmX", i.x).putInt("mmY", i.y).putInt("mmSize", i.size)
                     "lim" -> e.putInt("slX", i.x).putInt("slY", i.y).putInt("slSize", i.size)
                     "web" -> e.putInt("webPosX", i.x).putInt("webPosY", i.y).putInt("webSize", i.size)
                     "radar", "speed" -> e.putInt("gdX_${i.id}", i.x).putInt("gdY_${i.id}", i.y).putInt("gdW_${i.id}", i.gw).putInt("gdH_${i.id}", i.gh)
@@ -1618,11 +1639,11 @@ class MainActivity : AppCompatActivity() {
                 }
                 e.apply(); if (i.id != "rev") preview(i); gdSync()
             }
-        }, onRelease = { i -> if (i.id == "rev") DriveProfile.revEdited(this, revMode().first) })   // the bar shows on the HUD once the finger lifts
+        }, onRelease = { i -> if (i.id == "rev") DriveProfile.revEdited(this, revMode().first) else if (i.id == "mm") ModeHud.show(this, "Sport", 0xFFFF2020.toInt()) })   // the bar shows on the HUD once the finger lifts
         // layering: the pad draws in the saved HUD order (back to front); the real HUD windows follow it too (HudLayer)
         val layerInfo = TextView(this).apply { tag = "m"; setPadding(0, dp(8), 0, 0) }
         fun applyZ() {
-            pad.items.clear(); pad.items += listOf(radar, speed)   // guides first: they sit underneath
+            pad.items.clear(); pad.items += listOf(radar, speed, mm)   // guides first: they sit underneath
             val ord = HudLayer.order(p)
             for (id in ord) pad.items += when (id) { "cam" -> listOf(camL, camR); "arr" -> listOf(arrL, arrR); "web" -> listOf(web); "rev" -> listOf(rev); else -> listOf(lim) }
             layerInfo.text = "Layers, back to front: " + ord.joinToString(" > ") { HudLayer.NAMES[it] ?: it } + "\nTap an item on the pad, then move it."
@@ -1634,7 +1655,7 @@ class MainActivity : AppCompatActivity() {
         // eye chips: lit = shown on the pad (editor only, the HUD itself is not affected)
         host.addView(TextView(this).apply { tag = "m"; text = "Show on pad (hide items that are in the way while arranging):"; setPadding(0, dp(10), 0, 0) })
         val crow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(0, dp(6), 0, 0) }
-        for ((n, pair) in listOf("L cam" to camL, "R cam" to camR, "Web" to web, "Rev bar" to rev, "Limit" to lim, "L arrow" to arrL, "R arrow" to arrR).withIndex()) {
+        for ((n, pair) in listOf("L cam" to camL, "R cam" to camR, "Web" to web, "Rev bar" to rev, "Limit" to lim, "Mode" to mm, "L arrow" to arrL, "R arrow" to arrR).withIndex()) {
             val b = Button(this).apply { tag = "seg"; text = pair.first; isAllCaps = false; isSelected = true }
             b.setOnClickListener {
                 pair.second.shown = !pair.second.shown
@@ -1650,7 +1671,7 @@ class MainActivity : AppCompatActivity() {
         for ((n, step) in listOf("Send back" to -1, "Bring forward" to 1).withIndex()) {
             val b = Button(this).apply { tag = "seg"; text = step.first; isAllCaps = false }
             b.setOnClickListener {
-                val s = pad.sel?.takeIf { it.kind != 4 } ?: return@setOnClickListener
+                val s = pad.sel?.takeIf { it.kind != 4 && it.kind != 6 } ?: return@setOnClickListener
                 HudLayer.move(p, HudLayer.layerOf(s.id), step.second); applyZ()
                 HudLayer.restackAll(p)
             }

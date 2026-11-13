@@ -35,8 +35,6 @@ class RevBar(private val ctx: Context) {
         private const val SENSOR_SPEED = 0x00100100
         private const val FUNC_POWER_FLOW = 0x24010100
         private val REGEN_FLOWS = setOf(0x24010115, 0x24010116, 0x24010117, 0x2401010a, 0x2401010b, 0x2401010c)
-        private const val BRAKE_FULL = 44f
-        private const val DECEL_FULL = 4f   // m/s2 that fills the regen bar
         private const val TICK_MS = 40L
         // One Car connection for the whole process: Car.create() on every start leaked a binder connection to the
         // car's service each time, and toggling the bar on and off quickly exhausted it.
@@ -65,10 +63,7 @@ class RevBar(private val ctx: Context) {
     private var fnMgr: Any? = null
     private var getFnVal: java.lang.reflect.Method? = null
     private var flowAt = 0L
-    private var inRegen = false
-    private var lastSpeed = -1f
-    private var lastSpeedAt = 0L
-    private var decelPct = 0f
+    private val meter = RegenMeter { Logger.log(ctx, "revbar: $it") }
 
     private var retryAt = 0L
     private var view: RevView? = null   // main thread only
@@ -127,7 +122,7 @@ class RevBar(private val ctx: Context) {
     /** Regen amount 0..100: while the car's power flow says regenerating, the larger of brake pedal depth and measured deceleration. */
     private fun readRegen(now: Long): Float {
         if (getLatest == null) return 0f
-        if (now - flowAt >= 250) {
+        if (now - flowAt >= 100) {
             flowAt = now
             try {
                 if (getFnVal == null) {
@@ -135,17 +130,10 @@ class RevBar(private val ctx: Context) {
                     fnMgr = car?.javaClass?.getMethod("getICarFunction")?.invoke(car)
                     getFnVal = fnMgr?.javaClass?.getMethod("getFunctionValue", Int::class.javaPrimitiveType)
                 }
-                inRegen = ((getFnVal?.invoke(fnMgr, FUNC_POWER_FLOW) as? Number)?.toInt() ?: 0) in REGEN_FLOWS
-            } catch (_: Throwable) { getFnVal = null; inRegen = false }
+                if (((getFnVal?.invoke(fnMgr, FUNC_POWER_FLOW) as? Number)?.toInt() ?: 0) in REGEN_FLOWS) meter.flowSeen(now)
+            } catch (_: Throwable) { getFnVal = null }
         }
-        val sp = sensorNum(SENSOR_SPEED)
-        if (sp != null && now - lastSpeedAt >= 200) {
-            if (lastSpeed >= 0f) decelPct = ((lastSpeed - sp) / ((now - lastSpeedAt) / 1000f) / DECEL_FULL * 100f).coerceIn(0f, 100f)
-            lastSpeed = sp; lastSpeedAt = now
-        }
-        if (!inRegen) return 0f
-        val brake = ((sensorNum(SENSOR_BRAKE) ?: 0f) / BRAKE_FULL * 100f).coerceIn(0f, 100f)
-        return maxOf(brake, decelPct)
+        return meter.step(now, sensorNum(SENSOR_SPEED), sensorNum(SENSOR_BRAKE), target)
     }
 
     private fun tick() {
@@ -156,7 +144,7 @@ class RevBar(private val ctx: Context) {
         target = if (preview) (0.5f + 0.5f * Math.sin(now / 450.0).toFloat()) * 100f else readThrottle()
         val regenOn = p.getBoolean("revRegen", false)
         regenTarget = if (!regenOn) 0f else if (preview) (0.5f - 0.5f * Math.sin(now / 450.0).toFloat()) * 100f else readRegen(now)
-        regenLevel += (regenTarget - regenLevel) * (if (regenTarget > regenLevel) 0.5f else 0.25f)
+        regenLevel = if (preview) regenLevel + (regenTarget - regenLevel) * 0.3f else regenTarget   // the meter already glides
         if (regenLevel < 0.3f) regenLevel = 0f
         // the car reports ~5 times a second: glide to each reading, quick up, slower down
         level += (target - level) * (if (target > level) 0.5f else 0.25f)

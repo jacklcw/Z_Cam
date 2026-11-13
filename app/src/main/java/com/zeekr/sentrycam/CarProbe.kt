@@ -9,7 +9,7 @@ import java.lang.reflect.Modifier
  * Output goes to Logger (and is uploaded to the relay by the caller).
  */
 object CarProbe {
-    private val WANT = Regex("AMBIENT|ATMOS|LIGHT|DRIVE_?MODE|DRIVING_?MODE|SPORT|COMFORT|ECO|REGEN|RECUP|ENERGY|PEDAL|ONE_?PEDAL|DECEL|BRAKE|MONO|EFFECT|THEME|SINGLE|VOL|AUDIO|SOUND|MEDIA|BLUETOOTH|BT_|SPEAKER|MUTE|NAVI|RADIO|CHARG|AMP|CURRENT|EVSE|GUN|PLUG|CABLE|SOC|BATT", RegexOption.IGNORE_CASE)
+    private val WANT = Regex("AMBIENT|ATMOS|LIGHT|DRIVE_?MODE|DRIVING_?MODE|SPORT|COMFORT|ECO|REGEN|RECUP|ENERGY|PEDAL|ONE_?PEDAL|DECEL|BRAKE|MONO|EFFECT|THEME|SINGLE|VOL|AUDIO|SOUND|MEDIA|BLUETOOTH|BT_|SPEAKER|MUTE|NAVI|RADIO|CHARG|AMP|CURRENT|EVSE|GUN|PLUG|CABLE|SOC|BATT|SPEED_?LIMIT|LIMIT|TSR|TRAFFIC|SIGN|ISA|SLA|ADAS|CRUISE", RegexOption.IGNORE_CASE)
 
     /** Classes whose int constants are all logged, whatever their names (regen / propulsion / ambient experience values). */
     private val ALL_CLASSES = Regex("PropulsionSysMode|BpfMode|RabMode|HybridFunction|AmbienceLightExperienceMode|AmbienceLightMainColorMode|AmbienceLightFunction|DriveModeFunction|IExtensionVehicle|VehicleFunction|IDriveMode$|IHybrid$|IVehicle$|Charg|Battery|Energy")

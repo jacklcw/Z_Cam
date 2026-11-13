@@ -27,7 +27,13 @@ object CameraStream {
         var errStreak = 0
         while (gen.get() == my) {
             if (paused()) { try { Thread.sleep(1000) } catch (_: InterruptedException) {}; continue }   // nobody watching: no capture, no data
-            val res = CameraCapture.captureOrError(ctx, cameraId, maxWidth, quality)
+            val hubJpeg = if (cameraId == "2") CamHub.snapshot(maxWidth, quality) else null   // the windows' own stream: no camera open per frame, windows stay up
+            var res = if (hubJpeg != null) CameraCapture.Result(hubJpeg, null) else CameraCapture.captureOrError(ctx, cameraId, maxWidth, quality)
+            // a window opened after the stream started and holds the camera: ask the windows to let go (once), then capture
+            if (res.jpeg == null && res.error?.contains("camhub") == true && !Park.yieldCam) {
+                Park.yieldCam = true; CamHub.yieldTune(true); try { Thread.sleep(700) } catch (_: InterruptedException) {}
+                res = CameraCapture.captureOrError(ctx, cameraId, maxWidth, quality)
+            }
             if (gen.get() != my) break
             val jpeg = res.jpeg
             if (jpeg != null) {

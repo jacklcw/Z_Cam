@@ -166,20 +166,22 @@ object CameraCapture {
                 val f = maxWidth.toFloat() / bmp.width
                 Bitmap.createScaledBitmap(bmp, maxWidth, (bmp.height * f).toInt().coerceAtLeast(1), true)
             } else bmp
-            val out = ByteArrayOutputStream(src.size / 2)
-            // WebP is ~30% smaller than JPEG at the same quality -> more retention, less bandwidth.
-            if (Build.VERSION.SDK_INT >= 30) {
-                @Suppress("DEPRECATION")
-                scaled.compress(Bitmap.CompressFormat.WEBP_LOSSY, quality, out)
-            } else {
-                scaled.compress(Bitmap.CompressFormat.JPEG, quality, out)
-            }
-            return out.toByteArray()
+            return encodeBitmap(scaled, quality, src.size / 2)
         } finally {
             // The decoded composite is ~26MB of native memory; free it now instead of waiting for the GC.
             if (scaled != null && scaled !== bmp) scaled.recycle()
             bmp.recycle()
         }
+    }
+
+    /** WebP is ~30% smaller than JPEG at the same quality -> more retention, less bandwidth. */
+    fun encodeBitmap(bmp: Bitmap, quality: Int, sizeHint: Int = 1 shl 20): ByteArray {
+        val out = ByteArrayOutputStream(sizeHint)
+        if (Build.VERSION.SDK_INT >= 30) {
+            @Suppress("DEPRECATION")
+            bmp.compress(Bitmap.CompressFormat.WEBP_LOSSY, quality, out)
+        } else bmp.compress(Bitmap.CompressFormat.JPEG, quality, out)
+        return out.toByteArray()
     }
 
     /** The encoding this device produces (matches downscale), reported to the relay. */

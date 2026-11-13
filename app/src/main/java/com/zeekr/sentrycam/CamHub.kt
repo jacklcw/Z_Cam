@@ -301,6 +301,77 @@ object CamHub {
 
     // One queued draw at a time: if frames arrive faster than we can draw, extra posts are dropped (updateTexImage takes the newest anyway).
     private val drawQueued = java.util.concurrent.atomic.AtomicBoolean(false)
+
+    // ---- snapshot from the running stream (so a snapshot / live view does not have to take the camera away from the floating windows) ----
+    private class SnapReq(val maxW: Int, val quality: Int) { val latch = CountDownLatch(1); @Volatile var out: ByteArray? = null }
+    @Volatile private var snapReq: SnapReq? = null
+    private val snapLock = Any()
+    private var snapProg = 0
+
+    /** True while the hub is streaming (a window or the HUD holds the camera and frames are arriving). */
+    fun live(): Boolean = lastFrame != 0L && android.os.SystemClock.uptimeMillis() - lastFrame < 1500
+
+    /** Whole composite (all four panels, as a normal snapshot) from the next frame of the running stream; null if the hub is not streaming. Call off the main and hub threads. */
+    fun snapshot(maxW: Int, quality: Int): ByteArray? {
+        if (!live()) return null
+        synchronized(snapLock) {
+            val r = SnapReq(maxW, quality); snapReq = r
+            val ok = try { r.latch.await(2500, TimeUnit.MILLISECONDS) } catch (_: InterruptedException) { false }
+            if (!ok) snapReq = null
+            return r.out
+        }
+    }
+
+    /** Hub thread, right after updateTexImage: draw the raw camera frame (no flattening) into an offscreen buffer and encode it. */
+    private fun renderSnap(r: SnapReq): ByteArray? {
+        val w = minOf(bufW, r.maxW).coerceAtLeast(16); val hgt = (bufH.toLong() * w / bufW).toInt().coerceAtLeast(16)
+        val fbo = IntArray(1); val tx = IntArray(1)
+        try {
+            if (snapProg == 0) {
+                fun sh(t: Int, src: String): Int { val s = GLES20.glCreateShader(t); GLES20.glShaderSource(s, src); GLES20.glCompileShader(s); return s }
+                snapProg = GLES20.glCreateProgram()
+                GLES20.glAttachShader(snapProg, sh(GLES20.GL_VERTEX_SHADER, VS))
+                GLES20.glAttachShader(snapProg, sh(GLES20.GL_FRAGMENT_SHADER, """
+                    #extension GL_OES_EGL_image_external : require
+                    precision mediump float; varying vec2 uv; uniform samplerExternalOES s; uniform mat4 st;
+                    void main(){ gl_FragColor = vec4(texture2D(s, (st * vec4(uv, 0.0, 1.0)).xy).rgb, 1.0); }"""))
+                GLES20.glLinkProgram(snapProg)
+            }
+            GLES20.glGenTextures(1, tx, 0); GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, tx[0])
+            GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_LINEAR)
+            GLES20.glTexImage2D(GLES20.GL_TEXTURE_2D, 0, GLES20.GL_RGBA, w, hgt, 0, GLES20.GL_RGBA, GLES20.GL_UNSIGNED_BYTE, null)
+            GLES20.glGenFramebuffers(1, fbo, 0); GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, fbo[0])
+            GLES20.glFramebufferTexture2D(GLES20.GL_FRAMEBUFFER, GLES20.GL_COLOR_ATTACHMENT0, GLES20.GL_TEXTURE_2D, tx[0], 0)
+            if (GLES20.glCheckFramebufferStatus(GLES20.GL_FRAMEBUFFER) != GLES20.GL_FRAMEBUFFER_COMPLETE) { log("snapshot: framebuffer incomplete"); return null }
+            GLES20.glUseProgram(snapProg)
+            val loc = GLES20.glGetAttribLocation(snapProg, "p")
+            GLES20.glEnableVertexAttribArray(loc); GLES20.glVertexAttribPointer(loc, 2, GLES20.GL_FLOAT, false, 0, quad)
+            GLES20.glActiveTexture(GLES20.GL_TEXTURE0); GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, tex)
+            GLES20.glUniform1i(GLES20.glGetUniformLocation(snapProg, "s"), 0)
+            GLES20.glUniformMatrix4fv(GLES20.glGetUniformLocation(snapProg, "st"), 1, false, stMat, 0)
+            GLES20.glViewport(0, 0, w, hgt)
+            GLES20.glDrawArrays(GLES20.GL_TRIANGLES, 0, 6)
+            val buf = ByteBuffer.allocateDirect(w * hgt * 4).order(ByteOrder.nativeOrder())
+            GLES20.glReadPixels(0, 0, w, hgt, GLES20.GL_RGBA, GLES20.GL_UNSIGNED_BYTE, buf)
+            val raw = android.graphics.Bitmap.createBitmap(w, hgt, android.graphics.Bitmap.Config.ARGB_8888)
+            raw.copyPixelsFromBuffer(buf)
+            val up = android.graphics.Bitmap.createBitmap(raw, 0, 0, w, hgt, android.graphics.Matrix().apply { preScale(1f, -1f) }, false)   // GL rows run bottom to top
+            raw.recycle()
+            val bytes = CameraCapture.encodeBitmap(up, r.quality)
+            up.recycle()
+            return bytes
+        } catch (e: Throwable) { log("snapshot failed: ${e.javaClass.simpleName} ${e.message ?: ""}"); return null }
+        finally {
+            GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, 0)
+            if (fbo[0] != 0) GLES20.glDeleteFramebuffers(1, fbo, 0)
+            if (tx[0] != 0) GLES20.glDeleteTextures(1, tx, 0)
+            // back to the picture program the windows draw with
+            GLES20.glUseProgram(prog)
+            val loc = GLES20.glGetAttribLocation(prog, "p")
+            GLES20.glEnableVertexAttribArray(loc); GLES20.glVertexAttribPointer(loc, 2, GLES20.GL_FLOAT, false, 0, quad)
+            GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, tex)
+        }
+    }
     private val drawRun = Runnable { drawQueued.set(false); draw() }
 
     private fun draw() {
@@ -311,6 +382,7 @@ object CamHub {
             if (!EGL14.eglMakeCurrent(dpy, first.egl, first.egl, eglCtx)) return
             c.updateTexImage(); c.getTransformMatrix(stMat)
             lastFrame = android.os.SystemClock.uptimeMillis()
+            snapReq?.let { r -> snapReq = null; r.out = renderSnap(r); r.latch.countDown() }
             for ((k, o) in outs) {
                 if (o.dead || o.egl == EGL14.EGL_NO_SURFACE || !EGL14.eglMakeCurrent(dpy, o.egl, o.egl, eglCtx)) continue
                 if (!o.swapOff) { EGL14.eglSwapInterval(dpy, 0); o.swapOff = true }   // four windows must not wait on vsync one after another
@@ -422,7 +494,7 @@ object CamHub {
         try { camSt?.setOnFrameAvailableListener(null) } catch (_: Throwable) {}
         try { camSurface?.release() } catch (_: Throwable) {}
         try { camSt?.release() } catch (_: Throwable) {}
-        camSt = null; camSurface = null; glReady = false
+        camSt = null; camSurface = null; glReady = false; snapProg = 0; lastFrame = 0L
         try {
             EGL14.eglMakeCurrent(dpy, EGL14.EGL_NO_SURFACE, EGL14.EGL_NO_SURFACE, EGL14.EGL_NO_CONTEXT)
             if (eglCtx != EGL14.EGL_NO_CONTEXT) EGL14.eglDestroyContext(dpy, eglCtx)

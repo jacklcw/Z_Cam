@@ -38,6 +38,7 @@ class SpeedLimitHud(private val ctx: Context) {
         private const val RADIUS_M = 500          // roads loaded around each query point
         private const val REQUERY_M = 300.0       // ask again after moving this far from the last query point
         private const val MIN_GAP_MS = 4_000L
+        private const val HOLD_MS = 10_000L       // keep the last sign this long when the lookup drops out (untagged road, GPS jump, slow answer)
         private const val MAX_SNAP_M = 40.0       // further than this from every road = off the map, show nothing
         private const val HUD_W = 1440; private const val HUD_H = 480
         private const val HUD_FALLBACK_ID = 3
@@ -45,7 +46,7 @@ class SpeedLimitHud(private val ctx: Context) {
     }
 
     private val tickRun = Runnable { tick() }
-    private class Road(val limit: Int, val lat: DoubleArray, val lon: DoubleArray, val name: String = "", val raw: String = "")
+    private class Road(val limit: Int, val lat: DoubleArray, val lon: DoubleArray, val name: String = "", val raw: String = "", val oneway: Int = 0, val fwd: Int = 0, val bwd: Int = 0)   // oneway: 1 = along the drawn direction, -1 = against; fwd/bwd = maxspeed:forward/backward (0 = same as limit)
 
     private val p = ctx.getSharedPreferences("cfg", Context.MODE_PRIVATE)
     private val main = Handler(Looper.getMainLooper())
@@ -123,14 +124,16 @@ class SpeedLimitHud(private val ctx: Context) {
         val pos = position()
         if (pos != null) {
             val now = System.currentTimeMillis()
-            val far = !haveQ || dist(pos.first, pos.second, qLat, qLon) > (if (roads.isEmpty()) 120.0 else REQUERY_M)
+            val far = !haveQ || dist(pos.first, pos.second, qLat, qLon) > (if (roads.isEmpty()) 100.0 else REQUERY_M)
             if (far && now - qAt >= MIN_GAP_MS && !loading) {   // the network call runs on its own thread: it can take 30 s offline and must not hold up the sign (or the preview)
                 qAt = now; loading = true
                 val la = pos.first; val lo = pos.second
                 Thread { try { load(la, lo) } finally { loading = false } }.start()
             }
-            limit = nearest(pos.first, pos.second)
+            limit = nearest(pos.first, pos.second, heading(pos))
         } else limit = 0
+        val tnow = System.currentTimeMillis()
+        if (limit > 0) { heldLimit = limit; heldAt = tnow } else if (heldLimit > 0 && tnow - heldAt < HOLD_MS) limit = heldLimit   // brief dropouts must not blank the sign
         val show = if (preview) 60 else if (p.getBoolean("slOn", false)) limit else 0
         val bp = p.getLong("slBeepPrev", 0L)
         if (bp > beepPrevSeen) { if (bp > System.currentTimeMillis() - 5_000) beep(); beepPrevSeen = bp }   // the preview button: sound once, whatever the switch says
@@ -143,6 +146,20 @@ class SpeedLimitHud(private val ctx: Context) {
         val info = debugText(pos)
         main.post { update(show, over); debugView(info) }
         h.postDelayed(tickRun, 1000L)
+    }
+
+    private var heldLimit = 0; private var heldAt = 0L
+    private var prevLat = 0.0; private var prevLon = 0.0; private var calcBearing = Double.NaN
+    /** Direction of travel in degrees (0 = north), or null when standing still: the GPS bearing, else from the last 15 m of movement. */
+    private fun heading(pos: Pair<Double, Double>): Double? {
+        val f = fix
+        if (f != null && f.hasBearing() && f.hasSpeed() && f.speed > 2.5f && System.currentTimeMillis() - f.time < 5_000) return f.bearing.toDouble()
+        if (prevLat == 0.0 && prevLon == 0.0) { prevLat = pos.first; prevLon = pos.second }
+        if (dist(prevLat, prevLon, pos.first, pos.second) >= 15.0) {
+            val dy = pos.first - prevLat; val dx = (pos.second - prevLon) * Math.cos(Math.toRadians(pos.first))
+            calcBearing = (Math.toDegrees(Math.atan2(dx, dy)) + 360) % 360; prevLat = pos.first; prevLon = pos.second
+        }
+        return if (speedKmh() > 8 && !calcBearing.isNaN()) calcBearing else null
     }
 
     private var beepAt = 0L
@@ -186,7 +203,7 @@ class SpeedLimitHud(private val ctx: Context) {
         // fast driving: main roads only (a much smaller answer, so the public servers cope far better)
         val classes = if (speedKmh() > 50) "motorway|trunk|primary|secondary|motorway_link|trunk_link|primary_link|secondary_link" else "motorway|trunk|primary|secondary|tertiary|unclassified|residential|living_street|service|motorway_link|trunk_link|primary_link|secondary_link|tertiary_link"
         val q = "[out:json][timeout:8];way(around:$RADIUS_M,$lat,$lon)[highway~\"^($classes)\$\"];out tags geom;"
-        if (nomFirst && nominatim(lat, lon)) return   // Nominatim first: one small road answer, reliable in the car (Overpass is the fallback)
+        if (nomFirst && nominatim(lat, lon)) return   // Nominatim first: one small road answer, reliable in the car (Overpass often times out there, so it is only the fallback)
         for (k in MIRRORS.indices) {
             val mi = (mirrorFirst + k) % MIRRORS.size; val base = MIRRORS[mi]
             try {
@@ -237,7 +254,9 @@ class SpeedLimitHud(private val ctx: Context) {
             val la = DoubleArray(g.length()); val lo = DoubleArray(g.length())
             for (j in 0 until g.length()) { val pt = g.getJSONObject(j); la[j] = pt.getDouble("lat"); lo[j] = pt.getDouble("lon") }
             val tg = e.optJSONObject("tags"); val raw = tg?.optString("maxspeed", "") ?: ""
-            out += Road(parseLimit(raw), la, lo, listOf(tg?.optString("name", "") ?: "", tg?.optString("ref", "") ?: "", tg?.optString("highway", "") ?: "").filter { it.isNotEmpty() }.joinToString(" | "), raw)
+            val ow = when (tg?.optString("oneway", "") ?: "") { "yes", "1", "true" -> 1; "-1", "reverse" -> -1; else -> 0 }
+            out += Road(parseLimit(raw), la, lo, listOf(tg?.optString("name", "") ?: "", tg?.optString("ref", "") ?: "", tg?.optString("highway", "") ?: "").filter { it.isNotEmpty() }.joinToString(" | "), raw,
+                ow, parseLimit(tg?.optString("maxspeed:forward", "") ?: ""), parseLimit(tg?.optString("maxspeed:backward", "") ?: ""))
         }
         return out
     }
@@ -254,22 +273,39 @@ class SpeedLimitHud(private val ctx: Context) {
         return Math.hypot(dx, dy)
     }
 
-    /** Limit of the road closest to the position (0 if none within [MAX_SNAP_M] or it has no usable maxspeed). */
-    private fun nearest(lat: Double, lon: Double): Int {
+    /**
+     * Limit of the road the car is on: the closest road, but a road running the other way (or a one-way road against the direction of travel)
+     * is pushed back, so parallel roads, slip roads and crossing roads lose to the one being driven. Uses maxspeed:forward/backward when tagged.
+     * 0 if nothing within [MAX_SNAP_M] or no usable maxspeed.
+     */
+    private fun nearest(lat: Double, lon: Double, hdg: Double?): Int {
         val kx = 111_320.0 * Math.cos(Math.toRadians(lat)); val ky = 111_320.0
-        var best = Double.MAX_VALUE; var lim = 0; var bestRoad: Road? = null
+        var best = Double.MAX_VALUE; var bestD = Double.MAX_VALUE; var lim = 0; var bestRoad: Road? = null
         for (r in roads) for (i in 0 until r.lat.size - 1) {
             val ax = (r.lon[i] - lon) * kx; val ay = (r.lat[i] - lat) * ky
             val bx = (r.lon[i + 1] - lon) * kx; val by = (r.lat[i + 1] - lat) * ky
             val dx = bx - ax; val dy = by - ay; val l2 = dx * dx + dy * dy
             val t = if (l2 == 0.0) 0.0 else (-(ax * dx + ay * dy) / l2).coerceIn(0.0, 1.0)
             val d = Math.hypot(ax + t * dx, ay + t * dy)
-            if (d < best) { best = d; lim = r.limit; bestRoad = r }
+            var score = d; var with = true
+            if (hdg != null && l2 > 1.0) {
+                val seg = (Math.toDegrees(Math.atan2(dx, dy)) + 360) % 360
+                var diff = Math.abs(seg - hdg); if (diff > 180) diff = 360 - diff
+                with = diff < 90
+                val along = if (with) diff else 180 - diff           // angle between the road line and the heading, 0..90
+                if (along > 50) score += 40.0                          // crossing road
+                if ((r.oneway == 1 && !with) || (r.oneway == -1 && with)) score += 80.0   // one-way the wrong way
+            }
+            if (score < best) {
+                best = score; bestD = d; bestRoad = r
+                val dirLim = if (with) (if (r.oneway == -1) r.bwd else r.fwd) else (if (r.oneway == -1) r.fwd else r.bwd)
+                lim = if (dirLim > 0) dirLim else r.limit
+            }
         }
         val nr = nomRoad
-        if (roads.isEmpty() && nr != null) { val dn = dist(lat, lon, nr.lat[0], nr.lon[0]); dbgRoad = nr; dbgDist = dn; return if (dn <= 150.0) nr.limit else 0 }
-        dbgRoad = bestRoad; dbgDist = if (bestRoad == null) -1.0 else best
-        return if (best <= MAX_SNAP_M) lim else 0
+        if (roads.isEmpty() && nr != null) { val dn = dist(lat, lon, nr.lat[0], nr.lon[0]); dbgRoad = nr; dbgDist = dn; return if (dn <= 250.0) nr.limit else 0 }
+        dbgRoad = bestRoad; dbgDist = if (bestRoad == null) -1.0 else bestD
+        return if (bestRoad != null && bestD <= MAX_SNAP_M) lim else 0
     }
 
     // ---- HUD window (same display pick and window handling as the rev bar) ----
@@ -346,9 +382,11 @@ class SpeedLimitHud(private val ctx: Context) {
         val road = if (r == null) "no road loaded" else (r.name.ifEmpty { "(unnamed)" } + (if (dbgDist > MAX_SNAP_M) "  [too far, " + dbgDist.toInt() + " m]" else "  " + dbgDist.toInt() + " m"))
         val gps = if (pos == null) "NO POSITION" else String.format(java.util.Locale.US, "%.5f, %.5f", pos.first, pos.second) + if (f != null) "  age " + (System.currentTimeMillis() - f.time) / 1000 + "s  +-" + f.accuracy.toInt() + "m" else "  (no live fix)"
         val ago = if (lastLoadAt == 0L) "" else "  " + (System.currentTimeMillis() - lastLoadAt) / 1000 + "s ago"
-        return "ROAD  $road\nOSM maxspeed  " + (if (r == null) "-" else if (r.raw.isEmpty()) "NOT TAGGED" else r.raw) + "   shown: " + (if (limit > 0) "$limit" else "none") +
+        return "ROAD  $road\nHEADING  " + (heading0()?.let { it.toInt().toString() + " deg" } ?: "unknown") + "\nOSM maxspeed  " + (if (r == null) "-" else if (r.raw.isEmpty()) "NOT TAGGED" else r.raw) + "   shown: " + (if (limit > 0) "$limit" else "none") +
             "\nSPEED  " + speedKmh().toInt() + " km/h\nGPS  $gps\nLOOKUP  $lastLoad$ago"
     }
+
+    private fun heading0(): Double? = fix?.takeIf { it.hasBearing() && it.speed > 2.5f }?.bearing?.toDouble() ?: calcBearing.takeIf { !it.isNaN() }
 
     private fun debugView(text: String?) {
         if (text == null) { dbgView?.let { try { it.context.getSystemService(WindowManager::class.java).removeView(it) } catch (_: Throwable) {} }; dbgView = null; return }

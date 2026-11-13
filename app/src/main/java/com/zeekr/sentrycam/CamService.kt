@@ -142,7 +142,7 @@ class CamService : Service() {
             return
         }
         CampGuard.sync(this, false); WelcomeWatch.sync(this, false)
-        DriveProfile.sync(this, getSharedPreferences("cfg", MODE_PRIVATE).getBoolean("pfOn", false)); syncBlindSpot(); syncRevBar(); syncWebHud(); syncFloatCam(); syncTripWidget(); syncSpeedLimit(); syncPark()
+        DriveProfile.sync(this, getSharedPreferences("cfg", MODE_PRIVATE).let { it.getBoolean("pfOn", false) || it.getBoolean("mmOn", false) }); syncBlindSpot(); syncRevBar(); syncWebHud(); syncFloatCam(); syncTripWidget(); syncSpeedLimit(); syncPark()
         try { com.zeekr.sentrycam.sound.DriveSound.refresh(this) } catch (e: Throwable) { Logger.log(this, "enginesound: ${e.javaClass.simpleName} ${e.message ?: ""}") }
     }
 
@@ -486,13 +486,19 @@ class CamService : Service() {
                     var n = 0
                     val errs = ArrayList<String>()
                     if (cams.isEmpty()) errs.add("no cameras selected in the car app")
-                    Park.yieldCam = true; CamHub.yieldTune(true); try { Thread.sleep(700) } catch (_: InterruptedException) {}   // floating windows let go of the camera first
+                    // The surround camera is already streaming to the floating windows / HUD: take the snapshot from that stream, so they stay up.
+                    val viaHub = HashMap<String, ByteArray>()
+                    for (cam in cams) if (cam == "2") CamHub.snapshot(maxW, quality)?.let { viaHub[cam] = it }
+                    var yielded = false
                     for (cam in cams) {
+                        val hubJpeg = viaHub[cam]
+                        if (hubJpeg != null) { upload(base, token, cam, hubJpeg, "manual"); n++; continue }
+                        if (!yielded) { yielded = true; Park.yieldCam = true; CamHub.yieldTune(true); try { Thread.sleep(700) } catch (_: InterruptedException) {} }   // floating windows let go of the camera first
                         val res = CameraCapture.captureOrError(this, cam, maxW, quality)
                         if (res.jpeg != null) { upload(base, token, cam, res.jpeg, "manual"); n++ }
                         else errs.add(res.error ?: "cam $cam failed")
                     }
-                    if (!streaming) { Park.yieldCam = false; CamHub.yieldTune(false) }
+                    if (yielded && !streaming) { Park.yieldCam = false; CamHub.yieldTune(false) }
                     val msg = if (n > 0) "Sent $n snapshot(s)" + (if (errs.isEmpty()) "" else "; " + errs.joinToString("; "))
                               else "Capture failed: " + errs.joinToString("; ")
                     note(msg)
@@ -589,7 +595,7 @@ class CamService : Service() {
         if (streaming) return
         streaming = true
         viewers = 1; noViewersSince = 0L; streamStartMs = System.currentTimeMillis(); streamBytes = 0L
-        Park.yieldCam = true; CamHub.yieldTune(true)
+        if (!(cam == "2" && CamHub.live())) { Park.yieldCam = true; CamHub.yieldTune(true) }   // windows already streaming the surround camera: the live view shares their stream
         val wsUrl = base.replaceFirst("http", "ws") + "/cam/ws?role=pub"   // https->wss, http->ws
         report(base, token, "live: connecting")
         try {
@@ -612,7 +618,7 @@ class CamService : Service() {
         note("Live stream started")
         val gen = CameraStream.begin()
         streamThread = Thread {
-            try { Thread.sleep(700) } catch (_: InterruptedException) {}   // floating windows let go of the camera first
+            if (Park.yieldCam) try { Thread.sleep(700) } catch (_: InterruptedException) {}   // floating windows let go of the camera first
             // 1280 is already the composite's native width (see CameraCapture), so this never
             // downscales — quality 88 is a cheap sharpness bump over the old 80 since the per-frame
             // camera open/close, not JPEG encode time, is what caps the live frame rate.

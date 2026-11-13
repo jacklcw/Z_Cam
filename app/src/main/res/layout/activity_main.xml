@@ -178,7 +178,7 @@
                     <androidx.appcompat.widget.SwitchCompat android:id="@+id/slOn" android:tag="sw"
                         android:layout_width="match_parent" android:layout_height="wrap_content"
                         android:text="Speed limit sign"/>
-                    <TextView android:tag="m" android:text="Shows the speed limit of the road you are on, from OpenStreetMap. Requires internet access in the car (no data, no sign). Roads without a speed limit in OpenStreetMap show nothing. Place and resize it on the HUD pad under Layout (Limit). Alert options are in the Speed limit section below."
+                    <TextView android:tag="m" android:text="For reference only: shows the speed limit of the road you are on and the way you are driving, from OpenStreetMap (volunteer-edited, may be missing, outdated or wrong; it does not read real signs). Requires internet access in the car (no data, no sign). Roads without a limit in the map show nothing. Always follow the posted signs. Place and resize it on the HUD pad under Layout (Limit). Alert options are in the Speed limit section below."
                         android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingBottom="4dp"/>
                     <androidx.appcompat.widget.SwitchCompat android:id="@+id/webOn" android:tag="sw"
                         android:layout_width="match_parent" android:layout_height="wrap_content"

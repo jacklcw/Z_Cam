@@ -184,7 +184,29 @@ class WebHud(private val ctx: Context) {
     private fun hudGrav() = if (placed()) (Gravity.TOP or Gravity.LEFT) else (if (land) Gravity.TOP else Gravity.CENTER_VERTICAL) or Gravity.LEFT
 
     // ---- tabs: one WebView per tab, only the active one is attached (and so drawn); the others are paused ----
-    private class Tab(var wv: WebView?, var url: String, var title: String = "", var desktop: Boolean = false)
+    private class Tab(var wv: WebView?, var url: String, var title: String = "", var desktop: Boolean = false) { var thumb: android.graphics.Bitmap? = null; var thumbUrl = "" }
+
+    // Tab thumbnails (the tab list shows a small picture of each page, like a phone browser): a snapshot of the top of the page, kept per address
+    // in memory and as a small JPEG so it is there after a restart too.
+    private val TW = 168; private val TH = 112
+    private fun thumbFile(url: String) = java.io.File(ctx.filesDir, "webthumbs").apply { mkdirs() }.let { java.io.File(it, Integer.toHexString(url.hashCode()) + ".jpg") }
+    private fun captureTab(t: Tab) {
+        try {
+            val v: View = (if (fsWeb != null && tabs.getOrNull(curTab) === t) fsWeb else t.wv) ?: return
+            if (v.width <= 0 || v.height <= 0 || t.url.isEmpty() || t.url == HOME) return
+            val bmp = android.graphics.Bitmap.createBitmap(TW, TH, android.graphics.Bitmap.Config.ARGB_8888)
+            val c = android.graphics.Canvas(bmp); c.drawColor(android.graphics.Color.WHITE)
+            val sc = TW.toFloat() / v.width; c.scale(sc, sc)
+            v.draw(c)
+            t.thumb = bmp; t.thumbUrl = t.url
+            Thread { try { thumbFile(t.url).outputStream().use { bmp.compress(android.graphics.Bitmap.CompressFormat.JPEG, 70, it) }
+                java.io.File(ctx.filesDir, "webthumbs").listFiles()?.sortedByDescending { it.lastModified() }?.drop(40)?.forEach { it.delete() } } catch (_: Throwable) {} }.start()
+        } catch (_: Throwable) {}
+    }
+    private fun thumbOf(t: Tab): android.graphics.Bitmap? {
+        if (t.thumb != null && t.thumbUrl == t.url) return t.thumb
+        return try { thumbFile(t.url).takeIf { it.exists() }?.let { android.graphics.BitmapFactory.decodeFile(it.path) }?.also { t.thumb = it; t.thumbUrl = t.url } } catch (_: Throwable) { null }
+    }
     private val tabs = ArrayList<Tab>()
     private var curTab = 0
     private var bigRef: FrameLayout? = null
@@ -220,6 +242,7 @@ class WebHud(private val ctx: Context) {
         val old = web
         if (old != null && tabs[i].wv === old) return
         customCb?.onCustomViewHidden()
+        tabs.firstOrNull { it.wv === old }?.let { captureTab(it) }
         if (old != null) {
             // a tab that is playing media keeps playing in the background (hidden, not paused); any other tab is paused and detached as before
             old.visibility = View.INVISIBLE
@@ -273,6 +296,7 @@ class WebHud(private val ctx: Context) {
         val col = LinearLayout(ctx).apply { orientation = LinearLayout.VERTICAL }
         val scroll = android.widget.ScrollView(ctx).apply { addView(col) }
         val root = LinearLayout(ctx).apply { orientation = LinearLayout.VERTICAL }
+        tabs.getOrNull(curTab)?.let { captureTab(it) }
         fun fill() {
             col.removeAllViews()
             for ((i, t) in tabs.withIndex()) {
@@ -298,9 +322,14 @@ class WebHud(private val ctx: Context) {
                         }
                     }
                 }
-                row.addView(View(ctx).apply {
-                    background = chip(if (i == curTab) 0xFFA3E635.toInt() else 0xFF636366.toInt(), 8)
-                    layoutParams = LinearLayout.LayoutParams(dp(10), dp(10)).apply { marginEnd = dp(12) }
+                row.addView(android.widget.ImageView(ctx).apply {
+                    val th = thumbOf(t)
+                    scaleType = android.widget.ImageView.ScaleType.CENTER_CROP
+                    if (th != null) setImageBitmap(th) else setBackgroundColor(0xFF48484A.toInt())
+                    outlineProvider = object : android.view.ViewOutlineProvider() { override fun getOutline(v: View, o: android.graphics.Outline) { o.setRoundRect(0, 0, v.width, v.height, 8 * d) } }
+                    clipToOutline = true
+                    if (i == curTab) foreground = android.graphics.drawable.GradientDrawable().apply { setColor(0); setStroke(dp(2), 0xFFA3E635.toInt()); cornerRadius = 8 * d }
+                    layoutParams = LinearLayout.LayoutParams(dp(78), dp(52)).apply { marginEnd = dp(14) }
                 })
                 row.addView(TextView(ctx).apply {
                     text = tabName(t); setTextColor(0xFFF5F5F7.toInt()); textSize = 24f; typeface = ZFont.reg; maxLines = 1
@@ -365,6 +394,7 @@ class WebHud(private val ctx: Context) {
                 override fun onPageFinished(v: WebView, u: String?) {
                     v.evaluateJavascript(WebDownload.HOOK_JS, null)
                     applyZoom(); applyVolume()
+                    main.postDelayed({ tabs.firstOrNull { it.wv === v }?.let { captureTab(it) } }, 1500)   // thumbnail for the tab list once the page has painted
                     // tapping a text field on the floating window pops the typing bar (focus, and a tap on a field that is already focused)
                     v.evaluateJavascript("(function(){if(window.__zk)return;window.__zk=1;function ok(t){return t&&(t.isContentEditable||t.tagName=='TEXTAREA'||(t.tagName=='INPUT'&&!/^(checkbox|radio|button|submit|reset|range|color|file|image|hidden)$/i.test(t.type)));}function f(e){if(ok(e.target))ZCam.edit();}document.addEventListener('focusin',f,true);document.addEventListener('click',f,true);})()", null)
                 }

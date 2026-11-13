@@ -1,3 +1,10 @@
+0.94.0
+- New HUD item: drive mode name fades in, holds about 2 seconds, then fades out whenever the drive mode changes. Turn it on in the floating ring (HUD group, Drive mode on HUD). Move and resize it in the HUD layout editor (Mode).
+- The mode switch click now also plays when the mode is changed from the car screen, not only from the floating arc.
+- Backup, Restore and the default preset now include the Drive mode HUD, the HUD layer order and the radar / speedo guide positions.
+- Restore and Apply default settings share one safe loader: a value of the wrong type is skipped instead of crashing the app.
+- The built-in default settings preset was refreshed.
+
 0.93.0
 - HUD layering: choose which item sits in front on the HUD. In the HUD layout editor tap an item (cam, arrow, web page, rev bar, speed limit), then Send back or Bring forward. Stack them any way you like; the order is saved and applies on the real HUD.
 - Blinker window: logs its position (floatcam lines in the log) to help track a position shift.

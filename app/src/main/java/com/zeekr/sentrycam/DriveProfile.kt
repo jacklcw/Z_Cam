@@ -211,6 +211,12 @@ object DriveProfile {
         lastIgn = ign
         if (mode > 0 && mode != lastMode && MODES.any { it.first == mode }) {
             log(ctx, "drive mode 0x${hex(mode)}")
+            if (lastMode != -1 && p.getBoolean("mmOn", false)) {   // a real switch (not the first read): name on the HUD, plus the click unless the arc just played it
+                val nm = MODES.first { it.first == mode }.second
+                val c = colorOf(p.getString("pfColor_" + hex(mode), "0")).takeIf { it != 0 } ?: when (mode) { 0x22010101 -> 0xFF20FF40.toInt(); 0x22010103 -> 0xFFFF2020.toInt(); else -> 0xFF00E5FF.toInt() }
+                ModeHud.show(ctx, nm, c)
+                if (System.currentTimeMillis() - ModeClick.lastAt > 3000) ModeClick.play()
+            }
             lastMode = mode
             gradient = false; lastTarget = 0
             if (profiles) apply(ctx, mode)
