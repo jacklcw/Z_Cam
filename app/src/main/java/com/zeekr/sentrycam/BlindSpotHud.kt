@@ -48,7 +48,7 @@ class BlindSpotHud(private val ctx: Context) {
         fun winTypeIndex(p: android.content.SharedPreferences) = p.getInt("bsWinType", 0).coerceIn(0, WIN_TYPES.size - 1)
         /** Defaults tuned on the car (left, right). */
         fun defaultFor(key: String, left: Boolean): Int = when (key) {
-            "bsSize" -> if (left) 97 else 97
+            "bsSize" -> 78
             "bsFov" -> if (left) 110 else 99
             "bsTilt" -> if (left) 0 else 1
             "bsYaw" -> if (left) 40 else 44
@@ -57,20 +57,21 @@ class BlindSpotHud(private val ctx: Context) {
             else -> 0
         }
         /** Turn arrow icon names (index = pref "bsArrIcon_L/_R"). */
-        val ARROW_ICONS = listOf("Block", "Chevron", "Triangle", "Double", "Slim")
+        val ARROW_ICONS = listOf("Block", "Chevron", "Triangle", "Double", "Slim", "Fat")
         const val ARROW_GREEN = 0xFF00E65A.toInt()
         /** Turn arrow settings per indicator side: centre x/y as % of the HUD, height as % of the HUD height, icon, colour. */
         fun arrowGet(p: android.content.SharedPreferences, key: String, left: Boolean): Int {
             val k = key + (if (left) "_L" else "_R")
             return when (key) {
-                "bsArrX" -> p.getInt(k, if (!left && p.getBoolean("bsRightPos", false)) 84 else 16)
-                "bsArrY" -> p.getInt(k, 90)
-                "bsArrSize" -> p.getInt(k, 15)
-                "bsArrIcon" -> p.getInt(k, 0)
+                "bsArrX" -> p.getInt(k, if (left) 11 else 30)
+                "bsArrY" -> p.getInt(k, 8)
+                "bsArrSize" -> p.getInt(k, 13)
+                "bsArrAsp" -> p.getInt(k, 133)   // width as % of height
+                "bsArrIcon" -> p.getInt(k, 5)
                 else -> p.getInt(k, ARROW_GREEN)
             }
         }
-        val ARROW_KEYS = listOf("bsArrX", "bsArrY", "bsArrSize", "bsArrIcon", "bsArrColor")
+        val ARROW_KEYS = listOf("bsArrX", "bsArrY", "bsArrSize", "bsArrAsp", "bsArrIcon", "bsArrColor")
         /** PANEL_LEFT/PANEL_RIGHT while the HUD camera shows, else -1 (WebHud yields the left region). */
         @Volatile var activePanel = -1
         /** Latest indicator reading (0 off / 1 left / 2 right / 3 hazard), for the floating windows' arrows. */
@@ -111,7 +112,7 @@ class BlindSpotHud(private val ctx: Context) {
     @Volatile private var shownPanel = -1
     private var hudH = 0
     private var hudW = 0
-    private var arrow: SignalArrow? = null
+    private val arrows = arrayOfNulls<SignalArrow>(2)   // slot 1 only used for hazard (both sides)
     @Volatile private var lastArrowRaw = 0
     private var arrowH = 0
     private var arrowW = 0
@@ -145,7 +146,7 @@ class BlindSpotHud(private val ctx: Context) {
         if (running) return
         running = true
         HudLayer.raisers["cam"] = { if (view != null) { removeViewNow(); showImpl(shownPanel) } }   // rare: the picture must sit in front of something added after it
-        HudLayer.raisers["arr"] = { if (arrow != null) { removeArrow(); updateArrow(lastArrowRaw) } }
+        HudLayer.raisers["arr"] = { if (arrows[0] != null) { removeArrow(); updateArrow(lastArrowRaw) } }
         thread = HandlerThread("blindspot").apply { start() }
         bg = Handler(thread!!.looper).also { it.post(::poll) }
         Logger.log(ctx, "blindspot: started")
@@ -192,7 +193,7 @@ class BlindSpotHud(private val ctx: Context) {
         rawNow = raw
         // The in-app arrow editor stamps bsArrPrevUntil: show that side's arrow (blinking) even with the indicator off.
         val prevArrow = p.getLong("bsArrPrevUntil", 0L) > now
-        val arrowRaw = if (raw == 1 || raw == 2) raw else if (prevArrow) (if (p.getInt("bsArrPrevSide", 1) == 1) 1 else 2) else 0
+        val arrowRaw = if (raw in 1..3) raw else if (prevArrow) (if (p.getInt("bsArrPrevSide", 1) == 1) 1 else 2) else 0
         lastArrowRaw = arrowRaw
         if (p.getBoolean("bsSignal", true) || prevArrow) main.post { updateArrow(arrowRaw) } else main.post(::removeArrow)
         if (panel >= 0) {
@@ -326,10 +327,10 @@ class BlindSpotHud(private val ctx: Context) {
         val w = if (hudW > 0) (s * gi("bsAspect", shownPanel).coerceIn(40, 250) / 100).coerceAtMost(hudW) else s
         lp.width = w; lp.height = s
         val sfx = if (shownPanel == PANEL_LEFT) "_L" else "_R"
-        if (p.contains("bsPosX$sfx") && hudW > 0) {
+        if (hudW > 0) {
             lp.gravity = Gravity.TOP or Gravity.LEFT
-            lp.x = (hudW * p.getInt("bsPosX$sfx", 16) / 100 - w / 2).coerceIn(0, (hudW - w).coerceAtLeast(0))
-            lp.y = (hudH * p.getInt("bsPosY$sfx", 50) / 100 - s / 2).coerceIn(0, (hudH - s).coerceAtLeast(0))
+            lp.x = (hudW * p.getInt("bsPosX$sfx", 20) / 100 - w / 2).coerceIn(0, (hudW - w).coerceAtLeast(0))
+            lp.y = (hudH * p.getInt("bsPosY$sfx", 36) / 100 - s / 2).coerceIn(0, (hudH - s).coerceAtLeast(0))
         } else { lp.gravity = Gravity.CENTER_VERTICAL or hGrav(shownPanel); lp.x = 0; lp.y = 0 }
     }
 
@@ -359,9 +360,13 @@ class BlindSpotHud(private val ctx: Context) {
 
     /** Blinking green arrow at the bottom of the camera picture (left region of the HUD), pointing the way of the blinker that is on. */
     private fun updateArrow(raw: Int) {
-        if (!running || (raw != 1 && raw != 2)) { removeArrow(); return }
-        val left = raw == 1
-        var a = arrow
+        if (!running || raw !in 1..3) { removeArrow(); return }
+        if (raw == 3) { arrowOne(0, true); arrowOne(1, false) }   // hazard: both blinkers
+        else { removeArrow(1); arrowOne(0, raw == 1) }
+    }
+
+    private fun arrowOne(slot: Int, left: Boolean) {
+        var a = arrows[slot]
         if (a == null) {
             if (Build.VERSION.SDK_INT < 30 || !Settings.canDrawOverlays(ctx)) return
             val hud = findHud() ?: return
@@ -380,7 +385,7 @@ class BlindSpotHud(private val ctx: Context) {
                 v = SignalArrow(c)
                 try { c.getSystemService(WindowManager::class.java).addView(v, arrowParams(h, ovl)) } catch (e2: Throwable) { err("arrow addView", e2); return }
             }
-            arrow = v; arrowH = h; arrowW = hs.x; a = v
+            arrows[slot] = v; arrowH = h; arrowW = hs.x; a = v
             Logger.log(ctx, "blindspot: arrow on (${if (left) "left" else "right"})")
             HudLayer.added(p, "arr")
         }
@@ -392,7 +397,7 @@ class BlindSpotHud(private val ctx: Context) {
         val lp = a.layoutParams as? WindowManager.LayoutParams ?: return
         // placement chosen in the app: centre at x/y % of the HUD, 2:1 box
         val hh = (arrowH * arrowGet(p, "bsArrSize", left).coerceIn(5, 40) / 100).coerceAtLeast(8)
-        val ww = hh * 2
+        val ww = hh * arrowGet(p, "bsArrAsp", left).coerceIn(50, 500) / 100
         val x = (arrowW * arrowGet(p, "bsArrX", left).coerceIn(0, 100) / 100 - ww / 2).coerceIn(0, (arrowW - ww).coerceAtLeast(0))
         val y = (arrowH * arrowGet(p, "bsArrY", left).coerceIn(0, 100) / 100 - hh / 2).coerceIn(0, (arrowH - hh).coerceAtLeast(0))
         if (lp.x != x || lp.y != y || lp.width != ww || lp.height != hh || lp.gravity != (Gravity.TOP or Gravity.LEFT)) {
@@ -409,9 +414,13 @@ class BlindSpotHud(private val ctx: Context) {
         gravity = Gravity.TOP or Gravity.LEFT
     }
 
-    private fun removeArrow() {
-        val a = arrow ?: return
-        arrow = null
+    private fun removeArrow(from: Int = 0) {
+        for (i in from until arrows.size) removeArrowSlot(i)
+    }
+
+    private fun removeArrowSlot(i: Int) {
+        val a = arrows[i] ?: return
+        arrows[i] = null
         try { a.context.getSystemService(WindowManager::class.java).removeView(a) } catch (_: Throwable) {}
     }
 
@@ -493,6 +502,13 @@ class SignalArrow(c: Context) : View(c) {
                     val p = Path(); p.moveTo(x0, cy); p.lineTo(x1, cy); p.moveTo(x1 - hd, cy - hd); p.lineTo(x1, cy); p.lineTo(x1 - hd, cy + hd)
                     paint.style = Paint.Style.STROKE; paint.strokeWidth = h * 0.14f
                     cv.drawPath(p, paint)
+                }
+                5 -> {   // fat arrow: thick shaft + full-height head
+                    val x0 = m; val x1 = w - m; val hx = x1 - (x1 - x0) * 0.5f; val sy = h * 0.6f   // head = half of the icon width
+                    val p = Path()
+                    p.moveTo(x0, cy - sy * 0.5f); p.lineTo(hx, cy - sy * 0.5f); p.lineTo(hx, m)
+                    p.lineTo(x1, cy); p.lineTo(hx, h - m); p.lineTo(hx, cy + sy * 0.5f); p.lineTo(x0, cy + sy * 0.5f); p.close()
+                    paint.style = Paint.Style.FILL_AND_STROKE; paint.strokeWidth = h * 0.06f; cv.drawPath(p, paint)
                 }
                 else -> {   // block arrow (shaft + head)
                     val head = h - 2 * m; val sy = h * 0.32f

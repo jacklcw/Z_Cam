@@ -80,14 +80,14 @@ object ModeHud {
             ?: on.firstOrNull { it.displayId == HUD_FALLBACK_ID && size(it).let { s -> !(s.x == CLUSTER_W && s.y == CLUSTER_H) } } ?: return
         removeView()
         val sz = size(hud)
-        val h = (sz.y * p.getInt("mmSize", 22).coerceIn(8, 60) / 100).coerceAtLeast(16)
+        val h = (sz.y * p.getInt("mmSize", 16).coerceIn(8, 60) / 100).coerceAtLeast(16)
         val dctx = ctx.createDisplayContext(hud)
         val ovl = WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
         fun lp(type: Int, w: Int) = WindowManager.LayoutParams(w, h, type,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED,
             PixelFormat.TRANSLUCENT).apply {
             gravity = Gravity.TOP or Gravity.LEFT
-            x = (sz.x * p.getInt("mmX", 50) / 100f - w / 2f).toInt(); y = (sz.y * p.getInt("mmY", 35) / 100f - h / 2f).toInt()
+            x = (sz.x * p.getInt("mmX", 36) / 100f - w / 2f).toInt(); y = (sz.y * p.getInt("mmY", 55) / 100f - h / 2f).toInt()
         }
         val w = (h * 6.5f).toInt()
         val type = BlindSpotHud.WIN_TYPES[BlindSpotHud.winTypeIndex(p)]

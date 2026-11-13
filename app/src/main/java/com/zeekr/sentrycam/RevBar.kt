@@ -168,7 +168,7 @@ class RevBar(private val ctx: Context) {
         return (base * p.getInt("revSize", 14).coerceIn(2, 30) / 100).coerceAtLeast(4)
     }
     // the HUD projection may crop its outer rim: the window stays on the edge (as before) and the bar is drawn this far in
-    private fun inset() = (if (pos() == 2) hudW else hudH) * p.getInt("revInset", 8).coerceIn(0, 20) / 100
+    private fun inset() = (if (pos() == 2) hudW else hudH) * p.getInt("revInset", 8).coerceIn(0, 40) / 100
     private fun lp(type: Int): WindowManager.LayoutParams {
         val t = thick() + inset()
         val r = pos() == 2
@@ -224,7 +224,7 @@ class RevBar(private val ctx: Context) {
             HudLayer.added(p, "rev")
         }
         v.visibility = View.VISIBLE
-        v.pos = pos(); v.inset = inset().toFloat(); v.vInset = hudH * p.getInt("revInset", 8).coerceIn(0, 20) / 100f; v.shape = p.getInt("revShape", 0).coerceIn(0, 2); v.scheme = p.getInt("revScheme", 0).coerceIn(0, 3)
+        v.pos = pos(); v.inset = inset().toFloat(); v.vInset = hudH * p.getInt("revInset", 8).coerceIn(0, 40) / 100f; v.shape = p.getInt("revShape", 0).coerceIn(0, 2); v.scheme = p.getInt("revScheme", 0).coerceIn(0, 3)
         v.track = p.getBoolean("revRegen", false)
         v.simGear = if (p.getString("engGearShow", "on") == "off") 0 else com.zeekr.sentrycam.sound.DriveSound.simGear()
         v.level = level; v.peak = peak; v.regen = regenLevel; v.regenColor = p.getInt("revRegenColor", Color.rgb(0, 230, 90))

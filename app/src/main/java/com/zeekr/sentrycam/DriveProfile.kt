@@ -122,8 +122,8 @@ object DriveProfile {
         log(ctx, "set 0x${hex(id)} ${before?.let { "0x" + hex(it) }} -> 0x${hex(value)} returned $ok, now ${read(ctx, id)?.let { "0x" + hex(it) }}")
     }
 
-    const val REV_SIZE = 12
-    const val REV_GAP = 20
+    fun revSizeDef(code: Int) = if (code == 0x22010101) 7 else 15
+    const val REV_GAP = 29   // lowest spot that is still inside the visible windshield area
     const val REGEN_BAR_DEF = 0xFF00E65A.toInt()
     /** App defaults for a mode's rev bar: Comfort has it off; Standard on with the Ice colours; Sport on with the Sport colours; bottom edge, slanted. */
     fun revDef(code: Int, key: String): String = when (key) {
@@ -142,7 +142,7 @@ object DriveProfile {
         if (mode == 0) return
         val e = p.edit().putBoolean("revOn", mode == 2)
         if (mode == 2) e.putInt("revPos", v("pfRevPos")).putInt("revShape", v("pfRevShape")).putInt("revScheme", v("pfRevScheme"))
-            .putInt("revSize", p.getInt("pfRevSize_$h", REV_SIZE)).putInt("revInset", p.getInt("pfRevInset_$h", REV_GAP))
+            .putInt("revSize", p.getInt("pfRevSize_$h", revSizeDef(code))).putInt("revInset", p.getInt("pfRevInset_$h", REV_GAP))
             .putBoolean("revRegen", p.getBoolean("pfRevRegen_$h", false)).putInt("revRegenColor", colorOf(p.getString("pfRevRegenColor_$h", REGEN_BAR_DEF.toString())).let { if (it == 0) REGEN_BAR_DEF else it })
         e.apply()
         try { ctx.startService(android.content.Intent(ctx, CamService::class.java)) } catch (t: Throwable) { log(ctx, "rev bar sync ${t.javaClass.simpleName}") }

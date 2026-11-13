@@ -167,6 +167,15 @@
                 <LinearLayout android:id="@+id/arrCard" android:layout_width="match_parent" android:layout_height="wrap_content"
                     android:orientation="vertical" android:tag="card" android:layout_marginBottom="10dp">
                     <TextView android:tag="h" android:text="HUD" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+                    <TextView android:tag="accent" android:text="LAYOUT" android:textStyle="bold" android:letterSpacing="0.08"
+                        android:layout_width="wrap_content" android:layout_height="wrap_content" android:paddingTop="14dp" android:paddingBottom="4dp"/>
+                    <TextView android:tag="m" android:text="Touch an item on the pad, drag to move it, pinch to resize it (the rev bar snaps to an edge). The HUD shows it while you edit. Use the chips to hide items that are in the way."
+                        android:layout_width="wrap_content" android:layout_height="wrap_content" android:paddingBottom="8dp"/>
+                    <LinearLayout android:id="@+id/arrHost" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical"/>
+                    <Button android:id="@+id/arrReset" android:tag="btn2" android:text="Reset HUD layout to default"
+                        android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp"/>
+                    <LinearLayout android:id="@+id/hudSecShow" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
+                    <View android:tag="chip" android:layout_width="match_parent" android:layout_height="1dp" android:layout_marginTop="18dp"/>
                     <TextView android:tag="accent" android:text="SHOW ON HUD" android:textStyle="bold" android:letterSpacing="0.08"
                         android:layout_width="wrap_content" android:layout_height="wrap_content" android:paddingTop="10dp" android:paddingBottom="4dp"/>
                     <androidx.appcompat.widget.SwitchCompat android:id="@+id/bsHud" android:tag="sw"
@@ -185,6 +194,8 @@
                         android:text="Web page (yields to the side camera)"/>
                     <TextView android:tag="m" android:text="The rev bar is switched on or off per drive mode, under Rev bar below."
                         android:layout_width="wrap_content" android:layout_height="wrap_content" android:paddingTop="4dp"/>
+                    </LinearLayout>
+                    <LinearLayout android:id="@+id/hudSecArrow" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
                     <View android:tag="chip" android:layout_width="match_parent" android:layout_height="1dp" android:layout_marginTop="18dp"/>
                     <TextView android:tag="accent" android:text="TURN ARROW LOOK" android:textStyle="bold" android:letterSpacing="0.08"
                         android:layout_width="wrap_content" android:layout_height="wrap_content" android:paddingTop="14dp" android:paddingBottom="4dp"/>
@@ -196,10 +207,14 @@
                             android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:layout_marginStart="8dp"/>
                     </LinearLayout>
                     <LinearLayout android:id="@+id/arrStyleHost" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical"/>
+                    </LinearLayout>
+                    <LinearLayout android:id="@+id/hudSecRev" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
                     <View android:tag="chip" android:layout_width="match_parent" android:layout_height="1dp" android:layout_marginTop="18dp"/>
                     <TextView android:tag="accent" android:text="REV BAR" android:textStyle="bold" android:letterSpacing="0.08"
                         android:layout_width="wrap_content" android:layout_height="wrap_content" android:paddingTop="14dp" android:paddingBottom="4dp"/>
                     <LinearLayout android:id="@+id/revBody" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical"/>
+                    </LinearLayout>
+                    <LinearLayout android:id="@+id/hudSecLimit" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
                     <View android:tag="chip" android:layout_width="match_parent" android:layout_height="1dp" android:layout_marginTop="18dp"/>
                     <TextView android:tag="accent" android:text="SPEED LIMIT SIGN" android:textStyle="bold" android:letterSpacing="0.08"
                         android:layout_width="wrap_content" android:layout_height="wrap_content" android:paddingTop="14dp" android:paddingBottom="4dp"/>
@@ -213,6 +228,8 @@
                         android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="6dp"/>
                     <TextView android:tag="m" android:text="Shows a sample sign on the HUD whatever road you are on, with the glow and one beep. Stays until you press again to hide it. Needs the speed limit sign switched on above."
                         android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingTop="4dp"/>
+                    </LinearLayout>
+                    <LinearLayout android:id="@+id/hudSecExit" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
                     <View android:tag="chip" android:layout_width="match_parent" android:layout_height="1dp" android:layout_marginTop="18dp"/>
                     <TextView android:tag="accent" android:text="EXIT ANIMATION" android:textStyle="bold" android:letterSpacing="0.08"
                         android:layout_width="wrap_content" android:layout_height="wrap_content" android:paddingTop="14dp" android:paddingBottom="4dp"/>
@@ -227,14 +244,7 @@
                         <Button android:id="@+id/bsExitPrevHud" android:tag="btn2" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"
                             android:layout_marginStart="8dp" android:text="Preview on HUD" android:textAllCaps="false"/>
                     </LinearLayout>
-                    <View android:tag="chip" android:layout_width="match_parent" android:layout_height="1dp" android:layout_marginTop="18dp"/>
-                    <TextView android:tag="accent" android:text="LAYOUT" android:textStyle="bold" android:letterSpacing="0.08"
-                        android:layout_width="wrap_content" android:layout_height="wrap_content" android:paddingTop="14dp" android:paddingBottom="4dp"/>
-                    <TextView android:tag="m" android:text="Touch an item on the pad, drag to move it, pinch to resize it (the rev bar snaps to an edge). The HUD shows it while you edit. Use the chips to hide items that are in the way."
-                        android:layout_width="wrap_content" android:layout_height="wrap_content" android:paddingBottom="8dp"/>
-                    <LinearLayout android:id="@+id/arrHost" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical"/>
-                    <Button android:id="@+id/arrReset" android:tag="btn2" android:text="Reset HUD layout to default"
-                        android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp"/>
+                    </LinearLayout>
                 </LinearLayout>
 
                 <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"

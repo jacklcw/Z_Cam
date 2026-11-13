@@ -498,8 +498,8 @@ class MainActivity : AppCompatActivity() {
                         val padW = r - l; val padH = b - t
                         val s = padH * CamTune.get(p, "bsSize", blinker).coerceIn(40, 100) / 100
                         val bw = (s * CamTune.get(p, "bsAspect", blinker) * 1 / 100).coerceAtMost(padW)
-                        val cx = if (p.contains("bsPosX$sfx")) padW * p.getInt("bsPosX$sfx", 16) / 100 else if (blinker == "R" && p.getBoolean("bsRightPos", false)) padW - bw / 2 else bw / 2
-                        val cy = if (p.contains("bsPosY$sfx")) padH * p.getInt("bsPosY$sfx", 50) / 100 else padH / 2
+                        val cx = padW * p.getInt("bsPosX$sfx", 20) / 100
+                        val cy = padH * p.getInt("bsPosY$sfx", 36) / 100
                         val x = (cx - bw / 2).coerceIn(0, (padW - bw).coerceAtLeast(0)); val y = (cy - s / 2).coerceIn(0, (padH - s).coerceAtLeast(0))
                         box.measure(MeasureSpec.makeMeasureSpec(bw, MeasureSpec.EXACTLY), MeasureSpec.makeMeasureSpec(s, MeasureSpec.EXACTLY))
                         box.layout(x, y, x + bw, y + s)
@@ -1043,20 +1043,7 @@ class MainActivity : AppCompatActivity() {
             rh.addView(rbSw, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(10) }); revViews += rbSw
             colourRow("pfRevRegenColor_$h", "$name: regen bar colour", "Green", DriveProfile.REGEN_BAR_DEF, regCol) { DriveProfile.revEdited(this, code) }
             rh.addView(regCol); regVis2()
-            fun revSeek(key: String, def: Int, min: Int, max: Int, text: (Int) -> String) {
-                val lab = TextView(this).apply { tag = "m"; setPadding(0, dp(8), 0, 0) }
-                val sb = SeekBar(this).apply { tag = "seek"; this.max = max - min }
-                val start = p.getInt(key, def).coerceIn(min, max)
-                sb.progress = start - min; lab.text = text(start)
-                sb.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-                    override fun onProgressChanged(s: SeekBar, v: Int, fromUser: Boolean) { lab.text = text(v + min); if (fromUser) { p.edit().putInt(key, v + min).apply(); DriveProfile.revEdited(this@MainActivity, code) } }
-                    override fun onStartTrackingTouch(s: SeekBar) {}
-                    override fun onStopTrackingTouch(s: SeekBar) {}
-                })
-                rh.addView(lab); rh.addView(sb); revViews += lab; revViews += sb
-            }
-            revSeek("pfRevSize_$h", DriveProfile.REV_SIZE, 2, 30) { "Bar size: $it%" }
-            revSeek("pfRevInset_$h", DriveProfile.REV_GAP, 0, 20) { "Gap to HUD edge: $it%" }
+            // bar size and gap are set on the HUD pad (drag the bar, drag a corner dot)
             revVis()
         }
         run { val t = p.getInt("revTab", 0).coerceIn(0, revPanels.size - 1); revPanels.forEachIndexed { k, v -> v.visibility = if (k == t) View.VISIBLE else View.GONE }; revTabs.forEachIndexed { k, b -> b.isSelected = k == t } }
@@ -1335,7 +1322,7 @@ class MainActivity : AppCompatActivity() {
     private val BACKUP_CATS = listOf(
         "cam" to "Camera windows, HUD and tuning", "web" to "Web window settings", "webdata" to "Web bookmarks, history and tabs",
         "eng" to "Engine sound and welcome sound", "pf" to "Driving profiles", "tw" to "Trip widget", "rev" to "Rev bar", "ui" to "Theme")
-    private val BACKUP_SKIP = setOf("bsPreviewUntil", "bsNoHoldUntil", "bsPreviewSide", "bsArrPrevUntil", "bsArrPrevSide", "flSizeStamp", "revPreviewUntil", "slPreviewUntil", "slBeepPrev", "twSnapSeq", "twReset", "pfTab", "revTab")
+    private val BACKUP_SKIP = setOf("bsPreviewUntil", "bsNoHoldUntil", "bsPreviewSide", "bsArrPrevUntil", "bsArrPrevSide", "flSizeStamp", "revPreviewUntil", "slPreviewUntil", "slBeepPrev", "webPreviewUntil", "twSnapSeq", "twReset", "pfTab", "revTab")
     private fun backupCat(k: String): String? = when {
         k in BACKUP_SKIP -> null
         k.startsWith("lk") || k.startsWith("bs") || k.startsWith("sl") || k.startsWith("fl") || k.startsWith("fm") || k.startsWith("stitch") || k.startsWith("stSeam") || k.startsWith("stBlend") || k == "parkCut" || k.startsWith("mm") || k.startsWith("gd") || k == "hudZ" -> "cam"
@@ -1570,6 +1557,23 @@ class MainActivity : AppCompatActivity() {
         fun arrow() = if (arrSide) arrL else arrR
         val icons = ArrayList<View>(); val dot = View(this); val hexT = TextView(this).apply { tag = "m"; gravity = Gravity.CENTER_VERTICAL }
         val chips = ArrayList<Pair<Button, HudPadView.Item>>()
+        // the HUD settings sections: all listed, folded up until their header is tapped (or their component is picked on the pad)
+        val secIds = listOf(R.id.hudSecShow, R.id.hudSecArrow, R.id.hudSecRev, R.id.hudSecLimit, R.id.hudSecExit)
+        val secName = HashMap<Int, String>(); val secHead = HashMap<Int, TextView>(); val secBody = HashMap<Int, List<View>>(); val secOpen = HashMap<Int, Boolean>()
+        var lastSelId: String? = null
+        fun setSec(id: Int, open: Boolean) {
+            secOpen[id] = open
+            secHead[id]!!.text = (if (open) "v  " else ">  ") + secName[id]
+            for (v in secBody[id]!!) v.visibility = if (open) View.VISIBLE else View.GONE
+        }
+        for (id in secIds) {
+            val sec = findViewById<LinearLayout>(id)
+            val kids = (0 until sec.childCount).map { sec.getChildAt(it) }
+            val head = kids.first { it is TextView && it.tag == "accent" } as TextView
+            secName[id] = head.text.toString(); secHead[id] = head; secBody[id] = kids.drop(kids.indexOf(head) + 1)
+            head.setPadding(0, dp(14), 0, dp(10)); head.setOnClickListener { setSec(id, secOpen[id] != true) }
+            setSec(id, false)
+        }
         fun preview(i: HudPadView.Item) {
             val until = System.currentTimeMillis() + 6000
             val e = p.edit()
@@ -1577,12 +1581,20 @@ class MainActivity : AppCompatActivity() {
                 0 -> e.putLong("bsPreviewUntil", until).putInt("bsPreviewSide", if (i.left) 2 else 3)
                 2 -> e.putLong("bsArrPrevUntil", until).putInt("bsArrPrevSide", if (i.left) 1 else 2)
                 5 -> e.putLong("slPreviewUntil", until)
+                1 -> e.putLong("webPreviewUntil", until)   // show the page on the HUD while it is being placed, even with its switch off
                 else -> {}
             }
             e.apply()
         }
         fun mark() {
             val pal = ZTheme.palette(mode); val a = arrow()
+            // picking a component on the pad opens its section (the others fold up); nothing picked = all folded
+            val sl = pad.sel?.takeIf { it.shown }
+            if (sl?.id != lastSelId) {
+                lastSelId = sl?.id
+                val want = when { sl == null -> null; sl.kind == 2 -> R.id.hudSecArrow; sl.id == "rev" -> R.id.hudSecRev; sl.id == "lim" -> R.id.hudSecLimit; sl.kind == 0 -> R.id.hudSecExit; sl.kind == 1 -> R.id.hudSecShow; else -> null }
+                if (want != null) for (sid in secIds) setSec(sid, sid == want)
+            }
             dot.background = android.graphics.drawable.GradientDrawable().apply {
                 shape = android.graphics.drawable.GradientDrawable.OVAL; setColor(a.color); setStroke(dp(2), pal.line)
             }
@@ -1601,41 +1613,46 @@ class MainActivity : AppCompatActivity() {
                 val l = c.left; val k = sfx(l)
                 c.size = p.getInt("bsSize$k", BlindSpotHud.defaultFor("bsSize", l)).coerceIn(40, 100)
                 // not placed yet: where the old edge-aligned default puts it (the HUD is 3 times as wide as high)
-                val asp = p.getInt("bsAspect$k", 100).coerceIn(40, 250)
-                c.x = if (p.contains("bsPosX$k")) p.getInt("bsPosX$k", 16) else (if (!l && p.getBoolean("bsRightPos", false)) 100 - c.size * asp / 600 else c.size * asp / 600)
-                c.y = p.getInt("bsPosY$k", 50)
+                c.x = p.getInt("bsPosX$k", 20)
+                c.y = p.getInt("bsPosY$k", 36)
                 c.aspect = p.getInt("bsAspect$k", 100).coerceIn(40, 250)
             }
             run {   // the rev bar of the drive mode picked in the rev bar tabs below
                 val (code, name) = revMode(); val h = DriveProfile.hex(code)
                 rev.label = "REV BAR: " + name.uppercase()
                 rev.pos = (p.getString("pfRevPos_$h", DriveProfile.revDef(code, "pfRevPos"))?.toIntOrNull() ?: 1).coerceIn(0, 2)
-                rev.size = p.getInt("pfRevSize_$h", DriveProfile.REV_SIZE).coerceIn(2, 30); rev.gap = p.getInt("pfRevInset_$h", DriveProfile.REV_GAP).coerceIn(0, 20)
+                rev.size = p.getInt("pfRevSize_$h", DriveProfile.revSizeDef(code)).coerceIn(2, 30); rev.gap = p.getInt("pfRevInset_$h", DriveProfile.REV_GAP).coerceIn(0, 40)
+                if (rev.gap < rev.minGap()) {   // saved outside the visible windshield area (can't be seen or grabbed): bring it back in
+                    rev.gap = rev.minGap(); p.edit().putInt("pfRevInset_$h", rev.gap).apply(); DriveProfile.revEdited(this, code)
+                }
             }
-            mm.x = p.getInt("mmX", 50); mm.y = p.getInt("mmY", 35); mm.size = p.getInt("mmSize", 22).coerceIn(8, 60)
-            lim.x = p.getInt("slX", 88); lim.y = p.getInt("slY", 50); lim.size = p.getInt("slSize", 25).coerceIn(10, 80)
-            web.size = p.getInt("webSize", 100).coerceIn(20, 200); web.x = p.getInt("webPosX", 17); web.y = p.getInt("webPosY", 50)
+            for (g in listOf(radar, speed)) {   // guides: the saved spot and size, else the measured defaults
+                if (g === radar) { g.x = 63; g.y = 35; g.gw = 412; g.gh = 276 } else { g.x = 38; g.y = 34; g.gw = 80; g.gh = 110 }   // fixed: measured on the car
+            }
+            mm.x = p.getInt("mmX", 36); mm.y = p.getInt("mmY", 55); mm.size = p.getInt("mmSize", 16).coerceIn(8, 60)
+            lim.x = p.getInt("slX", 44); lim.y = p.getInt("slY", 12); lim.size = p.getInt("slSize", 25).coerceIn(10, 80)
+            web.size = p.getInt("webSize", 122).coerceIn(20, 200); web.x = p.getInt("webPosX", 19); web.y = p.getInt("webPosY", 61)
             for (a in listOf(arrL, arrR)) {
                 val l = a.left
-                a.x = BlindSpotHud.arrowGet(p, "bsArrX", l); a.y = BlindSpotHud.arrowGet(p, "bsArrY", l); a.size = BlindSpotHud.arrowGet(p, "bsArrSize", l)
+                a.x = BlindSpotHud.arrowGet(p, "bsArrX", l); a.y = BlindSpotHud.arrowGet(p, "bsArrY", l); a.size = BlindSpotHud.arrowGet(p, "bsArrSize", l); a.aspect = BlindSpotHud.arrowGet(p, "bsArrAsp", l).coerceIn(50, 500)
                 a.icon = BlindSpotHud.arrowGet(p, "bsArrIcon", l).coerceIn(0, BlindSpotHud.ARROW_ICONS.size - 1); a.color = BlindSpotHud.arrowGet(p, "bsArrColor", l)
             }
             restyleIcons(); pad.invalidate(); mark(); loading = false
         }
         pad = HudPadView(this, onSelect = { i ->
-            if (i.kind == 2) { arrSide = i.left; restyleIcons(); mark() }
-            preview(i); gdSync()
+            if (i.kind == 2) { arrSide = i.left; restyleIcons() }
+            mark(); preview(i); gdSync()
         }, onChange = { i ->
             if (!loading) {
                 val e = p.edit(); val k = sfx(i.left)
                 when (i.id) {
-                    "rev" -> { val h = DriveProfile.hex(revMode().first); e.putString("pfRevPos_$h", i.pos.toString()).putInt("pfRevSize_$h", i.size) }
+                    "rev" -> { val h = DriveProfile.hex(revMode().first); e.putString("pfRevPos_$h", i.pos.toString()).putInt("pfRevSize_$h", i.size).putInt("pfRevInset_$h", i.gap) }
                     "mm" -> e.putInt("mmX", i.x).putInt("mmY", i.y).putInt("mmSize", i.size)
                     "lim" -> e.putInt("slX", i.x).putInt("slY", i.y).putInt("slSize", i.size)
                     "web" -> e.putInt("webPosX", i.x).putInt("webPosY", i.y).putInt("webSize", i.size)
                     "radar", "speed" -> e.putInt("gdX_${i.id}", i.x).putInt("gdY_${i.id}", i.y).putInt("gdW_${i.id}", i.gw).putInt("gdH_${i.id}", i.gh)
                     "camL", "camR" -> e.putInt("bsPosX$k", i.x).putInt("bsPosY$k", i.y).putInt("bsSize$k", i.size)
-                    else -> e.putInt("bsArrX$k", i.x).putInt("bsArrY$k", i.y).putInt("bsArrSize$k", i.size)
+                    else -> e.putInt("bsArrX$k", i.x).putInt("bsArrY$k", i.y).putInt("bsArrSize$k", i.size).putInt("bsArrAsp$k", i.aspect)
                 }
                 e.apply(); if (i.id != "rev") preview(i); gdSync()
             }
@@ -1698,11 +1715,30 @@ class MainActivity : AppCompatActivity() {
         val gdH = SeekBar(this).apply { tag = "seek"; max = 460 }
         for (v in listOf<View>(gdInfo, gdWLbl, gdW, gdHLbl, gdH)) host.addView(v, LinearLayout.LayoutParams(-1, -2))
         fun gdSel(): HudPadView.Item? = pad.sel?.takeIf { it.kind == 4 }
+        // contextual copy: whichever camera or arrow is selected on the pad gets its size copied to the other side
+        val copyBtn = Button(this).apply { tag = "btn2"; isAllCaps = false; visibility = View.GONE }
+        host.addView(copyBtn, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(6) })
+        copyBtn.setOnClickListener {
+            val src = pad.sel?.takeIf { it.kind == 0 || it.kind == 2 } ?: return@setOnClickListener
+            val dst = when (src.id) { "camL" -> camR; "camR" -> camL; "arrL" -> arrR; else -> arrL }
+            dst.size = src.size; dst.aspect = src.aspect
+            val k = sfx(dst.left)
+            if (src.kind == 0) p.edit().putInt("bsSize$k", dst.size).putInt("bsAspect$k", dst.aspect).apply()
+            else p.edit().putInt("bsArrSize$k", dst.size).putInt("bsArrAsp$k", dst.aspect).apply()
+            pad.invalidate(); mark(); preview(dst)
+        }
         gdSync = {
             val g = gdSel()
+            val cs = pad.sel?.takeIf { it.kind == 0 || it.kind == 2 }
+            copyBtn.visibility = if (cs != null) View.VISIBLE else View.GONE
+            if (cs != null) copyBtn.text = "Copy ${if (cs.left) "left" else "right"} ${if (cs.kind == 0) "camera" else "arrow"} size to ${if (cs.left) "right" else "left"}"
             val vis = if (g != null) View.VISIBLE else View.GONE
             for (v in listOf<View>(gdWLbl, gdW, gdHLbl, gdH)) v.visibility = vis
-            if (g == null) gdInfo.text = "The RADAR and SPEEDO guides mark where the car draws its own radar and speedometer. They are fixed; the chips only show or hide them."
+            if (g == null) {
+                val q = pad.sel
+                val cur = if (q != null && q.kind == 2) "Selected ${if (q.left) "left" else "right"} arrow: centre x=${q.x}% (${q.x * 1440 / 100} px) y=${q.y}% (${q.y * 480 / 100} px), height ${q.size}% (${q.size * 480 / 100} px), width ${q.aspect}% of height (${q.size * 480 / 100 * q.aspect / 100} px)\n" else ""
+                gdInfo.text = cur + "The RADAR and SPEEDO guides mark where the car draws its own radar and speedometer. They are fixed; the chips only show or hide them."
+            }
             else {
                 gdInfo.text = "${g.label}: centre x=${g.x * 1440 / 100} y=${g.y * 480 / 100} px (${g.x}% / ${g.y}%), width ${g.gw} px, height ${g.gh} px"
                 gdWLbl.text = "Width: ${g.gw} px"; gdHLbl.text = "Height: ${g.gh} px"
@@ -1740,6 +1776,18 @@ class MainActivity : AppCompatActivity() {
         corow.addView(hexT, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
         corow.addView(pick)
         style.addView(corow, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(10) })
+        val cprow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        for ((n, fromL) in listOf(true, false).withIndex()) {
+            val b = Button(this).apply { tag = "btn2"; isAllCaps = false; text = if (fromL) "Copy L size to R" else "Copy R size to L" }
+            b.setOnClickListener {
+                val src = if (fromL) arrL else arrR; val dst = if (fromL) arrR else arrL
+                dst.size = src.size; dst.aspect = src.aspect
+                p.edit().putInt("bsArrSize" + sfx(dst.left), dst.size).putInt("bsArrAsp" + sfx(dst.left), dst.aspect).apply()
+                pad.invalidate(); mark(); gdSync(); preview(dst)
+            }
+            cprow.addView(b, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply { if (n > 0) marginStart = dp(8) })
+        }
+        style.addView(cprow, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(10) })
         for ((id, l) in listOf(R.id.arrSideL to true, R.id.arrSideR to false)) findViewById<Button>(id).setOnClickListener {
             arrSide = l; pad.sel = arrow(); restyleIcons(); pad.invalidate(); mark(); preview(arrow())
         }

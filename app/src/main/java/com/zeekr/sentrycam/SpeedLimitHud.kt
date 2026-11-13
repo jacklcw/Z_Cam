@@ -324,7 +324,7 @@ class SpeedLimitHud(private val ctx: Context) {
                 WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED, PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.TOP or Gravity.LEFT
-            x = (hudW * p.getInt("slX", 88) / 100f - s / 2f).toInt(); y = (hudH * p.getInt("slY", 50) / 100f - s / 2f).toInt()
+            x = (hudW * p.getInt("slX", 44) / 100f - s / 2f).toInt(); y = (hudH * p.getInt("slY", 12) / 100f - s / 2f).toInt()
         }
     }
 

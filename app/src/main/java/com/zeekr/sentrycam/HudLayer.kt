@@ -7,7 +7,7 @@ import android.content.SharedPreferences
  * (re)added, every item meant to be in front of it is re-added right after, in order. Main thread only.
  */
 object HudLayer {
-    val IDS = listOf("web", "rev", "lim", "cam", "arr")
+    val IDS = listOf("lim", "web", "cam", "arr", "rev")
     val NAMES = mapOf("web" to "Web", "rev" to "Rev bar", "lim" to "Limit", "cam" to "Cam", "arr" to "Arrow")
     /** id -> brings that item's window back on top of everything added so far (set by each component while it runs). */
     val raisers = HashMap<String, () -> Unit>()

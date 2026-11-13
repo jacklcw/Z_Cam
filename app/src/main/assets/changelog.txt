@@ -1,3 +1,11 @@
+0.95.0
+- HUD layout editor: the pad now shows only the part of the HUD the windshield really shows. Drag a corner dot to resize a turn arrow, the rev bar is dragged freely (nearest edge plus distance), and every item stays inside the HUD like the real thing.
+- New Fat turn arrow icon with a free width. Hazard lights now blink both HUD arrows.
+- Copy the size of the selected camera or arrow to the other side with one button.
+- The HUD settings sections are listed folded; picking an item on the pad opens its section. Rev bar size and gap sliders are gone (use the pad).
+- The radar and speedo guides are fixed. Placing the web page on the pad shows it on the HUD even when its switch is off.
+- New default HUD layout.
+
 0.94.0
 - New HUD item: drive mode name fades in, holds about 2 seconds, then fades out whenever the drive mode changes. Turn it on in the floating ring (HUD group, Drive mode on HUD). Move and resize it in the HUD layout editor (Mode).
 - The mode switch click now also plays when the mode is changed from the car screen, not only from the floating arc.

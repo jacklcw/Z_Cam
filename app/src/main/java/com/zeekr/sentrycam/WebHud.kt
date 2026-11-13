@@ -117,6 +117,8 @@ class WebHud(private val ctx: Context) {
         main.post(::destroy)
     }
 
+    private fun hudOn() = p.getBoolean("webHudOn", false) || p.getLong("webPreviewUntil", 0L) > System.currentTimeMillis()
+
     private val tick = object : Runnable {
         override fun run() {
             if (!running) return
@@ -128,7 +130,7 @@ class WebHud(private val ctx: Context) {
                     if (now - screenOffSince > 120_000L) { destroy(); main.postDelayed(this, TICK_MS * 4); return }
                 } else screenOffSince = 0L
                 if (now < failedUntil) { main.postDelayed(this, TICK_MS); return }
-                val on = p.getBoolean("webHudOn", false)
+                val on = hudOn()   // also true while the HUD pad previews the page (webPreviewUntil)
                 val fl = p.getBoolean("webFloatOn", false)   // the floating window has its own switch: hiding the HUD page leaves it up
                 val floatOnly = fl && !on
                 val covered = BlindSpotHud.activePanel == 2 || (BlindSpotHud.activePanel == 3 && !p.getBoolean("bsRightPos", false))   // a right camera on the right edge leaves the web box alone
@@ -168,8 +170,8 @@ class WebHud(private val ctx: Context) {
     private fun portH() = minOf(hudH, (hudH * CamTune.get(p, "bsSize", "R") / 100 / 0.5625f).toInt())
     private fun landW() = minOf(hudH * 73 / 100, hudH * 16 / 9)
     // Free placement from the app's HUD layout pad (webPosX/webPosY = centre as % of the HUD, webSize = box height as % of the HUD height); else the fixed legacy spot above.
-    private fun placed() = hudW > 0 && p.contains("webPosX")
-    private fun freeH(): Int { var h = hudH * p.getInt("webSize", 100).coerceIn(20, 200) / 100; if (land) h = minOf(h, hudW * 9 / 16); return h }
+    private fun placed() = hudW > 0
+    private fun freeH(): Int { var h = hudH * p.getInt("webSize", 122).coerceIn(20, 200) / 100; if (land) h = minOf(h, hudW * 9 / 16); return h }
     // Full screen: the box takes the centre screen's aspect at full HUD height, so the page lays out like it would on that screen.
     private var fullScreen = false
     private fun fullW(): Int {
@@ -179,8 +181,8 @@ class WebHud(private val ctx: Context) {
     }
     private fun hudWpx() = if (placed()) (if (land) freeH() * 16 / 9 else freeH() * 9 / 16) else if (land) landW() else portH() * 9 / 16
     private fun hudHpx() = if (placed()) freeH() else if (land) landW() * 9 / 16 else portH()
-    private fun offX() = if (placed()) (hudW * p.getInt("webPosX", 17) / 100 - hudWpx() / 2).coerceIn(minOf(0, hudW - hudWpx()), maxOf(0, hudW - hudWpx())) else hudH * 24 / 100
-    private fun offY() = if (placed()) (hudH * p.getInt("webPosY", 50) / 100 - hudHpx() / 2).coerceIn(minOf(0, hudH - hudHpx()), maxOf(0, hudH - hudHpx())) else if (land) hudH * 14 / 100 else 0
+    private fun offX() = if (placed()) (hudW * p.getInt("webPosX", 19) / 100 - hudWpx() / 2).coerceIn(minOf(0, hudW - hudWpx()), maxOf(0, hudW - hudWpx())) else hudH * 24 / 100
+    private fun offY() = if (placed()) (hudH * p.getInt("webPosY", 61) / 100 - hudHpx() / 2).coerceIn(minOf(0, hudH - hudHpx()), maxOf(0, hudH - hudHpx())) else if (land) hudH * 14 / 100 else 0
     private fun hudGrav() = if (placed()) (Gravity.TOP or Gravity.LEFT) else (if (land) Gravity.TOP else Gravity.CENTER_VERTICAL) or Gravity.LEFT
 
     // ---- tabs: one WebView per tab, only the active one is attached (and so drawn); the others are paused ----
@@ -443,7 +445,7 @@ class WebHud(private val ctx: Context) {
         val dctx = ctx.createDisplayContext(hud)
         val wctx = try { dctx.createWindowContext(WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY, null) } catch (_: Throwable) { dctx }
         Point().also { hud.getRealSize(it) }.let { hudH = it.y; hudW = it.x }
-        direct = p.getBoolean("webFloatOn", false) && !p.getBoolean("webHudOn", false)
+        direct = p.getBoolean("webFloatOn", false) && !hudOn()
         if (direct) {
             val big = FrameLayout(ctx).apply { pivotX = 0f; pivotY = 0f }
             bigRef = big; webCtx = ctx
