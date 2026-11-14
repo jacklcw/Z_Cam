@@ -1,3 +1,8 @@
+0.99.0
+- Zed no longer walks onto the system status bar (his area now stops at the bars), so you cannot tap him there.
+- Reports whether a front seat is occupied and whether the gear is in P to the relay (used by ZDash Auto-lock).
+- Shows the Camping reminder and Auto-lock on hold alerts in the car notification pane (needs ZDash with a relay).
+
 0.98.0
 - Speed limit sign: new sliders to adjust the red border thickness and the number size (included in settings backup).
 

@@ -97,6 +97,21 @@ object CampGuard {
         return seat(SEAT_DRIVER)
     }
 
+    /** True while the driver's or passenger's seat is occupied; false when both read empty; null when unreadable. */
+    @Synchronized fun anySeated(ctx: Context): Boolean? {
+        if (!connect(ctx.applicationContext)) return null
+        val d = seat(SEAT_DRIVER); val q = seat(SEAT_PASSENGER)
+        return if (d == true || q == true) true else if (d == null && q == null) null else false
+    }
+
+    /** True while the gear selector is in P, false in R/N/D; null when unreadable (same sensor the trip widget shows). */
+    @Synchronized fun inPark(ctx: Context): Boolean? {
+        if (!connect(ctx.applicationContext)) return null
+        return try {
+            when ((getEvent?.invoke(sensor, 0x00200200) as? Number)?.toInt()) { 0x00200230 -> true; 0x00200240, 0x00200210, 0x00200220 -> false; else -> null }
+        } catch (_: Throwable) { null }
+    }
+
     private fun seat(id: Int): Boolean? = try {
         when (((getEvent?.invoke(sensor, id) as? Number)?.toInt() ?: -1) and 0xFF) { 1 -> false; 2 -> true; else -> null }   // true = occupied
     } catch (_: Throwable) { null }

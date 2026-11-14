@@ -74,8 +74,7 @@ object Mascot {
     private fun add(ctx: Context) {
         val lp = WindowManager.LayoutParams(WindowManager.LayoutParams.MATCH_PARENT, WindowManager.LayoutParams.MATCH_PARENT,
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED or
-                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS, PixelFormat.TRANSLUCENT).apply {
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED, PixelFormat.TRANSLUCENT).apply {   // no LAYOUT_IN_SCREEN/NO_LIMITS: the pet's area stops at the system bars, so it can't walk on them
             gravity = Gravity.TOP or Gravity.LEFT
             alpha = 0.8f   // Android 12 only lets touches through a see-through overlay up to 80% opaque
         }
@@ -376,7 +375,7 @@ object Mascot {
             val v = hitV ?: return; val lp = hitLp ?: return
             val now = SystemClock.uptimeMillis(); if (now - hitAt < 40L) return; hitAt = now
             val a = Math.toRadians(ang.toDouble()); val cx = x + 5 * u * sin(a).toFloat(); val cy = y - hop - 5 * u * cos(a).toFloat()
-            val s = (15 * u).toInt(); val nx = (cx - s / 2f).toInt(); val ny = (cy - s / 2f).toInt()
+            getLocationOnScreen(loc); val s = (15 * u).toInt(); val nx = (cx - s / 2f).toInt() + loc[0]; val ny = (cy - s / 2f).toInt() + loc[1]
             if (nx == lp.x && ny == lp.y && lp.width == s) return
             lp.x = nx; lp.y = ny; lp.width = s; lp.height = s
             try { context.getSystemService(WindowManager::class.java).updateViewLayout(v, lp) } catch (_: Throwable) {}

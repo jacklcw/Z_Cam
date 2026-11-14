@@ -400,10 +400,10 @@ class CamService : Service() {
                 // Tell the relay whether the car is really parked (Auto Sentry waits for it): on change, and every 60 s.
                 val pk = Park.parkedSignal(this); val pkNow = System.currentTimeMillis()
                 ensureCampReader()
-                val camNow = campRead
-                if (pk != lastParkSent || camNow != lastCampSent || pkNow - lastParkAt > 60_000L) {
-                    val body = JSONObject().put("parked", pk); if (camNow != null) body.put("camping", camNow)
-                    if (Net.postJson("$base/cam/parked", token, body) != null) { lastParkSent = pk; lastCampSent = camNow; lastParkAt = pkNow }
+                val camNow = campRead; val seatNow = seatRead; val gearNow = gearRead
+                if (pk != lastParkSent || camNow != lastCampSent || seatNow != lastSeatSent || gearNow != lastGearSent || pkNow - lastParkAt > 60_000L) {
+                    val body = JSONObject().put("parked", pk); if (camNow != null) body.put("camping", camNow); if (seatNow != null) body.put("seated", seatNow); if (gearNow != null) body.put("gearP", gearNow)
+                    if (Net.postJson("$base/cam/parked", token, body) != null) { lastParkSent = pk; lastCampSent = camNow; lastSeatSent = seatNow; lastGearSent = gearNow; lastParkAt = pkNow }
                 }
                 val cams = (p.getString("cams", "2") ?: "2").split(",").filter { it.isNotBlank() }
                 val cmd = Net.get("$base/cam/cmd", token)
@@ -662,13 +662,19 @@ class CamService : Service() {
     // in this app is sent to the relay (campMs is the time of the last change, so the two never fight).
     // The car's Camping switch is read on its own thread, so a slow or stuck car API can never stall the relay poll loop.
     @Volatile private var campRead: Boolean? = null
+    @Volatile private var seatRead: Boolean? = null   // any front seat occupied (ZDash holds its app lock open while true)
+    private var lastSeatSent: Boolean? = null
+    @Volatile private var gearRead: Boolean? = null   // gear selector in P
+    private var lastGearSent: Boolean? = null
     @Volatile private var campReader: Thread? = null
     private fun ensureCampReader() {
         if (campReader?.isAlive == true) return
         campReader = Thread {
             while (running) {
                 try { campRead = CampGuard.campingState(this) } catch (_: Throwable) {}
-                try { Thread.sleep(10_000L) } catch (_: InterruptedException) { return@Thread }
+                try { seatRead = CampGuard.anySeated(this) } catch (_: Throwable) {}
+                try { gearRead = CampGuard.inPark(this) } catch (_: Throwable) {}
+                try { Thread.sleep(3_000L) } catch (_: InterruptedException) { return@Thread }
             }
         }.also { it.isDaemon = true; it.start() }
     }
@@ -676,6 +682,18 @@ class CamService : Service() {
     private var campSetTries = 0
     private fun syncCampGuard(base: String, token: String?, cmd: JSONObject) {
         try {
+            cmd.optJSONObject("carNote")?.let { n ->   // Camping reminder / Auto-lock on hold from the relay: show once in the car notification pane
+                val at = n.optLong("at", 0L); val sp = getSharedPreferences("cfg", MODE_PRIVATE)
+                if (at > sp.getLong("carNoteAt", 0L)) {
+                    sp.edit().putLong("carNoteAt", at).apply()
+                    if (Build.VERSION.SDK_INT >= 26) {
+                        val nm = getSystemService(NotificationManager::class.java)
+                        if (nm.getNotificationChannel("zcamalert") == null) nm.createNotificationChannel(NotificationChannel("zcamalert", "Z_Cam alerts", NotificationManager.IMPORTANCE_HIGH))
+                        nm.notify(2, Notification.Builder(this, "zcamalert").setContentTitle(n.optString("title")).setContentText(n.optString("text"))
+                            .setStyle(Notification.BigTextStyle().bigText(n.optString("text"))).setSmallIcon(android.R.drawable.ic_menu_camera).setAutoCancel(true).build())
+                    }
+                }
+            }
             val p = getSharedPreferences("cfg", MODE_PRIVATE)
             cmd.optJSONObject("campSet")?.let { cs ->
                 val seq = cs.optLong("seq", 0L)
