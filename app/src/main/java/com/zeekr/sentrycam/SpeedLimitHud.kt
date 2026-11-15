@@ -144,7 +144,7 @@ class SpeedLimitHud(private val ctx: Context) {
             val now = System.currentTimeMillis()
             if (now - beepAt >= 30_000) { beepAt = now; beep() }   // once on crossing the limit, again every 30 s while still over
         } else if (!speeding) beepAt = 0L
-        if (p.getBoolean("slLog", false) && limit > 0 && spd >= limit - 10) Logger.log(ctx, "slog speed=${"%.2f".format(spd)} src=$speedSrc limit=$limit over=$speeding glow=$over")   // near the limit only: keeps the log readable
+        if (p.getBoolean("slLog", false) && ((limit > 0 && spd >= limit - 10) || System.currentTimeMillis() - slogAt >= 10_000)) { slogAt = System.currentTimeMillis(); Logger.log(ctx, "slog speed=${"%.2f".format(spd)} src=$speedSrc limit=$limit over=$speeding glow=$over") }   // near the limit every second, else a 10 s heartbeat; near the limit only: keeps the log readable
         val info = debugText(pos)
         main.post { update(show, over); debugView(info) }
         h.postDelayed(tickRun, 1000L)
@@ -186,6 +186,7 @@ class SpeedLimitHud(private val ctx: Context) {
     }
 
     /** Car speed sensor (m/s, same id as the trip widget), else the GPS speed; km/h, 0 if unknown. */
+    private var slogAt = 0L
     private var speedSrc = "none"
     private fun speedKmh(): Double {
         try {

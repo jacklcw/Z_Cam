@@ -1,3 +1,7 @@
+0.99.3
+- Credits: now shows the GPL-3.0 license notice, no warranty, the Zeekr Shortcut code credit and the source link; the engine sound is credited as dts88's original work.
+- Log: keeps more lines (4000) for relay upload, and the speed debug log adds a 10 s heartbeat away from the limit.
+
 0.99.2
 - Speed limit: new debug switch that logs your driving speed (car sensor or GPS) near the limit to the log, so the glow can be compared with the real speed.
 

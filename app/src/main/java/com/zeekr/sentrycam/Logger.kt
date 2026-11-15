@@ -14,7 +14,7 @@ import java.util.Locale
  * rename, so a power cut can't leave a half-written log) only once it reaches 2 x MAX_LINES.
  */
 object Logger {
-    private const val MAX_LINES = 600                 // what read() returns (relay upload, tail checks)
+    private const val MAX_LINES = 4000                // what read() returns (relay upload, tail checks)
     private const val KEEP_MS = 3L * 24 * 3600 * 1000 // on-device retention
     private const val MAX_KEEP_LINES = 100_000        // safety cap on the file
     private const val COMPACT_EVERY = 2000

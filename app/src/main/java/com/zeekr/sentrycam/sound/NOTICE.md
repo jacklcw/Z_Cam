@@ -1,7 +1,7 @@
 # Engine sound (GPL-3.0)
 
 The files in this folder are ported from **dts88/zeekr-shortcut-car** (https://github.com/dts88/zeekr-shortcut-car,
-GPL-3.0), package `com.kooo.evcam.sound` (simulated engine sound, which itself builds on FerixzTanz's and other work credited there).
+GPL-3.0), package `com.kooo.evcam.sound`: the simulated engine sound, an original work by dts88 (synthesis model, voices and tuning).
 
 Changes made here: package renamed, the car-signal layer replaced by `Telemetry.java` (polling the ECARX car API), settings read from
 this app's prefs (`Shim.java`), and the engine sound plays in every drive mode instead of only Sport.
