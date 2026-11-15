@@ -234,6 +234,9 @@
                     <androidx.appcompat.widget.SwitchCompat android:id="@+id/slBeep" android:tag="sw"
                         android:layout_width="match_parent" android:layout_height="wrap_content"
                         android:text="Beep when over the speed limit (every 30 s while over)"/>
+                    <androidx.appcompat.widget.SwitchCompat android:id="@+id/slLog" android:tag="sw"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:text="Debug: log driving speed near the limit (shown in the log)"/>
                     <Button android:id="@+id/slPreview" android:tag="btn2" android:text="Show preview of sign and alert"
                         android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="6dp"/>
                     <TextView android:tag="m" android:text="Shows a sample sign on the HUD whatever road you are on, with the glow and one beep. Stays until you press again to hide it. Needs the speed limit sign switched on above."

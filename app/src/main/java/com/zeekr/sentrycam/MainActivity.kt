@@ -233,6 +233,10 @@ class MainActivity : AppCompatActivity() {
             isChecked = p.getBoolean("slBeep", false)
             setOnCheckedChangeListener { _, on -> p.edit().putBoolean("slBeep", on).apply() }
         }
+        findViewById<CompoundButton>(R.id.slLog).apply {
+            isChecked = p.getBoolean("slLog", false)
+            setOnCheckedChangeListener { _, on -> p.edit().putBoolean("slLog", on).apply() }
+        }
         findViewById<CompoundButton>(R.id.slGlow).apply {
             isChecked = p.getBoolean("slGlow", true)
             setOnCheckedChangeListener { _, on -> p.edit().putBoolean("slGlow", on).apply() }
@@ -1427,7 +1431,7 @@ class MainActivity : AppCompatActivity() {
     // (the window switches, camera tuning...). Defaults go in first, saved values override them.
     private fun backupDefaults(): Map<String, Any> {
         val m = LinkedHashMap<String, Any>()
-        for (k in listOf("flLeft", "flRight", "flRear", "flFront", "flOnly_L", "flOnly_R", "flBlinkCenter", "flBlackBg", "bsHud", "bsRightPos", "revOn", "slOn", "slBeep", "mmOn", "webHudOn", "webFloatOn", "webFloatAlways")) m[k] = false
+        for (k in listOf("flLeft", "flRight", "flRear", "flFront", "flOnly_L", "flOnly_R", "flBlinkCenter", "flBlackBg", "bsHud", "bsRightPos", "revOn", "slOn", "slBeep", "slLog", "mmOn", "webHudOn", "webFloatOn", "webFloatAlways")) m[k] = false
         for (k in listOf("flMaster", "parkCut", "bsSignal", "slGlow")) m[k] = true
         m["flHeader"] = 56; m["flCorner"] = 0; m["flFade"] = 0; m["slRing"] = 28; m["slNum"] = 100
         for (c in CamTune.CAMS) {

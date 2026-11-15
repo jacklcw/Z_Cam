@@ -137,12 +137,14 @@ class SpeedLimitHud(private val ctx: Context) {
         val show = if (preview) 60 else if (p.getBoolean("slOn", false)) limit else 0
         val bp = p.getLong("slBeepPrev", 0L)
         if (bp > beepPrevSeen) { if (bp > System.currentTimeMillis() - 5_000) beep(); beepPrevSeen = bp }   // the preview button: sound once, whatever the switch says
-        val speeding = !preview && limit > 0 && speedKmh() > limit
+        val spd = speedKmh()
+        val speeding = !preview && limit > 0 && spd > limit
         val over = p.getBoolean("slGlow", true) && (preview && (System.currentTimeMillis() / 1500) % 2 == 0L || speeding)
         if (speeding && p.getBoolean("slBeep", false)) {
             val now = System.currentTimeMillis()
             if (now - beepAt >= 30_000) { beepAt = now; beep() }   // once on crossing the limit, again every 30 s while still over
         } else if (!speeding) beepAt = 0L
+        if (p.getBoolean("slLog", false) && limit > 0 && spd >= limit - 10) Logger.log(ctx, "slog speed=${"%.2f".format(spd)} src=$speedSrc limit=$limit over=$speeding glow=$over")   // near the limit only: keeps the log readable
         val info = debugText(pos)
         main.post { update(show, over); debugView(info) }
         h.postDelayed(tickRun, 1000L)
@@ -184,6 +186,7 @@ class SpeedLimitHud(private val ctx: Context) {
     }
 
     /** Car speed sensor (m/s, same id as the trip widget), else the GPS speed; km/h, 0 if unknown. */
+    private var speedSrc = "none"
     private fun speedKmh(): Double {
         try {
             if (latest == null && System.currentTimeMillis() - lastTry > 5_000) {
@@ -193,10 +196,11 @@ class SpeedLimitHud(private val ctx: Context) {
                 latest = sensor?.javaClass?.getMethod("getSensorLatestValue", Int::class.javaPrimitiveType)
             }
             val f = (latest?.invoke(sensor, 0x00100100) as? Number)?.toFloat()
-            if (f != null && !f.isNaN() && f != 255f && f != -65535f) return f * 3.6
+            if (f != null && !f.isNaN() && f != 255f && f != -65535f) { speedSrc = "car"; return f * 3.6 }
         } catch (_: Throwable) { latest = null }
         val g = fix
-        return if (g != null && g.hasSpeed() && System.currentTimeMillis() - g.time < 5_000) g.speed * 3.6 else 0.0
+        if (g != null && g.hasSpeed() && System.currentTimeMillis() - g.time < 5_000) { speedSrc = "gps"; return g.speed * 3.6 }
+        speedSrc = "none"; return 0.0
     }
 
     private fun load(lat: Double, lon: Double) {
