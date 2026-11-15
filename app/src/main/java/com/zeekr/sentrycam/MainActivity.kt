@@ -136,6 +136,10 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.refresh).setOnClickListener { buildPreviewList() }
         findViewById<Button>(R.id.toCode).setOnClickListener { showCodeStage() }
         findViewById<Button>(R.id.backToId).setOnClickListener { showIdentifyStage() }
+        for (id in intArrayOf(R.id.changeRelay1, R.id.changeRelay2)) findViewById<Button>(id).setOnClickListener {
+            p.edit().remove("url").remove("token").apply()
+            stopService(Intent(this, CamService::class.java)); showState()
+        }
         findViewById<Button>(R.id.start).setOnClickListener {
             if (!ensurePerms()) return@setOnClickListener
             p.edit().putBoolean("suspended", false).apply()   // manual start clears a relay-suspend

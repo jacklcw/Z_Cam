@@ -76,6 +76,8 @@
                 android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="10dp"/>
             <Button android:id="@+id/toCode" android:tag="btn" android:text="Get pairing code"
                 android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp"/>
+            <Button android:id="@+id/changeRelay1" android:tag="btn2" android:text="Change relay"
+                android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp"/>
         </LinearLayout>
 
         <!-- STEP 2: Pairing code (centered QR) -->
@@ -93,6 +95,8 @@
             <Button android:id="@+id/backToId" android:tag="btn2" android:text="Back"
                 android:layout_width="wrap_content" android:layout_height="wrap_content"
                 android:layout_marginTop="18dp" android:layout_gravity="center_horizontal"/>
+            <Button android:id="@+id/changeRelay2" android:tag="btn2" android:text="Change relay"
+                android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="12dp" android:layout_gravity="center_horizontal"/>
         </LinearLayout>
 
         <!-- STEP 3: Operational (shown once linked). Two columns on wide screens (see MainActivity). -->

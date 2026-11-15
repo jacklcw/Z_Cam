@@ -1,3 +1,6 @@
+0.99.1
+- Pairing: new Change relay button on the Cameras and pairing code screens, so you can point the car at a different relay (clears the relay and link and shows the setup QR again).
+
 0.99.0
 - Zed no longer walks onto the system status bar (his area now stops at the bars), so you cannot tap him there.
 - Reports whether a front seat is occupied and whether the gear is in P to the relay (used by ZDash Auto-lock).
