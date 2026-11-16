@@ -351,8 +351,8 @@ class CamService : Service() {
         val on = p.getBoolean("flLeft", false) || p.getBoolean("flRight", false) || p.getBoolean("flRear", false) || p.getBoolean("flFront", false)
         if (on && floatCam == null) floatCam = FloatCam(this)
         if (on) floatCam?.sync() else { floatCam?.stop(); floatCam = null }
-        // quick-hide button: while any floating window can be on
-        if ((on || p.getBoolean("twOn", false) || p.getBoolean("webHudOn", false) || p.getBoolean("webFloatOn", false)) && p.getBoolean("flMaster", true)) FloatMaster.start(this) else FloatMaster.stop()
+        // floating button: whenever its switch is on, even with no window on (its quick ring also holds the other switches)
+        if (p.getBoolean("flMaster", true)) FloatMaster.start(this) else FloatMaster.stop()
     }
 
     override fun onDestroy() {

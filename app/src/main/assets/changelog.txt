@@ -1,3 +1,7 @@
+0.101.0
+- Pin button in every floating window header (cameras, web, trip): a pinned window stays when you minimize everything with the floating button.
+- The floating button now shows whenever its switch is on, even with no floating window turned on, and starts at boot.
+
 0.100.0
 - Floating arc: hover an acceleration mode to set its steering (Light, Standard, Heavy) and regeneration (Standard, Strong) right on the arc. Tap the chosen option again to leave the car as is.
 

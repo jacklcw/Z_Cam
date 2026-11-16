@@ -61,6 +61,8 @@ class FloatCam(private val ctx: Context) {
     fun stop() { main.removeCallbacks(tick); bgScrim?.let { try { wm.removeView(it) } catch (_: Throwable) {} }; bgScrim = null; FloatMaster.yieldToBlink = false; main.post { for (w in all) { hide(w); hideBubble(w) } } }
 
     // Left/right can be set to appear only while their blinker is on ("flOnly_L"/"flOnly_R"); the window (and its camera stream) is removed otherwise.
+    /** Pinned on the centre screen: stays put when everything is minimized and has no Hide of its own. */
+    private fun pinned(w: Win) = p.getBoolean(w.key + "Pin", false)
     private fun wanted(w: Win) = p.getBoolean(w.key, false) && !FloatMaster.hidden && !Park.parked(ctx) &&
         (w === rearW || w === frontW || !p.getBoolean(if (w === leftW) "flOnly_L" else "flOnly_R", false) || BlindSpotHud.indicating(w.panel))
 
@@ -159,8 +161,12 @@ class FloatCam(private val ctx: Context) {
         val editBtn = IconButton(ctx, IconButton.Kind.EDIT, halo = true).apply {
             setOnClickListener { on = !on; val v = if (on) View.VISIBLE else View.GONE; listOf(cTL, cTR, cBL, cBR).forEach { it.visibility = v }; spaceButtons(on) }
         }
+        val pinBtn = IconButton(ctx, IconButton.Kind.PIN, halo = true).apply {
+            on = pinned(w)
+            setOnClickListener { on = !on; p.edit().putBoolean(w.key + "Pin", on).apply() }
+        }
         val hideBtn = IconButton(ctx, IconButton.Kind.HIDE, halo = true).apply {
-            setOnClickListener { w.hidden = true; main.removeCallbacks(tick); main.post(tick) }
+            setOnClickListener { if (pinned(w)) return@setOnClickListener; w.hidden = true; main.removeCallbacks(tick); main.post(tick) }
         }
         val box = FrameLayout(ctx).apply {
             if (fadePct() > 0) setBackgroundColor(0)   // soft edge: no frame, the picture itself fades out
@@ -213,7 +219,8 @@ class FloatCam(private val ctx: Context) {
             addView(bar, FrameLayout.LayoutParams(-1, dp(hdr), Gravity.TOP))
             addView(hideBtn, FrameLayout.LayoutParams(btn, btn, Gravity.TOP or Gravity.END).apply { setMargins(0, dp(5), dp(8), 0) })
             addView(editBtn, FrameLayout.LayoutParams(btn, btn, Gravity.TOP or Gravity.END).apply { setMargins(0, dp(5), dp(8) + btn + dp(2), 0) })
-            spaceButtons = { on -> val m = if (on) dp(cz) + dp(2) else dp(8); (hideBtn.layoutParams as FrameLayout.LayoutParams).marginEnd = m; (editBtn.layoutParams as FrameLayout.LayoutParams).marginEnd = m + btn + dp(2); hideBtn.requestLayout(); editBtn.requestLayout() }
+            spaceButtons = { on -> val m = if (on) dp(cz) + dp(2) else dp(8); (hideBtn.layoutParams as FrameLayout.LayoutParams).marginEnd = m; (editBtn.layoutParams as FrameLayout.LayoutParams).marginEnd = m + btn + dp(2); (pinBtn.layoutParams as FrameLayout.LayoutParams).marginEnd = m + 2 * (btn + dp(2)); hideBtn.requestLayout(); editBtn.requestLayout(); pinBtn.requestLayout() }
+            addView(pinBtn, FrameLayout.LayoutParams(btn, btn, Gravity.TOP or Gravity.END).apply { setMargins(0, dp(5), dp(8) + 2 * (btn + dp(2)), 0) })
             addView(cTL, FrameLayout.LayoutParams(dp(cz), dp(cz), Gravity.TOP or Gravity.START)); addView(cTR, FrameLayout.LayoutParams(dp(cz), dp(cz), Gravity.TOP or Gravity.END))
             addView(cBL, FrameLayout.LayoutParams(dp(cz), dp(cz), Gravity.BOTTOM or Gravity.START)); addView(cBR, FrameLayout.LayoutParams(dp(cz), dp(cz), Gravity.BOTTOM or Gravity.END))
         }
@@ -245,7 +252,7 @@ class FloatCam(private val ctx: Context) {
     private var minSeen = FloatMaster.minimizeSeq
     private var webSeen = FloatMaster.webAddedSeq
     private var restoreSeen = FloatMaster.restoreSeq
-    init { FloatMaster.camUp = { all.any { it.root != null && !it.leaving } } }
+    init { FloatMaster.camUp = { all.any { it.root != null && !it.leaving && !pinned(it) } } }   // a pinned window does not count: the button must still restore the minimized ones
     private var lastPark: String? = null
     private val tick = object : Runnable {
         override fun run() {
@@ -275,7 +282,7 @@ class FloatCam(private val ctx: Context) {
                     continue
                 }
                 if (restoreAll && want) w.hidden = false
-                if (minimizeAll && want) w.hidden = true   // double-tap on the floating button: collapse everything to the top dock
+                if (minimizeAll && want && !pinned(w)) w.hidden = true   // double-tap on the floating button: collapse everything to the top dock
                 if (!want && !FloatMaster.hidden && !Park.parked(ctx)) w.hidden = false   // blinker off / switched off: next time it comes back expanded (hide-all on the floating button and a parked / just-started app keep who was minimized)
                 // Blinker on: this side's window comes to the front (expanded, optionally centred); when it stops it goes back where it was.
                 val ind = want && (w === leftW || w === rightW) && BlindSpotHud.indicating(w.panel)

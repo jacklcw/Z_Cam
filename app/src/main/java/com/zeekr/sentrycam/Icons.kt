@@ -10,7 +10,7 @@ import android.view.View
 
 /** Small drawn icon button for the floating windows (no text, no emoji): a dark rounded chip with a stroked glyph. */
 class IconButton(c: Context, private val kind: Kind, chip: Int = 0xFF2C2C2E.toInt(), private val halo: Boolean = false) : View(c) {
-    enum class Kind { BACK, FORWARD, RELOAD, RESET, HIDE, GLOBE, STAR, LIST, ROTATE, FULL, UNFULL, UP, DOWN, HOME, TABS, CAM_L, CAM_R, CAM_REAR, CAM_FRONT, TRIP, EDIT, MORE, DOWNLOAD, HISTORY, DESKTOP }
+    enum class Kind { BACK, FORWARD, RELOAD, RESET, HIDE, GLOBE, STAR, LIST, ROTATE, FULL, UNFULL, UP, DOWN, HOME, TABS, CAM_L, CAM_R, CAM_REAR, CAM_FRONT, TRIP, EDIT, MORE, DOWNLOAD, HISTORY, DESKTOP, PIN }
 
     /** STAR: filled when the page is bookmarked; EDIT / LIST / TABS: lit while that mode or page is open. */
     var on = false
@@ -35,7 +35,7 @@ class IconButton(c: Context, private val kind: Kind, chip: Int = 0xFF2C2C2E.toIn
     }
 
     override fun onDraw(cv: Canvas) {
-        val main = if ((kind == Kind.EDIT || kind == Kind.LIST || kind == Kind.TABS || kind == Kind.MORE) && on) 0xFFA3E635.toInt() else 0xFFF5F5F7.toInt()
+        val main = if ((kind == Kind.EDIT || kind == Kind.PIN || kind == Kind.LIST || kind == Kind.TABS || kind == Kind.MORE) && on) 0xFFA3E635.toInt() else 0xFFF5F5F7.toInt()
         if (halo) {
             // a fake background: the glyph drawn first in a fat dark outline, so it reads over black and white alike
             line.color = 0xE6000000.toInt(); line.strokeWidth = 2.5f * d + 4f * d
@@ -106,6 +106,13 @@ class IconButton(c: Context, private val kind: Kind, chip: Int = 0xFF2C2C2E.toIn
             }
             Kind.RELOAD -> arrowArc(cv, cx, cy, h, -50f, 280f, h * 0.55f)   // circle arrow: open ring with a chevron head
             Kind.RESET -> cv.drawRoundRect(cx - h, cy - h, cx + h, cy + h, 3 * d, 3 * d, line)
+            Kind.PIN -> {   // a push pin, head up, needle down
+                cv.save(); cv.translate(cx, cy); cv.rotate(35f)
+                cv.drawRoundRect(-h * 0.55f, -h * 1.1f, h * 0.55f, -h * 0.1f, 2 * d, 2 * d, line)
+                cv.drawLine(-h * 0.9f, -h * 0.1f, h * 0.9f, -h * 0.1f, line)
+                cv.drawLine(0f, -h * 0.1f, 0f, h * 1.2f, line)
+                cv.restore()
+            }
             Kind.HIDE -> cv.drawLine(cx - h, cy + h * 0.6f, cx + h, cy + h * 0.6f, line)
             Kind.EDIT -> {
                 // a pencil, tip down-left

@@ -60,7 +60,7 @@ class TripWidget(private val ctx: Context) {
     private var leaving = false
     private var minSeen = FloatMaster.minimizeSeq; private var restoreSeen = FloatMaster.restoreSeq
     private var snapSeen = p.getInt("twSnapSeq", 0)
-    init { FloatMaster.tripUp = { root != null && !leaving } }
+    init { FloatMaster.tripUp = { root != null && !leaving && !p.getBoolean("twPin", false) } }
 
     // car link (bg thread only)
     private var sensor: Any? = null; private var latest: java.lang.reflect.Method? = null; private var event: java.lang.reflect.Method? = null
@@ -138,7 +138,7 @@ class TripWidget(private val ctx: Context) {
             return
         }
         if (restoreAll) setHidden(false)
-        if (minimizeAll) setHidden(true)
+        if (minimizeAll && !p.getBoolean("twPin", false)) setHidden(true)
         if (!hidden) {
             BubbleRow.remove(ctx, "tw")
             if (r == null) addView()
@@ -411,7 +411,11 @@ class TripWidget(private val ctx: Context) {
         val editBtn = IconButton(ctx, IconButton.Kind.EDIT, halo = true).apply {
             setOnClickListener { on = !on; val v = if (on) View.VISIBLE else View.GONE; listOf(cTL, cTR, cBL, cBR).forEach { it.visibility = v }; spaceButtons(on) }
         }
-        val hideBtn = IconButton(ctx, IconButton.Kind.HIDE, halo = true).apply { setOnClickListener { setHidden(true) } }
+        val pinBtn = IconButton(ctx, IconButton.Kind.PIN, halo = true).apply {
+            on = p.getBoolean("twPin", false)
+            setOnClickListener { on = !on; p.edit().putBoolean("twPin", on).apply() }
+        }
+        val hideBtn = IconButton(ctx, IconButton.Kind.HIDE, halo = true).apply { setOnClickListener { if (!p.getBoolean("twPin", false)) setHidden(true) } }
         val box = FrameLayout(ctx).apply {
             addView(wv, FrameLayout.LayoutParams(-1, -1))
             addView(touch, FrameLayout.LayoutParams(-1, -1))
@@ -419,7 +423,8 @@ class TripWidget(private val ctx: Context) {
             builtHdr = hdrDp(); val hb = dp(builtHdr) - dp(10)   // exactly the camera windows' button size: header minus a 5 dp margin all round
             addView(hideBtn, FrameLayout.LayoutParams(hb, hb, Gravity.TOP or Gravity.END).apply { setMargins(0, dp(PAD_DP + 5), dp(PAD_DP + 8), 0) })
             addView(editBtn, FrameLayout.LayoutParams(hb, hb, Gravity.TOP or Gravity.END).apply { setMargins(0, dp(PAD_DP + 5), dp(PAD_DP + 8) + hb + dp(2), 0) })
-            spaceButtons = { on -> val m = dp(PAD_DP) + (if (on) dp(cz) + dp(2) else dp(8)); (hideBtn.layoutParams as FrameLayout.LayoutParams).marginEnd = m; (editBtn.layoutParams as FrameLayout.LayoutParams).marginEnd = m + hb + dp(2); hideBtn.requestLayout(); editBtn.requestLayout() }
+            spaceButtons = { on -> val m = dp(PAD_DP) + (if (on) dp(cz) + dp(2) else dp(8)); (hideBtn.layoutParams as FrameLayout.LayoutParams).marginEnd = m; (editBtn.layoutParams as FrameLayout.LayoutParams).marginEnd = m + hb + dp(2); (pinBtn.layoutParams as FrameLayout.LayoutParams).marginEnd = m + 2 * (hb + dp(2)); pinBtn.requestLayout(); hideBtn.requestLayout(); editBtn.requestLayout() }
+            addView(pinBtn, FrameLayout.LayoutParams(hb, hb, Gravity.TOP or Gravity.END).apply { setMargins(0, dp(PAD_DP + 5), dp(PAD_DP + 8) + 2 * (hb + dp(2)), 0) })
             fun fl(g: Int, mx: Int, my: Int) = FrameLayout.LayoutParams(dp(cz), dp(cz), g).apply { setMargins(if (g and Gravity.START == Gravity.START) mx else 0, if (g and Gravity.TOP == Gravity.TOP) my else 0, if (g and Gravity.END == Gravity.END) mx else 0, if (g and Gravity.BOTTOM == Gravity.BOTTOM) my else 0) }
             addView(cTL, fl(Gravity.TOP or Gravity.START, dp(PAD_DP), dp(PAD_DP))); addView(cTR, fl(Gravity.TOP or Gravity.END, dp(PAD_DP), dp(PAD_DP)))
             addView(cBL, fl(Gravity.BOTTOM or Gravity.START, dp(PAD_DP), dp(PAD_DP))); addView(cBR, fl(Gravity.BOTTOM or Gravity.END, dp(PAD_DP), dp(PAD_DP)))

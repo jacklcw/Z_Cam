@@ -139,7 +139,7 @@ class WebHud(private val ctx: Context) {
                 if (!on && !fl) { if (root != null || web != null || floatRoot != null) destroy(); main.postDelayed(this, TICK_MS); return }   // both switches off: stop the browser entirely
                 if (root != null && direct != floatOnly && !(!direct && floatOnly)) destroy()   // HUD page -> floating-only keeps the page (HUD copy just goes invisible, no restart); only floating-only -> HUD page has to rebuild
                 if (on && !covered) show() else if (keep || floatOnly) { show(); if (!direct) root?.alpha = 0f } else hide()
-                if (minSeen != FloatMaster.minimizeSeq) { minSeen = FloatMaster.minimizeSeq; if (on || fl) { floatMin = true
+                if (minSeen != FloatMaster.minimizeSeq) { minSeen = FloatMaster.minimizeSeq; if ((on || fl) && !(fl && p.getBoolean("webPin", false))) { floatMin = true
                     val fr = floatRoot; val fp = floatLp
                     if (fr != null && fp != null && !leaving) { leaving = true; FloatAnim.genie(ctx.getSystemService(WindowManager::class.java), fr, fp, false) { leaving = false; hideFloat() } } else if (!leaving) hideFloat() } }   // tap on the floating button
                 if (restoreSeen != FloatMaster.restoreSeq) { restoreSeen = FloatMaster.restoreSeq; if (floatMin) { floatMin = false; hideBubble() } }
@@ -613,7 +613,7 @@ class WebHud(private val ctx: Context) {
     private var floatMin = ctx.getSharedPreferences("cfg", Context.MODE_PRIVATE).getBoolean("webMin", false)
     private var minSeen = FloatMaster.minimizeSeq
     private var restoreSeen = FloatMaster.restoreSeq
-    init { FloatMaster.webUp = { floatRoot != null } }
+    init { FloatMaster.webUp = { floatRoot != null && !p.getBoolean("webPin", false) } }
     private var hdrBuilt = 0                      // header height (dp) the floating window was built with
     private var closeInput: (() -> Unit)? = null   // closes the typing window (address / keyboard) if one is open
     private var drawFails = 0                      // consecutive failed frames to the floating picture
@@ -925,15 +925,19 @@ class WebHud(private val ctx: Context) {
                 orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
                 addView(handle)
                 addView(FrameLayout(ctx).also { grp ->
-                    grp.layoutParams = LinearLayout.LayoutParams(2 * btn + dp(10), dp(hdr))
+                    grp.layoutParams = LinearLayout.LayoutParams(3 * btn + dp(15), dp(hdr))
                     grp.addView(IconButton(ctx, IconButton.Kind.EDIT, halo = true).apply {
                         setOnClickListener {
                             on = !on; val v = if (on) View.VISIBLE else View.GONE; listOf(cTL, cTR, cBL, cBR).forEach { it.visibility = v }
-                            grp.layoutParams = LinearLayout.LayoutParams(2 * btn + dp(10) + (if (on) dp(cz) else 0), dp(hdr))   // buttons clear of the top-right corner while resizing
+                            grp.layoutParams = LinearLayout.LayoutParams(3 * btn + dp(15) + (if (on) dp(cz) else 0), dp(hdr))   // buttons clear of the top-right corner while resizing
                         }
                     }, FrameLayout.LayoutParams(btn, btn, Gravity.START or Gravity.CENTER_VERTICAL).apply { marginStart = dp(3) })
-                    grp.addView(IconButton(ctx, IconButton.Kind.HIDE, halo = true).apply { setOnClickListener { floatMin = true; hideFloat(); showBubble() } },
+                    grp.addView(IconButton(ctx, IconButton.Kind.HIDE, halo = true).apply { setOnClickListener { if (!p.getBoolean("webPin", false)) { floatMin = true; hideFloat(); showBubble() } } },
                         FrameLayout.LayoutParams(btn, btn, Gravity.START or Gravity.CENTER_VERTICAL).apply { marginStart = dp(5) + btn })
+                    grp.addView(IconButton(ctx, IconButton.Kind.PIN, halo = true).apply {
+                        on = p.getBoolean("webPin", false)
+                        setOnClickListener { on = !on; p.edit().putBoolean("webPin", on).apply() }
+                    }, FrameLayout.LayoutParams(btn, btn, Gravity.START or Gravity.CENTER_VERTICAL).apply { marginStart = dp(7) + 2 * btn })
                 })
             })
             addView(prog)
