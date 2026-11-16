@@ -1,3 +1,6 @@
+0.99.4
+- Speed limit: the glow and beep only trigger once you are a whole km/h over the limit, so driving at 60 in a 60 zone no longer alerts.
+
 0.99.3
 - Credits: now shows the GPL-3.0 license notice, no warranty, the Zeekr Shortcut code credit and the source link; the engine sound is credited as dts88's original work.
 - Log: keeps more lines (4000) for relay upload, and the speed debug log adds a 10 s heartbeat away from the limit.

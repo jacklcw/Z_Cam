@@ -138,7 +138,7 @@ class SpeedLimitHud(private val ctx: Context) {
         val bp = p.getLong("slBeepPrev", 0L)
         if (bp > beepPrevSeen) { if (bp > System.currentTimeMillis() - 5_000) beep(); beepPrevSeen = bp }   // the preview button: sound once, whatever the switch says
         val spd = speedKmh()
-        val speeding = !preview && limit > 0 && spd > limit
+        val speeding = !preview && limit > 0 && spd >= limit + 1.0   // whole km/h over only: 60.3 on the sensor at a 60 limit is not speeding
         val over = p.getBoolean("slGlow", true) && (preview && (System.currentTimeMillis() / 1500) % 2 == 0L || speeding)
         if (speeding && p.getBoolean("slBeep", false)) {
             val now = System.currentTimeMillis()
