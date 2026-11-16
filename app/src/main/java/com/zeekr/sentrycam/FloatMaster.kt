@@ -70,6 +70,16 @@ object FloatMaster {
         main.post { if (view == null) add(ctx.applicationContext) }
     }
 
+    /** A layout set was applied: put the button back at its saved place and size. */
+    fun reload(ctx: Context) {
+        main.post {
+            val v = view ?: return@post
+            view = null
+            try { v.context.getSystemService(WindowManager::class.java).removeView(v) } catch (_: Throwable) {}
+            add(ctx.applicationContext)
+        }
+    }
+
     /** Re-adds the button so it stacks above every other overlay (overlay windows only stack by add order). Skipped mid-touch. */
     fun raise() {
         main.post {

@@ -1282,7 +1282,7 @@ class MainActivity : AppCompatActivity() {
     private val SECTION_ICONS = mapOf("Relay" to R.drawable.ic_sec_relay, "Cameras" to R.drawable.ic_sec_camera, "Backup" to R.drawable.ic_sec_backup,
         "Driving profiles" to R.drawable.ic_sec_profile, "Engine sound" to R.drawable.ic_sec_engine, "HUD" to R.drawable.ic_sec_blind, "Camping mode" to R.drawable.ic_sec_camp,
         "360° live view" to R.drawable.ic_sec_live, "Web view" to R.drawable.ic_sec_web, "Floating windows" to R.drawable.ic_sec_float, "Trip widget" to R.drawable.ic_sec_trip, "Zed" to R.drawable.ic_sec_mascot, "Snapshot (works with ZDash)" to R.drawable.ic_sec_sentry)
-    private val SIDE_BUTTONS = mapOf(R.id.checkUpdate to R.drawable.ic_btn_update, R.id.applyDefaults to R.drawable.ic_btn_reset, R.id.backupCard to R.drawable.ic_sec_backup, R.id.dataUsage to R.drawable.ic_btn_data,
+    private val SIDE_BUTTONS = mapOf(R.id.checkUpdate to R.drawable.ic_btn_update, R.id.applyDefaults to R.drawable.ic_btn_reset, R.id.layoutSets to R.drawable.ic_btn_layout, R.id.backupCard to R.drawable.ic_sec_backup, R.id.dataUsage to R.drawable.ic_btn_data,
         R.id.viewLog to R.drawable.ic_btn_log, R.id.whatsNew to R.drawable.ic_btn_whatsnew, R.id.unlink to R.drawable.ic_btn_unlink, R.id.restartApp to R.drawable.ic_btn_restart, R.id.credits to R.drawable.ic_btn_credits, R.id.resetAll to R.drawable.ic_btn_reset)
     private fun addSectionIcons(v: View) {
         if (v.tag == "h" && v is TextView) SECTION_ICONS[v.text.toString()]?.let {
@@ -1366,7 +1366,7 @@ class MainActivity : AppCompatActivity() {
     }
     private fun applyDefaultSettings() {
         val cfg = try { JSONObject(assets.open("default_settings.json").bufferedReader().use { it.readText() }) } catch (e: Throwable) { Toast.makeText(this, "Default settings missing", Toast.LENGTH_LONG).show(); return }
-        val keep = setOf("webBookmarks", "webHistory", "webTabs", "webTabsDesk", "webTabIdx", "webUrl")
+        val keep = setOf("webBookmarks", "webHistory", "webTabs", "webTabsDesk", "webTabIdx", "webUrl", "layoutPresets", "layoutActive")   // the user's saved layout sets stay
         val e = p.edit()
         for (k in p.all.keys.filter { (backupKey(it) || it.startsWith("fm")) && it !in keep }) e.remove(k)
         var n = 0
@@ -1413,7 +1413,7 @@ class MainActivity : AppCompatActivity() {
     private val BACKUP_SKIP = setOf("bsPreviewUntil", "bsNoHoldUntil", "bsPreviewSide", "bsArrPrevUntil", "bsArrPrevSide", "flSizeStamp", "revPreviewUntil", "slPreviewUntil", "slBeepPrev", "webPreviewUntil", "twSnapSeq", "twReset", "pfTab", "revTab")
     private fun backupCat(k: String): String? = when {
         k in BACKUP_SKIP -> null
-        k.startsWith("lk") || k.startsWith("bs") || k.startsWith("sl") || k.startsWith("fl") || k.startsWith("fm") || k.startsWith("stitch") || k.startsWith("stSeam") || k.startsWith("stBlend") || k == "parkCut" || k.startsWith("mm") || k.startsWith("gd") || k == "hudZ" -> "cam"
+        k.startsWith("lk") || k.startsWith("bs") || k.startsWith("sl") || k.startsWith("fl") || k.startsWith("fm") || k.startsWith("stitch") || k.startsWith("stSeam") || k.startsWith("stBlend") || k == "parkCut" || k.startsWith("mm") || k.startsWith("gd") || k == "hudZ" || k == "layoutPresets" || k == "layoutActive" -> "cam"
         k == "webBookmarks" || k == "webHistory" || k == "webTabs" || k == "webTabsDesk" || k == "webTabIdx" || k == "webUrl" -> "webdata"
         k.startsWith("web") -> "web"
         k.startsWith("eng") || k.startsWith("welcome") || k.startsWith("lock") -> "eng"
@@ -1890,6 +1890,63 @@ class MainActivity : AppCompatActivity() {
         }
         pfRefresh += ::mark
         load()
+        findViewById<Button>(R.id.layoutSets).setOnClickListener { showLayoutSets() }
+    }
+
+    // Layout sets: named HUD + floating window layouts to switch between (LayoutPresets).
+    private fun showLayoutSets() {
+        val d = ZScale.density(this); fun dp(x: Int) = (x * d).toInt()
+        val fmt = java.text.SimpleDateFormat("d MMM yyyy HH:mm", java.util.Locale.getDefault())
+        var dlg: AlertDialog? = null
+        fun askName(title: String, initial: String, ok: String, done: (String) -> Unit) {
+            val et = android.widget.EditText(this).apply { setText(initial); tag = "in"; setSingleLine(); selectAll() }
+            val box = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; addView(TextView(this@MainActivity).apply { tag = "h"; text = title; setPadding(0, 0, 0, dp(8)) }); addView(et) }
+            lateinit var nd: AlertDialog
+            box.addView(Button(this).apply { tag = "btn"; text = ok; setOnClickListener { val n = et.text.toString().trim(); if (n.isNotEmpty()) { nd.dismiss(); done(n) } } },
+                LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(12) })
+            nd = ZDialog.custom(this, box, "Cancel", 0.5f)
+        }
+        fun apply(s: LayoutPresets.Preset) {
+            LayoutPresets.apply(p, s)
+            FloatMaster.reload(this)
+            Logger.log(this, "layout set applied: ${s.name}")
+            recreate()
+            val i = Intent(this, CamService::class.java)
+            if (Build.VERSION.SDK_INT >= 26) startForegroundService(i) else startService(i)
+        }
+        lateinit var rebuild: () -> Unit
+        fun actions(s: LayoutPresets.Preset) {
+            val names = listOf("Apply", "Update with the current layout", "Rename", "Copy", "Delete")
+            ZDialog.choose(this, s.name, names, -1) { i ->
+                when (i) {
+                    0 -> { dlg?.dismiss(); apply(s) }
+                    1 -> ZDialog.show(this, "Update \"${s.name}\"?", "It will hold the layout as it is now.", "Update") { LayoutPresets.overwrite(p, s.id); rebuild() }
+                    2 -> askName("Rename layout set", s.name, "Rename") { LayoutPresets.rename(p, s.id, it); rebuild() }
+                    3 -> askName("Copy as", s.name + " copy", "Copy") { LayoutPresets.copy(p, s, it); rebuild() }
+                    4 -> ZDialog.show(this, "Delete \"${s.name}\"?", "The layout in use now is not changed.", "Delete") { LayoutPresets.delete(p, s.id); rebuild() }
+                }
+            }
+        }
+        val box = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        rebuild = {
+            box.removeAllViews()
+            box.addView(TextView(this).apply { tag = "h"; text = "Layout sets"; setPadding(0, 0, 0, dp(4)) })
+            box.addView(TextView(this).apply { tag = "m"; text = "A set holds the HUD and floating window places, sizes and layering. Tap one for Apply, Update, Rename, Copy or Delete."; setPadding(0, 0, 0, dp(10)) })
+            box.addView(Button(this).apply { tag = "btn"; text = "Save current layout as a new set"; setOnClickListener {
+                askName("Name the layout set", "Layout ${LayoutPresets.list(p).size + 1}", "Save") { LayoutPresets.create(p, it); rebuild() } } },
+                LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(10) })
+            val act = LayoutPresets.active(p)
+            val all = LayoutPresets.list(p)
+            if (all.isEmpty()) box.addView(TextView(this).apply { tag = "m"; text = "No sets yet." })
+            for (s in all) box.addView(Button(this).apply {
+                tag = "seg"; isAllCaps = false; isSelected = s.id == act; gravity = android.view.Gravity.START or android.view.Gravity.CENTER_VERTICAL
+                text = (if (s.id == act) "${s.name}  (in use)" else s.name) + "\nCreated " + fmt.format(java.util.Date(s.created)) + (if (s.edited != s.created) "\nEdited " + fmt.format(java.util.Date(s.edited)) else "")
+                setOnClickListener { actions(s) }
+            }, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(8) })
+            ZTheme.style(box, ZTheme.palette(mode))
+        }
+        rebuild()
+        dlg = ZDialog.custom(this, android.widget.ScrollView(this).apply { addView(box) }, "Close", 0.6f)
     }
 
     // Tells the car-side HUD to show a preview picture for the next few seconds (see BlindSpotHud).

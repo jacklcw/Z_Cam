@@ -32,12 +32,14 @@ object FloatQuick {
     private const val HUD = "@hud"       // group sectors: hovering one opens a second layer with its switches
     private const val HCAM = "@hcam"
     private const val LIVE = "@live"
+    private const val LAY = "@lay"       // group sector: hovering it opens the saved layout sets; lifting on one applies it
+    private const val SET = "@set:"
     private fun isAction(key: String) = key.startsWith("@")
     private class Item(val key: String, val label: String)
     private val ITEMS = listOf(
         Item("engOn", "Engine sound"), Item("mcOn", "Zed"), Item(VOL, "Volume"), Item(DIR, "Sound direction"), Item(PA, "Announce outside"), Item(HUD, "HUD"),
         Item(DRIVE, "Acceleration mode"),
-        Item(LIVE, "Floating windows"),
+        Item(LIVE, "Floating windows"), Item(LAY, "Layout sets"),
         Item(APP, "Open Z Cam"))
     private val GROUPS = mapOf(
         HUD to listOf(Item("revOn", "Rev bar"), Item("webHudOn", "Web on HUD"), Item("bsHud", "HUD side cam"), Item("bsSignal", "Turn arrow on HUD"), Item("slOn", "Speed limit on HUD"), Item("slBeep", "Speed limit sound"), Item("slDebug", "Road info text"), Item("mmOn", "Drive mode on HUD")),
@@ -108,7 +110,10 @@ object FloatQuick {
         private val n = ITEMS.size
         private val driveIdx = ITEMS.indexOfFirst { it.key == DRIVE }
         private fun flag(key: String) = p.getBoolean(key, key == "mcOn")   // Zed is on unless switched off
-        private fun grp(i: Int): List<Item>? = if (i in 0 until n) GROUPS[ITEMS[i].key] else null
+        private var lay: List<Item> = layItems()
+        private fun layItems(): List<Item> = LayoutPresets.list(p).map { Item(SET + it.id, it.name) }.ifEmpty { listOf(Item("@none", "No layout sets yet")) }
+        private fun grp(i: Int): List<Item>? = if (i !in 0 until n) null else if (ITEMS[i].key == LAY) lay else GROUPS[ITEMS[i].key]
+        private fun gOn(it: Item) = if (it.key.startsWith(SET)) it.key == SET + LayoutPresets.active(p) else p.getBoolean(it.key, false)
         private var gopen = -1                      // first-layer index of the group sector whose switches are showing
         private val g0 = DoubleArray(n); private val gSweep = DoubleArray(n) { 30.0 }
         private val volIdx = ITEMS.indexOfFirst { it.key == VOL }
@@ -326,6 +331,12 @@ object FloatQuick {
                 if (modes[smode].first == curMode) DriveProfile.applyFeel(context, modes[smode].first)
                 invalidate(); return true
             }
+            if (h in 2000 until 3000 && grp(gopen)!![h - 2000].key.startsWith(SET)) {
+                val id = grp(gopen)!![h - 2000].key.removePrefix(SET)
+                LayoutPresets.list(p).firstOrNull { it.id == id }?.let { LayoutPresets.apply(p, it); HudLayer.restackAll(p); FloatMaster.reload(context); syncSoon(); Logger.log(context, "layout set applied from the arc: ${it.name}") }
+                close(); return true
+            }
+            if (h in 2000 until 3000 && grp(gopen)!![h - 2000].key == "@none") return true
             if (h in 2000 until 3000) { val k = grp(gopen)!![h - 2000].key; p.edit().putBoolean(k, !p.getBoolean(k, false)).apply(); syncSoon(); invalidate(); return true }
             if (h == driveIdx) { open = true; vopen = false; gopen = -1; hover = driveIdx; invalidate(); return true }
             if (h == volIdx) { vopen = true; open = false; gopen = -1; hover = volIdx; invalidate(); return true }
@@ -382,7 +393,7 @@ object FloatQuick {
             canvasRef?.drawPath(path, line)
             val mid = Math.toRadians(start + sweep / 2.0); val rm = (ri + ro) / 2
             val cx = (bx + rm * Math.cos(mid)).toFloat(); val cy = (by + rm * Math.sin(mid)).toFloat()
-            icon(canvasRef!!, icon, cx, cy, 15f * d, if (off) 0xFF48484A.toInt() else 0xFF111111.toInt())
+            icon(canvasRef!!, if (icon.startsWith(SET)) LAY else icon, cx, cy, 15f * d, if (off) 0xFF48484A.toInt() else 0xFF111111.toInt())
         }
 
         private var canvasRef: Canvas? = null
@@ -409,6 +420,9 @@ object FloatQuick {
                 HUD -> {   // windscreen with a bar on it
                     q.moveTo(cx - h, cy + h * 0.6f); q.lineTo(cx - h * 0.7f, cy - h * 0.7f); q.lineTo(cx + h * 0.7f, cy - h * 0.7f); q.lineTo(cx + h, cy + h * 0.6f); q.close()
                     cv.drawPath(q, line); cv.drawLine(cx - h * 0.45f, cy, cx + h * 0.45f, cy, line)
+                }
+                LAY -> {   // four tiles: a layout
+                    for (dx in intArrayOf(-1, 1)) for (dy in intArrayOf(-1, 1)) cv.drawRoundRect(cx + dx * h * 0.55f - h * 0.4f, cy + dy * h * 0.55f - h * 0.4f, cx + dx * h * 0.55f + h * 0.4f, cy + dy * h * 0.55f + h * 0.4f, 2 * d, 2 * d, line)
                 }
                 LIVE -> {   // screen with a play triangle
                     cv.drawRoundRect(cx - h, cy - h * 0.7f, cx + h, cy + h * 0.7f, 3 * d, 3 * d, line)
@@ -575,7 +589,7 @@ object FloatQuick {
                 val on = if (grp(i) != null) grp(i)!!.any { h -> p.getBoolean(h.key, false) } else !isAction(it.key) && flag(it.key)
                 drawSector(a0[i], sweep1, r0, r1, on || (it.key == PA && LivePa.live()), hover == i || (i == driveIdx && open) || (i == volIdx && vopen) || (i == gopen), it.key, !isAction(it.key) && !on)
             }
-            if (gopen >= 0) for ((k, it) in grp(gopen)!!.withIndex()) { val on = p.getBoolean(it.key, false); drawSector((g0[gopen] + gSweep[gopen] * k).toFloat(), gSweep[gopen].toFloat(), r2a, r2, on, hover == 2000 + k, it.key, !on) }
+            if (gopen >= 0) for ((k, it) in grp(gopen)!!.withIndex()) { val on = gOn(it); drawSector((g0[gopen] + gSweep[gopen] * k).toFloat(), gSweep[gopen].toFloat(), r2a, r2, on, hover == 2000 + k, it.key, !on) }
             if (open) for ((j, m) in modes.withIndex()) drawSector(b0[j], sweep2, r2a, r2, m.first == curMode, hover == n + j || j == smode, modeIcon(m.first))
             if (open && smode >= 0) for (row in 0..1) {
                 val (st, w) = feelPlace(3 - row)
@@ -587,7 +601,7 @@ object FloatQuick {
                 hover == paIdx -> if (LivePa.status.isNotEmpty()) LivePa.status else "LIVE outside  " + "|".repeat((LivePa.level * 20).toInt().coerceIn(0, 20))
                 hover in 0 until n -> ITEMS[hover].label + if (ITEMS[hover].key == DIR) (if (outside()) ": Outside" else ": Cabin") else if (ITEMS[hover].key == APP || ITEMS[hover].key == VOL || grp(hover) != null) "" else if (hover != driveIdx) (if (flag(ITEMS[hover].key)) ": ON" else ": OFF") else (curMode?.let { c -> modes.firstOrNull { it.first == c }?.second?.let { m -> ": $m" } } ?: "")
                 hover in 3000 until 4000 -> { val row = (hover - 3000) / 100; modes[smode].second + (if (row == 0) " steering: " else " regen: ") + feelOpts(row)[(hover - 3000) % 100].second + if (feelVal(row) == feelOpts(row)[(hover - 3000) % 100].first) " (set)" else "" }
-                hover in 2000 until 3000 -> grp(gopen)!![hover - 2000].label + if (p.getBoolean(grp(gopen)!![hover - 2000].key, false)) ": ON" else ": OFF"
+                hover in 2000 until 3000 -> grp(gopen)!![hover - 2000].let { g -> if (g.key == "@none") g.label else if (g.key.startsWith(SET)) g.label + (if (gOn(g)) " (in use)" else "") else g.label + if (gOn(g)) ": ON" else ": OFF" }
                 hover >= 1000 -> bandName[hover - 1000] + ": " + bandText(hover - 1000)
                 hover >= n -> modes[hover - n].second + if (modes[hover - n].first == curMode) " (current)" else ""
                 else -> "Slide to a sector, lift to choose"

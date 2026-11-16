@@ -45,6 +45,7 @@ class FloatCam(private val ctx: Context) {
 
     private val p = ctx.getSharedPreferences("cfg", Context.MODE_PRIVATE)
     private val main = Handler(Looper.getMainLooper())
+    private var layoutSeen = -1L
     private val leftW = Win("flLeft", 2, "L")
     private val rightW = Win("flRight", 3, "R")
     private val rearW = Win("flRear", 1, "B")
@@ -272,6 +273,8 @@ class FloatCam(private val ctx: Context) {
             val webAdded = webSeen != FloatMaster.webAddedSeq
             webSeen = FloatMaster.webAddedSeq
             val stampNow = p.getLong("flSizeStamp", 0L)
+            val ls = p.getLong("layoutStamp", 0L); if (layoutSeen < 0) layoutSeen = ls
+            val layoutChanged = ls != layoutSeen; layoutSeen = ls   // a layout set was applied: rebuild the open windows from the saved layout
             for (w in all) {
                 if (w.leaving) continue
                 val want = wanted(w)
@@ -320,13 +323,15 @@ class FloatCam(private val ctx: Context) {
                         continue
                     }
                     hide(w); if (want) showBubble(w) else hideBubble(w) }
+                if (layoutChanged && w.root != null) { Logger.log(ctx, "floatcam: ${w.key} rebuilt for a layout set x=${p.getInt(w.key + "X", -1)} y=${p.getInt(w.key + "Y", -1)} w=${p.getInt(w.key + "W", -1)} h=${p.getInt(w.key + "H", -1)} on=${p.getBoolean(w.key, false)}"); w.ovW = 0; w.ovH = 0; w.saved = false; hide(w); show(w) }
                 if (w.root != null && (w.hdr != headerDp() || w.shape != shapeSig())) { hide(w); show(w) }   // header height slider changed
                 // size changed from the app's adjust pop-up (it stamps flSizeStamp): resize the open window to the saved width and height
                 if (w.root != null && w.sizeStamp != p.getLong("flSizeStamp", 0L)) w.lp?.let { l ->
                     w.sizeStamp = p.getLong("flSizeStamp", 0L)
                     val dm = ctx.resources.displayMetrics
                     val nw = p.getInt("${w.key}W", l.width).coerceIn(dp(160), dm.widthPixels - dp(20)); val nh = p.getInt("${w.key}H", l.height).coerceIn(dp(160), dm.heightPixels - dp(20))
-                    if (nw != l.width || nh != l.height) { l.width = nw; l.height = nh; try { wm.updateViewLayout(w.root, l) } catch (_: Throwable) {} }
+                    val nx = p.getInt("${w.key}X", l.x); val ny = p.getInt("${w.key}Y", l.y)   // a layout set was applied: the saved place too
+                    if (nw != l.width || nh != l.height || nx != l.x || ny != l.y) { l.width = nw; l.height = nh; l.x = nx; l.y = ny; try { wm.updateViewLayout(w.root, l) } catch (_: Throwable) {} }
                 }
                 if (w.blink && w.front && w.root != null) {
                     w.lp?.let { l ->

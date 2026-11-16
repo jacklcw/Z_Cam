@@ -144,6 +144,7 @@ class WebHud(private val ctx: Context) {
                     if (fr != null && fp != null && !leaving) { leaving = true; FloatAnim.genie(ctx.getSystemService(WindowManager::class.java), fr, fp, false) { leaving = false; hideFloat() } } else if (!leaving) hideFloat() } }   // tap on the floating button
                 if (restoreSeen != FloatMaster.restoreSeq) { restoreSeen = FloatMaster.restoreSeq; if (floatMin) { floatMin = false; hideBubble() } }
                 if (p.getBoolean("webMin", false) != floatMin) p.edit().putBoolean("webMin", floatMin).apply()
+                p.getLong("layoutStamp", 0L).let { ls -> if (layoutSeen < 0) layoutSeen = ls; if (ls != layoutSeen) { layoutSeen = ls; winSet = false; if (floatRoot != null) hideFloat() } }   // a layout set was applied: re-read the window place and size
                 if (floatRoot != null && hdrBuilt != headerDp()) hideFloat()   // header height slider changed: rebuild
                 if (fl && (on && !covered || keep || floatOnly) && !FloatMaster.hidden) showFloat()
                 else if (FloatMaster.hidden && floatRoot != null && floatLp != null) {
@@ -166,12 +167,13 @@ class WebHud(private val ctx: Context) {
     private var land = false                    // landscape (16:9) instead of portrait (9:16)
     // Fixed: full HUD height in portrait, 24% of the HUD height in from the left edge. Portrait is centred vertically and never
     // wider than the right camera's HUD picture; landscape sticks to the top, 73% wide and 14% down (tuned on the car).
-    private fun ratio() = if (land) 16f / 9 else 9f / 16
+    // The picture's width / height: free (pref webAsp = x1000, set by dragging a corner of the floating window), else 9:16 or 16:9.
+    private fun ratio(): Float = p.getInt("webAsp", 0).let { if (it > 0) it / 1000f else if (land) 16f / 9 else 9f / 16 }
     private fun portH() = minOf(hudH, (hudH * CamTune.get(p, "bsSize", "R") / 100 / 0.5625f).toInt())
     private fun landW() = minOf(hudH * 73 / 100, hudH * 16 / 9)
     // Free placement from the app's HUD layout pad (webPosX/webPosY = centre as % of the HUD, webSize = box height as % of the HUD height); else the fixed legacy spot above.
     private fun placed() = hudW > 0
-    private fun freeH(): Int { var h = hudH * p.getInt("webSize", 122).coerceIn(20, 200) / 100; if (land) h = minOf(h, hudW * 9 / 16); return h }
+    private fun freeH(): Int { var h = hudH * p.getInt("webSize", 122).coerceIn(20, 200) / 100; if (ratio() > 1f) h = minOf(h, (hudW / ratio()).toInt()); return h }
     // Full screen: the box takes the centre screen's aspect at full HUD height, so the page lays out like it would on that screen.
     private var fullScreen = false
     private fun fullW(): Int {
@@ -179,7 +181,7 @@ class WebHud(private val ctx: Context) {
         val sz = Point().also { try { ctx.getSystemService(DisplayManager::class.java).getDisplay(Display.DEFAULT_DISPLAY).getRealSize(it) } catch (_: Throwable) {} }
         return if (sz.x > 0 && sz.y > 0) minOf(hudW, hudH * sz.x / sz.y) else hudH * 16 / 10
     }
-    private fun hudWpx() = if (placed()) (if (land) freeH() * 16 / 9 else freeH() * 9 / 16) else if (land) landW() else portH() * 9 / 16
+    private fun hudWpx() = if (placed()) (freeH() * ratio()).toInt() else if (land) landW() else portH() * 9 / 16
     private fun hudHpx() = if (placed()) freeH() else if (land) landW() * 9 / 16 else portH()
     private fun offX() = if (placed()) (hudW * p.getInt("webPosX", 19) / 100 - hudWpx() / 2).coerceIn(minOf(0, hudW - hudWpx()), maxOf(0, hudW - hudWpx())) else hudH * 24 / 100
     private fun offY() = if (placed()) (hudH * p.getInt("webPosY", 61) / 100 - hudHpx() / 2).coerceIn(minOf(0, hudH - hudHpx()), maxOf(0, hudH - hudHpx())) else if (land) hudH * 14 / 100 else 0
@@ -619,6 +621,7 @@ class WebHud(private val ctx: Context) {
     private var drawFails = 0                      // consecutive failed frames to the floating picture
     private var keysOpen: (() -> Unit)? = null   // page focused a text field: show the keyboard row
     private var padW = 0; private var padH = 0     // floating picture size in px (portrait 1:2, like the HUD box)
+    private var layoutSeen = -1L
     private var winX = 0; private var winY = 0; private var winSet = false     // expanded window position
     private var lastDrawAt = 0L
     private val floatDraw = object : Runnable {
@@ -646,8 +649,8 @@ class WebHud(private val ctx: Context) {
 
     private fun headerDp() = p.getInt("flHeader", 56).coerceIn(36, 96)
 
-    private fun maxPadW(dm: android.util.DisplayMetrics) = minOf(dm.widthPixels - (40 * dm.density).toInt(), (dm.heightPixels - (260 * dm.density).toInt()) * (if (land) 16 else 9) / (if (land) 9 else 16))
-    private fun padHFor(w: Int) = if (land) w * 9 / 16 else w * 16 / 9
+    private fun maxPadW(dm: android.util.DisplayMetrics) = minOf(dm.widthPixels - (40 * dm.density).toInt(), ((dm.heightPixels - (260 * dm.density).toInt()) * ratio()).toInt())
+    private fun padHFor(w: Int) = (w / ratio()).toInt()
 
     @SuppressLint("ClickableViewAccessibility")
     private fun showFloat() {
@@ -907,11 +910,13 @@ class WebHud(private val ctx: Context) {
             var w0 = 0; var h0 = 0; var x0 = 0; var y0 = 0
             return CornerLine(ctx, cr, left, top, { w0 = padW; h0 = padH; x0 = lp.x; y0 = lp.y }, { ddx, ddy ->
                 val ex = if (right) ddx else -ddx; val ey = if (bottom) ddy else -ddy
-                val nw = (w0 + (ex + ey * (if (land) 16f / 9 else 9f / 16)) / 2).toInt().coerceIn(dp(200), maxPadW(dm))
-                val nx = if (left) x0 + w0 - nw else x0; val ny = if (top) y0 + h0 - padHFor(nw) else y0
-                val grow = padHFor(nw) - padH
+                // free resize: width and height follow the finger separately; the picture's shape (webAsp) follows too
+                val nw = (w0 + ex).toInt().coerceIn(dp(200), (dm.widthPixels - dp(40)).coerceAtLeast(dp(200)))
+                val nh = (h0 + ey).toInt().coerceIn(dp(120), (dm.heightPixels - dp(260)).coerceAtLeast(dp(120)))
+                val nx = if (left) x0 + w0 - nw else x0; val ny = if (top) y0 + h0 - nh else y0
                 // bumping into another window, or off the screen: stop growing (height is wrap-content, so add the picture's growth)
                 if ((!left || nx >= 0) && (!top || ny >= 0)) {   // only a corner that moves the window towards the screen edge is stopped there (a window already partly off-screen can still grow from its other corners)
+                    p.edit().putInt("webAsp", (nw * 1000f / nh).toInt().coerceIn(400, 2500)).apply()
                     padW = nw; padH = padHFor(padW); lp.x = nx; lp.y = ny; winX = nx; winY = ny; applySize()
                 }
             }, { p.edit().putInt("webFloatW", padW).putInt("webFloatX", lp.x).putInt("webFloatY", lp.y).apply() })
@@ -931,13 +936,13 @@ class WebHud(private val ctx: Context) {
                             on = !on; val v = if (on) View.VISIBLE else View.GONE; listOf(cTL, cTR, cBL, cBR).forEach { it.visibility = v }
                             grp.layoutParams = LinearLayout.LayoutParams(3 * btn + dp(15) + (if (on) dp(cz) else 0), dp(hdr))   // buttons clear of the top-right corner while resizing
                         }
-                    }, FrameLayout.LayoutParams(btn, btn, Gravity.START or Gravity.CENTER_VERTICAL).apply { marginStart = dp(3) })
+                    }, FrameLayout.LayoutParams(btn, btn, Gravity.START or Gravity.CENTER_VERTICAL).apply { marginStart = dp(5) + btn })
                     grp.addView(IconButton(ctx, IconButton.Kind.HIDE, halo = true).apply { setOnClickListener { if (!p.getBoolean("webPin", false)) { floatMin = true; hideFloat(); showBubble() } } },
-                        FrameLayout.LayoutParams(btn, btn, Gravity.START or Gravity.CENTER_VERTICAL).apply { marginStart = dp(5) + btn })
+                        FrameLayout.LayoutParams(btn, btn, Gravity.START or Gravity.CENTER_VERTICAL).apply { marginStart = dp(7) + 2 * btn })
                     grp.addView(IconButton(ctx, IconButton.Kind.PIN, halo = true).apply {
                         on = p.getBoolean("webPin", false)
                         setOnClickListener { on = !on; p.edit().putBoolean("webPin", on).apply() }
-                    }, FrameLayout.LayoutParams(btn, btn, Gravity.START or Gravity.CENTER_VERTICAL).apply { marginStart = dp(7) + 2 * btn })
+                    }, FrameLayout.LayoutParams(btn, btn, Gravity.START or Gravity.CENTER_VERTICAL).apply { marginStart = dp(3) })
                 })
             })
             addView(prog)
@@ -991,7 +996,9 @@ class WebHud(private val ctx: Context) {
                 addView(icon(IconButton.Kind.ROTATE) {
                     // portrait <-> landscape: the picture's short and long sides swap, on the HUD box too
                     val dm = ctx.resources.displayMetrics
+                    val na = 1f / ratio()
                     land = !land
+                    p.edit().putInt("webAsp", (na * 1000f).toInt().coerceIn(400, 2500)).apply()
                     padW = padH.coerceIn(dp(200), maxPadW(dm)); padH = padHFor(padW)
                     lp.x = lp.x.coerceIn(0, (dm.widthPixels - padW - dp(16)).coerceAtLeast(0)); winX = lp.x
                     p.edit().putBoolean("webLand", land).putInt("webFloatW", padW).putInt("webFloatX", lp.x).apply()

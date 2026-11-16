@@ -1,3 +1,9 @@
+0.102.0
+- Layout sets: from the Layout sets button in the left column, save the HUD and floating window layout as a named set, switch between sets, copy a set, rename, update or delete it. A set also remembers which floating windows are on. Each set shows when it was created and last edited. Hold the floating button and hover Layout sets to switch set right from the arc.
+- Floating web window: drag any corner to resize it freely, width and height separately (the HUD picture takes the same shape).
+- The web window pin button now sits in the same place as on the other windows.
+- Apply default settings has been refreshed and keeps your saved layout sets.
+
 0.101.0
 - Pin button in every floating window header (cameras, web, trip): a pinned window stays when you minimize everything with the floating button.
 - The floating button now shows whenever its switch is on, even with no floating window turned on, and starts at boot.

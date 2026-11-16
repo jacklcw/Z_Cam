@@ -106,6 +106,7 @@ class TripWidget(private val ctx: Context) {
         }
     }
     private var builtHdr = 0
+    private var layoutSeen = -1L
     private fun hdrDp() = p.getInt("flHeader", 56).coerceIn(36, 96)   // the camera windows' header height setting
 
     private fun want() = p.getBoolean("twOn", false) && !FloatMaster.hidden && Settings.canDrawOverlays(ctx)
@@ -129,6 +130,7 @@ class TripWidget(private val ctx: Context) {
         val minimizeAll = minSeen != FloatMaster.minimizeSeq; minSeen = FloatMaster.minimizeSeq
         val restoreAll = restoreSeen != FloatMaster.restoreSeq; restoreSeen = FloatMaster.restoreSeq
         if (leaving) return
+        p.getLong("layoutStamp", 0L).let { ls -> if (layoutSeen < 0) layoutSeen = ls; if (ls != layoutSeen) { layoutSeen = ls; if (root != null) { removeView(); return } } }   // a layout set was applied: rebuilt at the saved place
         val r = root; val l = lp
         if (!want) {
             BubbleRow.remove(ctx, "tw")
