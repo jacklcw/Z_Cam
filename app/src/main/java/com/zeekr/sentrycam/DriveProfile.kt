@@ -87,6 +87,16 @@ object DriveProfile {
         Thread { try { write(app, FUNC_DRIVE_MODE, mode) } catch (e: Throwable) { log(app, "switch ${e.javaClass.simpleName} ${e.message}") } }.start()
     }
 
+    /** Write a mode's saved steering / regeneration choice to the car now (the floating arc edited the mode the car is in). */
+    fun applyFeel(ctx: Context, mode: Int) {
+        val app = ctx.applicationContext
+        Thread { try {
+            val p = app.getSharedPreferences("cfg", Context.MODE_PRIVATE); val h = hex(mode)
+            p.getString("pfRegen_$h", "0")?.toIntOrNull()?.takeIf { it != 0 }?.let { write(app, FUNC_REGEN, it) }
+            p.getString("pfSteer_$h", "0")?.toIntOrNull()?.takeIf { it != 0 }?.let { write(app, FUNC_STEER, it) }
+        } catch (e: Throwable) { log(app, "feel ${e.javaClass.simpleName} ${e.message}") } }.start()
+    }
+
     /** The car's current drive-mode code, or null if unreadable. */
     fun currentMode(ctx: Context): Int? = read(ctx, FUNC_DRIVE_MODE)?.takeIf { it > 0 }
 

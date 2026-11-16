@@ -120,6 +120,7 @@ object FloatQuick {
         private var hover = -1                      // 0 until n = first layer, n + j = drive mode j
         private var lockBand = -1                   // the volume arc the finger is dragging: it stays on that arc (and the ring stays still) until lift
         private var vopen = false                   // the volume arcs are showing (VOL sector touched)
+        private var smode = -1                      // index of the drive mode whose steering / regeneration rows are showing
         private var open = false                    // second layer stays open once the Drive mode sector was touched, until another first-layer sector is hovered
 
         private val r0 = br + 10f * d
@@ -232,12 +233,35 @@ object FloatQuick {
             Logger.log(context, "floatquick: volume arcs lo=${vlo.toInt()} span=${vspan.toInt()} usableRun=${vr?.second?.toInt()}")
         }
 
+        // steering (inner) and regeneration (outer) rows beyond the hovered drive mode: ids 3000 + k and 3100 + k
+        private val fIn = r2 + grow + 4f * d; private val fTh = 50f * d
+        private val sIn = fIn; private val sOut = fIn + fTh
+        private val gIn = sOut + 4f * d; private val gOut = gIn + fTh
+        private fun feelKey(row: Int) = (if (row == 0) "pfSteer_" else "pfRegen_") + DriveProfile.hex(modes[smode].first)
+        private fun feelOpts(row: Int) = if (row == 0) DriveProfile.STEER else DriveProfile.REGEN
+        private fun feelVal(row: Int): Int = p.getString(feelKey(row), "0")?.toIntOrNull() ?: 0
+        /** Start angle and per-option sweep of a feel row centred on the open mode sector, kept on screen. */
+        private fun feelPlace(count: Int): Pair<Float, Float> {
+            val mid = b0[smode] + sweep2 / 2.0
+            var w = Math.min(30.0, sweep2.toDouble())
+            val r = run(usable(gOut + grow), mid)
+            if (r == null) return Pair((mid - w * count / 2).toFloat(), w.toFloat())
+            w = Math.min(w, Math.max(14.0, r.second / 3)).coerceAtLeast(14.0)
+            val span = w * count; val inRun = norm(mid - r.first) <= r.second
+            val st = if (inRun) r.first + (norm(mid - r.first) - span / 2).coerceIn(0.0, Math.max(0.0, r.second - span)) else r.first
+            return Pair(st.toFloat(), w.toFloat())
+        }
+
         private fun inSector(ang: Double, start: Float, sweep: Float) = norm(ang - start) < sweep
 
         private fun at(x: Float, y: Float): Int {
             layout()
             val dx = (x - bx).toDouble(); val dy = (y - by).toDouble()
             val dist = Math.hypot(dx, dy); val ang = Math.toDegrees(Math.atan2(dy, dx))
+            if (open && smode >= 0) for (row in 0..1) {
+                val lo = if (row == 0) sIn else gIn; val hi = if (row == 0) sOut else gOut
+                if (dist in (lo - 2f * d)..(hi + grow)) { val (st, w) = feelPlace(3 - row); for (k in feelOpts(row).indices) if (inSector(ang, st + w * k, w)) return 3000 + row * 100 + k }
+            }
             if (gopen >= 0 && dist in (r2a - 2f * d)..(r2 + grow)) for (k in grp(gopen)!!.indices) if (inSector(ang, (g0[gopen] + gSweep[gopen] * k).toFloat(), gSweep[gopen].toFloat())) return 2000 + k
             if (vopen) { val vb = visBands(); for (s in vb.indices) if (dist in (bandIn[s] - 2f * d)..(bandOut[s] + grow)) {
                 val na = norm(ang - vlo)
@@ -284,8 +308,10 @@ object FloatQuick {
             val wasG = gopen
             if (h == driveIdx) { open = true; vopen = false; gopen = -1 } else if (h == volIdx) { vopen = true; open = false; gopen = -1 } else if (grp(h) != null) { gopen = h; open = false; vopen = false } else if (h in 0 until n) { open = false; vopen = false; gopen = -1 }
             if (h in 1000 until 2000) { lockBand = h - 1000; setVol(lockBand, x, y) }
-            if (h != hover && h >= 0) tick(if (h >= 2000) !p.getBoolean(grp(gopen)!![h - 2000].key, false) else h < n && !isAction(ITEMS[h].key) && !flag(ITEMS[h].key))
-            if (h != hover || was != open || wasV != vopen || wasG != gopen || h >= 1000) { hover = h; invalidate() }
+            val wasS = smode
+            if (h in n until 1000) smode = h - n else if (h >= 0 && h !in 3000 until 4000) smode = -1
+            if (h != hover && h >= 0) tick(if (h >= 3000) false else if (h >= 2000) !p.getBoolean(grp(gopen)!![h - 2000].key, false) else h < n && !isAction(ITEMS[h].key) && !flag(ITEMS[h].key))
+            if (h != hover || was != open || wasV != vopen || wasG != gopen || wasS != smode || h >= 1000) { hover = h; invalidate() }
         }
 
         /** Lift/tap at the point: true = keep the ring open (the Drive mode sector only opens its modes). */
@@ -294,7 +320,13 @@ object FloatQuick {
             if (lockBand >= 0) { setVol(lockBand, x, y); lockBand = -1; invalidate(); return true }
             val h = at(x, y)
             if (grp(h) != null) { gopen = h; open = false; vopen = false; hover = h; invalidate(); return true }
-            if (h >= 2000) { val k = grp(gopen)!![h - 2000].key; p.edit().putBoolean(k, !p.getBoolean(k, false)).apply(); syncSoon(); invalidate(); return true }
+            if (h in 3000 until 4000) {
+                val row = (h - 3000) / 100; val code = feelOpts(row)[(h - 3000) % 100].first
+                p.edit().putString(feelKey(row), (if (feelVal(row) == code) 0 else code).toString()).apply()   // tap the chosen one again = keep the car as is
+                if (modes[smode].first == curMode) DriveProfile.applyFeel(context, modes[smode].first)
+                invalidate(); return true
+            }
+            if (h in 2000 until 3000) { val k = grp(gopen)!![h - 2000].key; p.edit().putBoolean(k, !p.getBoolean(k, false)).apply(); syncSoon(); invalidate(); return true }
             if (h == driveIdx) { open = true; vopen = false; gopen = -1; hover = driveIdx; invalidate(); return true }
             if (h == volIdx) { vopen = true; open = false; gopen = -1; hover = volIdx; invalidate(); return true }
             if (h in 1000 until 2000) { setVol(h - 1000, x, y); return true }
@@ -479,6 +511,14 @@ object FloatQuick {
                     for (r in 0 until 3) for (k in 0 until 4) if ((r + k) % 2 == 0) cv.drawRect(cx - h * 0.7f + k * fw, cy - h * 0.95f + r * fh, cx - h * 0.7f + (k + 1) * fw, cy - h * 0.95f + (r + 1) * fh, fill)
                     line.strokeWidth = 1.6f * d; cv.drawRect(cx - h * 0.7f, cy - h * 0.95f, cx - h * 0.7f + 4 * fw, cy - h * 0.95f + 3 * fh, line)
                 }
+                "st1", "st2", "st3" -> {   // steering wheel with 1..3 bars under it: light, standard, heavy
+                    val c = kind[2] - '0'; cv.drawCircle(cx, cy - h * 0.35f, h * 0.6f, line)
+                    for (k in 0 until c) cv.drawLine(cx - h * 0.7f, cy + h * (0.6f + 0.35f * k), cx + h * 0.7f, cy + h * (0.6f + 0.35f * k), line)
+                }
+                "rg1", "rg2" -> {   // 1 or 2 stacked down chevrons: standard, strong regeneration
+                    val c = kind[2] - '0'
+                    for (k in 0 until c) { val y = cy - h * 0.5f + k * h * 0.8f; cv.drawLine(cx - h * 0.7f, y, cx, y + h * 0.6f, line); cv.drawLine(cx, y + h * 0.6f, cx + h * 0.7f, y, line) }
+                }
                 "snow" -> { for (k in 0..2) { val a = Math.toRadians(k * 60.0); cv.drawLine(cx - h * Math.cos(a).toFloat(), cy - h * Math.sin(a).toFloat(), cx + h * Math.cos(a).toFloat(), cy + h * Math.sin(a).toFloat(), line) } }
             }
         }
@@ -536,13 +576,18 @@ object FloatQuick {
                 drawSector(a0[i], sweep1, r0, r1, on || (it.key == PA && LivePa.live()), hover == i || (i == driveIdx && open) || (i == volIdx && vopen) || (i == gopen), it.key, !isAction(it.key) && !on)
             }
             if (gopen >= 0) for ((k, it) in grp(gopen)!!.withIndex()) { val on = p.getBoolean(it.key, false); drawSector((g0[gopen] + gSweep[gopen] * k).toFloat(), gSweep[gopen].toFloat(), r2a, r2, on, hover == 2000 + k, it.key, !on) }
-            if (open) for ((j, m) in modes.withIndex()) drawSector(b0[j], sweep2, r2a, r2, m.first == curMode, hover == n + j, modeIcon(m.first))
+            if (open) for ((j, m) in modes.withIndex()) drawSector(b0[j], sweep2, r2a, r2, m.first == curMode, hover == n + j || j == smode, modeIcon(m.first))
+            if (open && smode >= 0) for (row in 0..1) {
+                val (st, w) = feelPlace(3 - row)
+                for ((k, o) in feelOpts(row).withIndex()) drawSector(st + w * k, w, if (row == 0) sIn else gIn, if (row == 0) sOut else gOut, feelVal(row) == o.first, hover == 3000 + row * 100 + k, (if (row == 0) "st" else "rg") + (k + 1))
+            }
             if (vopen) { val vb = visBands(); for (s in vb.indices) drawBand(s, vb[s]) }
             // name of the sector under the finger, at the top of the screen
             val label = when {
                 hover == paIdx -> if (LivePa.status.isNotEmpty()) LivePa.status else "LIVE outside  " + "|".repeat((LivePa.level * 20).toInt().coerceIn(0, 20))
                 hover in 0 until n -> ITEMS[hover].label + if (ITEMS[hover].key == DIR) (if (outside()) ": Outside" else ": Cabin") else if (ITEMS[hover].key == APP || ITEMS[hover].key == VOL || grp(hover) != null) "" else if (hover != driveIdx) (if (flag(ITEMS[hover].key)) ": ON" else ": OFF") else (curMode?.let { c -> modes.firstOrNull { it.first == c }?.second?.let { m -> ": $m" } } ?: "")
-                hover >= 2000 -> grp(gopen)!![hover - 2000].label + if (p.getBoolean(grp(gopen)!![hover - 2000].key, false)) ": ON" else ": OFF"
+                hover in 3000 until 4000 -> { val row = (hover - 3000) / 100; modes[smode].second + (if (row == 0) " steering: " else " regen: ") + feelOpts(row)[(hover - 3000) % 100].second + if (feelVal(row) == feelOpts(row)[(hover - 3000) % 100].first) " (set)" else "" }
+                hover in 2000 until 3000 -> grp(gopen)!![hover - 2000].label + if (p.getBoolean(grp(gopen)!![hover - 2000].key, false)) ": ON" else ": OFF"
                 hover >= 1000 -> bandName[hover - 1000] + ": " + bandText(hover - 1000)
                 hover >= n -> modes[hover - n].second + if (modes[hover - n].first == curMode) " (current)" else ""
                 else -> "Slide to a sector, lift to choose"

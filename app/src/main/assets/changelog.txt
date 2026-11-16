@@ -1,3 +1,6 @@
+0.100.0
+- Floating arc: hover an acceleration mode to set its steering (Light, Standard, Heavy) and regeneration (Standard, Strong) right on the arc. Tap the chosen option again to leave the car as is.
+
 0.99.4
 - Speed limit: the glow and beep only trigger once you are a whole km/h over the limit, so driving at 60 in a 60 zone no longer alerts.
 
