@@ -21,6 +21,8 @@ object DriveProfile {
     /** POWER_FLOW values that mean the car is regenerating (REGENERATION, _FRONT, _AWD and the engine-off / engine-on regen-brake flows). */
     private val REGEN_FLOWS = setOf(0x24010115, 0x24010116, 0x24010117, 0x2401010a, 0x2401010b, 0x2401010c)
     private const val FUNC_STEER = 0x20070800
+    /** Lane keep assist switch (IVehicle SETTING_FUNC_LANE_KEEPING_AID): 0 off, 1 on, as seen in the car log. Stored per mode as 0 keep, 1 on, 2 off. */
+    private const val FUNC_LKA = 0x20070100
     /** (regen level code, label), from the car's IVehicle ENERGY_REGENERATION_LEVEL_* constants (the car screen only offers these two). */
     val REGEN = listOf(0x20020502 to "Standard", 0x20020503 to "Strong")
     /** Steering feel, from IVehicle STEERING_ASSISTANCE_LEVEL_* (the car's Light / Standard / Heavy follow low / medium / high assistance codes 03 / 02 / 01 as seen in the change log). */
@@ -94,7 +96,12 @@ object DriveProfile {
             val p = app.getSharedPreferences("cfg", Context.MODE_PRIVATE); val h = hex(mode)
             p.getString("pfRegen_$h", "0")?.toIntOrNull()?.takeIf { it != 0 }?.let { write(app, FUNC_REGEN, it) }
             p.getString("pfSteer_$h", "0")?.toIntOrNull()?.takeIf { it != 0 }?.let { write(app, FUNC_STEER, it) }
+            lka(app, p, h)
         } catch (e: Throwable) { log(app, "feel ${e.javaClass.simpleName} ${e.message}") } }.start()
+    }
+
+    private fun lka(ctx: Context, p: android.content.SharedPreferences, h: String) {
+        when (p.getString("pfLka_$h", "0")) { "1" -> write(ctx, FUNC_LKA, 1); "2" -> write(ctx, FUNC_LKA, 0) }
     }
 
     /** The car's current drive-mode code, or null if unreadable. */
@@ -198,6 +205,7 @@ object DriveProfile {
         }
         if (colour) p.getString("pfRegen_$h", "0")?.toIntOrNull()?.takeIf { it != 0 }?.let { write(ctx, FUNC_REGEN, it) }
         if (colour) p.getString("pfSteer_$h", "0")?.toIntOrNull()?.takeIf { it != 0 }?.let { write(ctx, FUNC_STEER, it) }
+        if (colour) lka(ctx, p, h)
         if (colour) applyRevBar(ctx, p, mode)
         val style = p.getString("pfSound_$h", "") ?: ""
         // silent profile = mute only (the audio outputs stay open, nothing is torn down or restarted)

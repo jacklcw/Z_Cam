@@ -1,3 +1,9 @@
+0.104.0
+- Lane keep assist per driving profile: pick Keep / On / Off for each drive mode in Driving profiles; it is set along with steering and regen when the mode applies.
+- Hold the floating button, hover a drive mode: a new arc beyond steering and regen sets its lane keep assist (On / Off, tap again = keep).
+- The floating ring sector formerly called Acceleration mode is now Driving profile.
+- The sector name now shows just above the ring so it is not missed.
+
 0.103.0
 - Distance guide lines on the left and right floating cameras: tap the new guide button in the window header, drag to draw a line, spread two fingers to copy it into up to 4 parallel lines with a red shade between them. Drag the dots to set the angle and each line's length (a farther line is never longer than a closer one). Clear and Hide buttons appear while editing. The same lines show on the HUD picture. They are a rough visual reference only: always judge the real situation yourself.
 - The minimize button looks disabled while a window is pinned.
