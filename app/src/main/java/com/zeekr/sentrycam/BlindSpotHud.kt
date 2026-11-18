@@ -110,6 +110,8 @@ class BlindSpotHud(private val ctx: Context) {
     // overlay (main thread only)
     @Volatile private var view: TextureView? = null
     @Volatile private var shownPanel = -1
+    private var guide: GuideOverlay? = null          // the distance guide lines drawn over the camera picture (same lines as the floating window)
+    private var guidePanel = -1
     private var hudH = 0
     private var hudW = 0
     private val arrows = arrayOfNulls<SignalArrow>(2)   // slot 1 only used for hazard (both sides)
@@ -264,9 +266,10 @@ class BlindSpotHud(private val ctx: Context) {
         if (!running || disabled) return
         val v = view
         if (v != null) {
-            leaving?.let { it.cancel(); leaving = null; ExitAnim.reset(v) }   // indicator came back mid-animation
+            leaving?.let { it.cancel(); leaving = null; ExitAnim.reset(v); guide?.visibility = View.VISIBLE }   // indicator came back mid-animation
             if (panel != shownPanel) { shownPanel = panel; activePanel = panel; relayout(v); renderer?.panel = panel }
             applyLive(v)
+            syncGuide(v)
             return
         }
         if (Build.VERSION.SDK_INT < 30) return
@@ -303,6 +306,7 @@ class BlindSpotHud(private val ctx: Context) {
             }
             Logger.log(ctx, "blindspot: window type $wtype")
             view = tv
+            syncGuide(tv)
             HudLayer.added(p, "cam")   // whatever is meant to be in front of the picture goes back on top
             Logger.log(ctx, "blindspot: HUD on (display ${hud.displayId}, ${if (panel == PANEL_LEFT) "left" else "right"})")
         } catch (e: Throwable) {
@@ -356,6 +360,27 @@ class BlindSpotHud(private val ctx: Context) {
         val lp = v.layoutParams as? WindowManager.LayoutParams ?: return
         fillCam(lp)
         try { v.context.getSystemService(WindowManager::class.java).updateViewLayout(v, lp) } catch (_: Throwable) {}
+        syncGuide(v)
+    }
+
+    /** Keeps the guide-lines window exactly over the camera picture (added, moved or swapped when the left/right panel changes). */
+    private fun syncGuide(v: TextureView) {
+        try {
+            val lp = v.layoutParams as? WindowManager.LayoutParams ?: return
+            val wm = v.context.getSystemService(WindowManager::class.java)
+            val panel = shownPanel
+            var g = guide
+            if (g != null && guidePanel != panel) { try { wm.removeView(g) } catch (_: Throwable) {}; guide = null; g = null }
+            val glp = WindowManager.LayoutParams(lp.width, lp.height, lp.type,
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED,
+                PixelFormat.TRANSLUCENT).also { it.gravity = lp.gravity; it.x = lp.x; it.y = lp.y }
+            if (g == null) {
+                g = GuideOverlay(v.context, p, if (panel == PANEL_LEFT) "flLeftGuide" else "flRightGuide")
+                wm.addView(g, glp); guide = g; guidePanel = panel
+            } else if ((g.layoutParams as? WindowManager.LayoutParams)?.let { it.width != glp.width || it.height != glp.height || it.x != glp.x || it.y != glp.y || it.gravity != glp.gravity } != false) {
+                wm.updateViewLayout(g, glp)
+            }
+        } catch (e: Throwable) { Logger.log(ctx, "blindspot: guide lines failed ${e.javaClass.simpleName} ${e.message ?: ""}") }
     }
 
     /** Blinking green arrow at the bottom of the camera picture (left region of the HUD), pointing the way of the blinker that is on. */
@@ -432,6 +457,7 @@ class BlindSpotHud(private val ctx: Context) {
         if (leaving != null) return
         val kind = ExitAnim.kind(p)
         if (kind == 0 || v.width == 0) { removeViewNow(); return }
+        guide?.visibility = View.GONE
         leaving = ExitAnim.run(v, kind, ExitAnim.ms(p)) { leaving = null; removeViewNow() }
     }
 
@@ -439,6 +465,7 @@ class BlindSpotHud(private val ctx: Context) {
         leaving?.cancel(); leaving = null
         val v = view ?: return
         view = null; shownPanel = -1; activePanel = -1
+        guide?.let { g -> try { g.context.getSystemService(WindowManager::class.java).removeView(g) } catch (_: Throwable) {} }; guide = null; guidePanel = -1
         try { v.context.getSystemService(WindowManager::class.java).removeView(v) } catch (_: Throwable) {}
         Logger.log(ctx, "blindspot: HUD off")
     }

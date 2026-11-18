@@ -18,7 +18,7 @@ import android.view.View
 class CornerLine(ctx: Context, radiusDp: Int, left: Boolean, top: Boolean, onStart: () -> Unit, onDrag: (Float, Float) -> Unit, onEnd: () -> Unit) : View(ctx) {
     companion object {
         /** Touch zone (dp) for a window with this corner radius. */
-        fun zoneDp(radiusDp: Int) = maxOf(radiusDp + 30, 56)
+        fun zoneDp(radiusDp: Int) = maxOf(radiusDp + 36, 64)
     }
 
     init {
@@ -42,7 +42,7 @@ class CornerLine(ctx: Context, radiusDp: Int, left: Boolean, top: Boolean, onSta
         var dx = 0f; var dy = 0f
         setOnTouchListener { _, e ->
             when (e.actionMasked) {
-                MotionEvent.ACTION_DOWN -> { dx = e.rawX; dy = e.rawY; onStart() }
+                MotionEvent.ACTION_DOWN -> { parent?.requestDisallowInterceptTouchEvent(true); dx = e.rawX; dy = e.rawY; onStart() }
                 MotionEvent.ACTION_MOVE -> onDrag(e.rawX - dx, e.rawY - dy)
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> onEnd()
             }

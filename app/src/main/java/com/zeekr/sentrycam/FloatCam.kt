@@ -150,7 +150,7 @@ class FloatCam(private val ctx: Context) {
                 nw = nw.coerceIn(dp(160), maxW); nh = nh.coerceIn(dp(160), maxH)
                 var nx = if (l) x0 + w0 - nw else x0; var ny = if (t) y0 + h0 - nh else y0
                 if (nx < 0) { nw += nx; nx = 0 }; if (ny < 0) { nh += ny; ny = 0 }
-                if (!FloatPush.hits(w.key, nx, ny, nw, nh)) {   // bumping into another window: stop growing
+                if (!(nw > winW || nh > winH) || !FloatPush.hits(w.key, nx, ny, nw, nh) || FloatPush.hits(w.key, lp.x, lp.y, winW, winH)) {   // only a growth that newly bumps into another window stops; shrinking, or already overlapping, always works
                     winW = nw; winH = nh; lp.width = nw; lp.height = nh; lp.x = nx; lp.y = ny
                     try { wm.updateViewLayout(w.root, lp) } catch (_: Throwable) {}
                 }
@@ -162,12 +162,17 @@ class FloatCam(private val ctx: Context) {
         val editBtn = IconButton(ctx, IconButton.Kind.EDIT, halo = true).apply {
             setOnClickListener { on = !on; val v = if (on) View.VISIBLE else View.GONE; listOf(cTL, cTR, cBL, cBR).forEach { it.visibility = v }; spaceButtons(on) }
         }
+        val hideBtn = IconButton(ctx, IconButton.Kind.HIDE, halo = true).apply {
+            alpha = if (pinned(w)) 0.3f else 1f   // pinned: cannot be minimized, looks disabled
+            setOnClickListener { if (pinned(w)) return@setOnClickListener; w.hidden = true; main.removeCallbacks(tick); main.post(tick) }
+        }
         val pinBtn = IconButton(ctx, IconButton.Kind.PIN, halo = true).apply {
             on = pinned(w)
-            setOnClickListener { on = !on; p.edit().putBoolean(w.key + "Pin", on).apply() }
+            setOnClickListener { on = !on; p.edit().putBoolean(w.key + "Pin", on).apply(); hideBtn.alpha = if (on) 0.3f else 1f }
         }
-        val hideBtn = IconButton(ctx, IconButton.Kind.HIDE, halo = true).apply {
-            setOnClickListener { if (pinned(w)) return@setOnClickListener; w.hidden = true; main.removeCallbacks(tick); main.post(tick) }
+        val guide = GuideOverlay(ctx, p, w.key + "Guide")
+        val guideBtn = IconButton(ctx, IconButton.Kind.GUIDE, halo = true).apply {
+            setOnClickListener { on = !on; guide.editing = on }
         }
         val box = FrameLayout(ctx).apply {
             if (fadePct() > 0) setBackgroundColor(0)   // soft edge: no frame, the picture itself fades out
@@ -181,7 +186,7 @@ class FloatCam(private val ctx: Context) {
                     val nh = (winH * f).toInt().coerceIn(dp(160), maxH)
                     val nx = (lp.x - (nw - winW) / 2).coerceIn(0, (dm.widthPixels - nw).coerceAtLeast(0))
                     val ny = (lp.y - (nh - winH) / 2).coerceIn(0, (dm.heightPixels - nh).coerceAtLeast(0))
-                    if (nw > winW || nh > winH) if (FloatPush.hits(w.key, nx, ny, nw, nh)) return true   // bumping into another window: no bigger
+                    if (nw > winW || nh > winH) if (FloatPush.hits(w.key, nx, ny, nw, nh) && !FloatPush.hits(w.key, lp.x, lp.y, winW, winH)) return true   // bumping into another window: no bigger
                     lp.x = nx; lp.y = ny
                     winW = nw; winH = nh; lp.width = nw; lp.height = nh
                     try { wm.updateViewLayout(w.root, lp) } catch (_: Throwable) {}
@@ -217,11 +222,13 @@ class FloatCam(private val ctx: Context) {
                 true
             }
             addView(tv, FrameLayout.LayoutParams(-1, -1))
+            addView(guide, FrameLayout.LayoutParams(-1, -1))
             addView(bar, FrameLayout.LayoutParams(-1, dp(hdr), Gravity.TOP))
             addView(hideBtn, FrameLayout.LayoutParams(btn, btn, Gravity.TOP or Gravity.END).apply { setMargins(0, dp(5), dp(8), 0) })
             addView(editBtn, FrameLayout.LayoutParams(btn, btn, Gravity.TOP or Gravity.END).apply { setMargins(0, dp(5), dp(8) + btn + dp(2), 0) })
-            spaceButtons = { on -> val m = if (on) dp(cz) + dp(2) else dp(8); (hideBtn.layoutParams as FrameLayout.LayoutParams).marginEnd = m; (editBtn.layoutParams as FrameLayout.LayoutParams).marginEnd = m + btn + dp(2); (pinBtn.layoutParams as FrameLayout.LayoutParams).marginEnd = m + 2 * (btn + dp(2)); hideBtn.requestLayout(); editBtn.requestLayout(); pinBtn.requestLayout() }
+            spaceButtons = { on -> val m = if (on) dp(cz) + dp(2) else dp(8); (hideBtn.layoutParams as FrameLayout.LayoutParams).marginEnd = m; (editBtn.layoutParams as FrameLayout.LayoutParams).marginEnd = m + btn + dp(2); (pinBtn.layoutParams as FrameLayout.LayoutParams).marginEnd = m + 2 * (btn + dp(2)); (guideBtn.layoutParams as? FrameLayout.LayoutParams)?.let { it.marginEnd = m + 3 * (btn + dp(2)); guideBtn.requestLayout() }; hideBtn.requestLayout(); editBtn.requestLayout(); pinBtn.requestLayout() }
             addView(pinBtn, FrameLayout.LayoutParams(btn, btn, Gravity.TOP or Gravity.END).apply { setMargins(0, dp(5), dp(8) + 2 * (btn + dp(2)), 0) })
+            if (w === leftW || w === rightW) addView(guideBtn, FrameLayout.LayoutParams(btn, btn, Gravity.TOP or Gravity.END).apply { setMargins(0, dp(5), dp(8) + 3 * (btn + dp(2)), 0) })
             addView(cTL, FrameLayout.LayoutParams(dp(cz), dp(cz), Gravity.TOP or Gravity.START)); addView(cTR, FrameLayout.LayoutParams(dp(cz), dp(cz), Gravity.TOP or Gravity.END))
             addView(cBL, FrameLayout.LayoutParams(dp(cz), dp(cz), Gravity.BOTTOM or Gravity.START)); addView(cBR, FrameLayout.LayoutParams(dp(cz), dp(cz), Gravity.BOTTOM or Gravity.END))
         }

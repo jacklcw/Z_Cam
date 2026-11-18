@@ -1,3 +1,8 @@
+0.103.0
+- Distance guide lines on the left and right floating cameras: tap the new guide button in the window header, drag to draw a line, spread two fingers to copy it into up to 4 parallel lines with a red shade between them. Drag the dots to set the angle and each line's length (a farther line is never longer than a closer one). Clear and Hide buttons appear while editing. The same lines show on the HUD picture. They are a rough visual reference only: always judge the real situation yourself.
+- The minimize button looks disabled while a window is pinned.
+- Window corners resize reliably even when windows overlap, with a larger touch area.
+
 0.102.0
 - Layout sets: from the Layout sets button in the left column, save the HUD and floating window layout as a named set, switch between sets, copy a set, rename, update or delete it. A set also remembers which floating windows are on. Each set shows when it was created and last edited. Hold the floating button and hover Layout sets to switch set right from the arc.
 - Floating web window: drag any corner to resize it freely, width and height separately (the HUD picture takes the same shape).
