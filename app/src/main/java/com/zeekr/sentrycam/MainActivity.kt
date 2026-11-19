@@ -2398,9 +2398,9 @@ class MainActivity : AppCompatActivity() {
         val pal = ZTheme.palette(mode)
         val tv = TextView(this).apply {
             tag = "m"; textSize = 13f; setLineSpacing(0f, 1.15f)
-            text = "Z Cam is its own app, with its own direction and features such as the web view and driving profiles.\n\n" +
+            text = "Based on Zeekr Shortcut by dts88 (https://github.com/dts88/zeekr-shortcut-car)\n" +
+                "Z Cam is a modified, separate app, not the original Zeekr Shortcut and not from dts88.\n\n" +
                 "License: Z Cam is free software under the GNU GPL v3.0 and comes with ABSOLUTELY NO WARRANTY. " +
-                "It contains code from Zeekr Shortcut (github.com/dts88/zeekr-shortcut-car). " +
                 "Source code: github.com/jacklcw/Z_Cam\n\n" +
                 "Zeekr Shortcut by dts88 (github.com/dts88/zeekr-shortcut-car), GPL-3.0\n" +
                 "The engine sound (synthesis model, voices and tuning) is dts88's original work, ported from this project. Platform facts for the camera layout, ECARX indicator and HUD also came from it.\n\n" +

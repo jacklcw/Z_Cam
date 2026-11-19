@@ -17,5 +17,6 @@ how to play to the car's speakers, and **EngineV1** (https://evenginev1.com) as 
 dts88's code carries two extra terms (see upstream NOTICE.md, section 8):
 
 1. Attribution: keep the "Based on Zeekr Shortcut by dts88 (https://github.com/dts88/zeekr-shortcut-car)" line visible in the app's
-   credits (Z_Cam shows it at the bottom of the main screen), and keep the copyright header at the top of each ported source file.
+   credits (Z_Cam shows it at the top of its Credits screen), and keep the copyright header at the top of each ported source file
+   (including `CivicTypeRVoice.java`, which is derived from dts88's turbo-four voice).
 2. Modified versions must not pass as the original or as coming from dts88. Z_Cam is a modified, separate app and is not affiliated with Zeekr Shortcut.

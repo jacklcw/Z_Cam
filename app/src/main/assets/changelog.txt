@@ -1,3 +1,7 @@
+0.104.1
+- Credits screen now opens with the required Zeekr Shortcut attribution line.
+- Added the GPL-3.0 LICENSE file and the missing source header on the Civic Type R voice.
+
 0.104.0
 - Lane keep assist per driving profile: pick Keep / On / Off for each drive mode in Driving profiles; it is set along with steering and regen when the mode applies.
 - Hold the floating button, hover a drive mode: a new arc beyond steering and regen sets its lane keep assist (On / Off, tap again = keep).
