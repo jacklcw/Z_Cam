@@ -53,6 +53,9 @@ Dashboard layout: [open the wireframe](https://jacklcw.github.io/Z_Cam/docs/zcam
   groups a backup includes.
 - **Auto Camping-off.** Optionally turns Camping mode off when it was left on after getting out:
   both front seats empty and the car locked for a chosen number of minutes. Any doubt restarts the wait.
+- **Leave-car trigger.** When both front seats are empty, the gear is P and the car reads locked, Z_Cam tells
+  your relay so its automations (Auto Sentry and others) run within seconds instead of at the next 5-minute check.
+  Needs a linked relay; without one nothing is sent and everything else works as before.
 - **Data usage.** A built-in meter shows what the app sends and receives, per category and day.
 - **Driving profiles.** One profile per drive mode: engine sound, ambient light (follows speed),
   regen, steering weight and rev bar all follow the mode you switch to, with an optional silent

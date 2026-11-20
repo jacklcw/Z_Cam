@@ -398,7 +398,7 @@ class CamService : Service() {
             try {
                 ensureControlWs(base, token)   // keep the instant-trigger socket alive
                 // Tell the relay whether the car is really parked (Auto Sentry waits for it): on change, and every 60 s.
-                val pk = Park.parkedSignal(this); val pkNow = System.currentTimeMillis()
+                val pk = Park.parkedSignal(this) || leftNow; val pkNow = System.currentTimeMillis()
                 ensureCampReader()
                 val camNow = campRead; val seatNow = seatRead; val gearNow = gearRead
                 if (pk != lastParkSent || camNow != lastCampSent || seatNow != lastSeatSent || gearNow != lastGearSent || pkNow - lastParkAt > 60_000L) {
@@ -674,9 +674,40 @@ class CamService : Service() {
                 try { campRead = CampGuard.campingState(this) } catch (_: Throwable) {}
                 try { seatRead = CampGuard.anySeated(this) } catch (_: Throwable) {}
                 try { gearRead = CampGuard.inPark(this) } catch (_: Throwable) {}
+                try { checkLeft() } catch (_: Throwable) {}
                 try { Thread.sleep(3_000L) } catch (_: InterruptedException) { return@Thread }
             }
         }.also { it.isDaemon = true; it.start() }
+    }
+    // Leave-car trigger: nobody in a front seat, gear P and the car's own lock reads locked (all three explicit, held 6 s)
+    // -> tell the relay so it runs the automations now instead of at the next 5-min tick. Pings at 0 / 45 / 120 s so
+    // the cloud status can catch up; re-arms only after someone sits down or the car unlocks. Best effort: a failed ping changes nothing.
+    @Volatile private var leftNow = false
+    private var leftSince = 0L
+    private var leftPings = 0
+    @Volatile private var leftFails = 0
+    private fun checkLeft() {
+        val locked = CampGuard.lockState(this) == 1
+        val cond = seatRead == false && gearRead == true && locked
+        val now = System.currentTimeMillis()
+        if (!cond) { leftNow = false; leftSince = 0L; leftPings = 0; leftFails = 0; return }
+        if (leftSince == 0L) { leftSince = now; return }
+        if (now - leftSince < 6_000L) return
+        leftNow = true
+        val due = longArrayOf(6_000L, 45_000L, 120_000L)
+        if (leftPings < due.size && now - leftSince >= due[leftPings]) {
+            leftPings++
+            val p = getSharedPreferences("cfg", Context.MODE_PRIVATE)
+            val base = p.getString("url", "")!!.trimEnd('/'); val token = p.getString("token", "")
+            if (base.isEmpty() || token.isNullOrEmpty()) return
+            val pingNo = leftPings
+            Thread {
+                val r = try { Net.postJson("$base/cam/left", token, JSONObject().put("locked", true)) } catch (_: Throwable) { null }
+                // No answer (car internet still reconnecting): give the ping back so the next loop retries it.
+                if (r == null) { if (leftFails++ < 8 && leftPings == pingNo) leftPings--; Logger.log(this, "left: ping $pingNo failed, will retry") }
+                else Logger.log(this, "left: ping $pingNo sent")
+            }.also { it.isDaemon = true; it.start() }
+        }
     }
     @Volatile private var campSetBusy = false
     private var campSetTries = 0
