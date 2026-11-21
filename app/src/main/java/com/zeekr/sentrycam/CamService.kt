@@ -117,6 +117,7 @@ class CamService : Service() {
             Logger.log(this, "service start")
             DataMeter.start(this)
             worker = Thread { loop() }.apply { start() }
+            Heartbeat.start(this)
         }
         registerNetworkWatch()
         if (usbVideoWatcher == null) { usbVideoWatcher = UsbVideoWatcher(this).also { it.start() } }
@@ -358,6 +359,7 @@ class CamService : Service() {
     override fun onDestroy() {
         mainH.removeCallbacks(dailyUpdate); CampGuard.sync(this, true); WelcomeWatch.sync(this, true)
         running = false
+        Heartbeat.stop()
         wakeLoop()
         Park.stop()
         webHud?.stop(); webHud = null

@@ -74,10 +74,10 @@ object BubbleRow {
         when {
             rawX < dm.widthPixels * 0.2f || loc[0] < 3 * m -> { grav = Gravity.TOP or Gravity.LEFT; posX = m; vertical = true }
             rawX > dm.widthPixels * 0.8f || loc[0] + bar.width > dm.widthPixels - 3 * m -> { grav = Gravity.TOP or Gravity.RIGHT; posX = m; vertical = true }
-            y < 60 * dm.density -> { grav = Gravity.TOP or Gravity.CENTER_HORIZONTAL; posX = 0; vertical = false }   // near the top: back to the original place
+            y < 60 * dm.density -> { grav = Gravity.TOP or Gravity.LEFT; posX = loc[0].coerceIn(0, (dm.widthPixels - bar.width).coerceAtLeast(0)); vertical = false }   // near the top: sticks to the top edge, keeps its sideways place
             else -> { grav = Gravity.TOP or Gravity.LEFT; posX = loc[0].coerceIn(0, (dm.widthPixels - bar.width).coerceAtLeast(0)); vertical = false }
         }
-        posY = if (grav == (Gravity.TOP or Gravity.CENTER_HORIZONTAL)) m else y
+        posY = if (y < 60 * dm.density && !vertical) m else y
         if (wasVertical != vertical) rebuild(ctx, reuse = true)
         applyPlacement(ctx)
     }

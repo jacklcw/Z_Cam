@@ -11,8 +11,8 @@ import org.json.JSONObject
 object LayoutPresets {
     class Preset(val id: String, var name: String, val created: Long, var edited: Long, var data: JSONObject)
 
-    private val EXACT = setOf("mmX", "mmY", "mmSize", "slX", "slY", "slSize", "webPosX", "webPosY", "webSize", "hudZ", "fmX", "fmY", "fmSize", "webFloatX", "webFloatY", "webFloatW", "webLand", "webAsp", "twX", "twY")
-    private val PREFIX = listOf("bsPosX_", "bsPosY_", "bsSize_", "bsAspect_", "bsArr", "pfRevPos_", "pfRevSize_", "pfRevInset_")
+    private val EXACT = setOf("mmX", "mmY", "mmSize", "slX", "slY", "slSize", "webPosX", "webPosY", "webSize", "hudZ", "fmX", "fmY", "fmSize", "webFloatX", "webFloatY", "webFloatW", "webLand", "webAsp", "twX", "twY", "twOrient", "twDetail", "twChart", "twSlots")
+    private val PREFIX = listOf("bsPosX_", "bsPosY_", "bsSize_", "bsAspect_", "bsArr", "pfRevPos_", "pfRevSize_", "pfRevInset_", "twW_", "twH_")
     private val FLOAT = Regex("^fl(Left|Right|Rear|Front)(X|Y|W|H|Size)$")
 
     /** Which floating windows are on. Sets saved before these were added do not hold them: applying such a set leaves the switches alone. */
@@ -64,6 +64,12 @@ object LayoutPresets {
         s.data = snapshot(p); s.edited = System.currentTimeMillis(); save(p, l, id)
     }
 
+    /** Moves a set to position [to] (0 = first). The list order is also the order on the floating arc. */
+    fun move(p: SharedPreferences, id: String, to: Int) {
+        val l = list(p); val i = l.indexOfFirst { it.id == id }; if (i < 0) return
+        val s = l.removeAt(i); l.add(to.coerceIn(0, l.size), s); save(p, l)
+    }
+
     fun rename(p: SharedPreferences, id: String, name: String) {
         val l = list(p); val s = l.firstOrNull { it.id == id } ?: return
         s.name = uniqueName(l.filter { it.id != id }, name); s.edited = System.currentTimeMillis(); save(p, l)
@@ -86,6 +92,8 @@ object LayoutPresets {
                 is String -> e.putString(k, v)
             }
         }
+        for (k in listOf("twMin", "webMin", "flLeftMin", "flRightMin", "flRearMin", "flFrontMin")) e.putBoolean(k, false)   // a new layout brings every window back from the dock
+        FloatMaster.restoreSeq++
         val now = System.currentTimeMillis()
         val cams = listOf("flLeft", "flRight", "flRear", "flFront").joinToString(" ") { k -> "$k=${s.data.optBoolean(k, false)}/${s.data.optInt(k + "X", -1)},${s.data.optInt(k + "Y", -1)},${s.data.optInt(k + "W", -1)}x${s.data.optInt(k + "H", -1)}" }
         android.util.Log.d("LayoutPresets", "apply ${s.name}: $cams")

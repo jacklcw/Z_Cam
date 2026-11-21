@@ -110,7 +110,7 @@ canvas{flex:1;min-height:calc(14*var(--u));height:auto}
 .w.nat.h canvas{height:calc(12*var(--u))}
 
 /* header: the same height and text size as the other floating windows' header bar (the app's "Window header height" setting, passed as --hdr in dp) */
-.hd,.w.h .hd{white-space:nowrap;overflow:hidden;align-items:center;height:var(--hdr,56px);box-sizing:border-box;padding-right:calc(var(--hdr,56px) + 4px);font-size:calc(var(--hdr,56px)*.6*var(--hs,1))!important;gap:.6em}
+.hd,.w.h .hd{white-space:nowrap;overflow:hidden;align-items:center;height:var(--hdr,56px);box-sizing:border-box;padding-right:0;font-size:calc(var(--hdr,56px)*.6*var(--hs,1))!important;gap:.6em}
 .hd .t,.hd .chip,.hd .bat,.w.h .hd .t,.w.h .hd .chip,.w.h .bat{font-size:1em!important}
 .hd .chip{padding:.15em .7em}
 .hd .bat{gap:.4em;margin-right:.2em}
@@ -131,6 +131,24 @@ canvas{flex:1;min-height:calc(14*var(--u));height:auto}
 .pd.th i{background:#ff3b30}
 .pd.br i{background:#ff9a93}
 .pd.rg i{background:#32d74b}
+/* tile titles: bigger than before and never below 12px, even when a short box shrinks --u (Full has many tiles) */
+.tile .k,.w.h .tile .k{font-size:max(calc(3.6*var(--u)),12px)!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:.08em}
+.sec,.w.h .sec{font-size:max(calc(3*var(--u)),11px)!important}
+/* Full: a longer chart on top, short tiles with bigger text; the sparkline floats at the tile's right so it needs no height of its own */
+.w.full:not(.h) .stack{flex-direction:row!important;gap:calc(2.6*var(--u));align-items:stretch}
+.w.full:not(.h) .hero{flex:0 0 52%;min-width:0;flex-direction:row;align-items:stretch;gap:calc(2*var(--u))}
+.w.full:not(.h) .hero>div:first-child{flex:1 1 0;min-width:0;display:flex;flex-direction:column;justify-content:flex-end}
+.w.full:not(.h) .pedals{margin-left:auto;flex:none;height:auto;align-self:stretch;gap:calc(1.2*var(--u))}
+.w.full:not(.h) .pd{width:calc(4.6*var(--u))}
+.w.full:not(.h) .chartbox{flex:1 1 0;min-width:0}
+.w.full:not(.h) .chartbox canvas{min-height:calc(20*var(--u))}
+.w.full:not(.h).nat .chartbox canvas{height:calc(30*var(--u))}
+.w.full .tile{padding:calc(1.1*var(--u)) calc(2.4*var(--u)) calc(1.3*var(--u))}
+.w.full .tile canvas.sp{position:absolute;right:calc(2*var(--u));bottom:calc(1.4*var(--u));width:34%;height:46%;margin:0}
+.w.full:not(.h) .tile .v{font-size:calc(12*var(--u))}
+.w.full:not(.h) .tile .v small{font-size:calc(5.8*var(--u))}
+.w.full .tile .k,.w.full.h .tile .k{font-size:max(calc(4.4*var(--u)),13px)!important}
+.w.full.h .tile .v{font-size:calc(7.8*var(--u))}.w.full.h .tile .v small{font-size:calc(3.4*var(--u))}
 </style></head>
 <body><div id="root">
 <div class="w" id="w">
@@ -321,7 +339,7 @@ function ui(){
  const bp=S.soc!=null?Math.max(0,Math.min(100,S.soc)):0;$('bpc').textContent=S.soc!=null?Math.round(S.soc):'--';$('bbi').style.width=bp+'%';document.querySelector('.bat').classList.toggle('low',S.soc!=null&&S.soc<20);
  $('srcs').textContent=c.why?('relay: '+c.why):'';$('srcs').parentNode.style.display=c.why?'':'none';
 }
-function resolve(bw,bh){const r=bw/bh;return C.orient==='auto'?(r>1.45?'h':'v'):(C.orient==='h'&&r<1.3?'v':C.orient)}   // a square-ish box stacks: tiles go to the bottom under the chart
+function resolve(bw,bh){const r=bw/bh;return C.orient==='auto'?(r>1.45?'h':'v'):(C.orient==='h'&&r<1.3&&C.detail!=='full'?'v':C.orient)}   // a square-ish box stacks: tiles go to the bottom under the chart
 // The window is any rectangle (like the camera windows). Fonts and spacing scale with the unit --u; the content stretches to fill the box:
 // the chart takes spare height, tiles and the hero take spare width. If the box is shorter than the content needs, --u shrinks to fit.
 let natReported='';

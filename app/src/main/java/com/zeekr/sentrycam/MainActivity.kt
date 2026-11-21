@@ -1935,7 +1935,7 @@ class MainActivity : AppCompatActivity() {
         rebuild = {
             box.removeAllViews()
             box.addView(TextView(this).apply { tag = "h"; text = "Layout sets"; setPadding(0, 0, 0, dp(4)) })
-            box.addView(TextView(this).apply { tag = "m"; text = "A set holds the HUD and floating window places, sizes and layering. Tap one for Apply, Update, Rename, Copy or Delete."; setPadding(0, 0, 0, dp(10)) })
+            box.addView(TextView(this).apply { tag = "m"; text = "A set holds the HUD and floating window places, sizes and layering. Tap one for Apply, Update, Rename, Copy or Delete. Long press one to move it up or down; the floating arc follows this order."; setPadding(0, 0, 0, dp(10)) })
             box.addView(Button(this).apply { tag = "btn"; text = "Save current layout as a new set"; setOnClickListener {
                 askName("Name the layout set", "Layout ${LayoutPresets.list(p).size + 1}", "Save") { LayoutPresets.create(p, it); rebuild() } } },
                 LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(10) })
@@ -1946,6 +1946,14 @@ class MainActivity : AppCompatActivity() {
                 tag = "seg"; isAllCaps = false; isSelected = s.id == act; gravity = android.view.Gravity.START or android.view.Gravity.CENTER_VERTICAL
                 text = (if (s.id == act) "${s.name}  (in use)" else s.name) + "\nCreated " + fmt.format(java.util.Date(s.created)) + (if (s.edited != s.created) "\nEdited " + fmt.format(java.util.Date(s.edited)) else "")
                 setOnClickListener { actions(s) }
+                setOnLongClickListener {
+                    val pos = all.indexOfFirst { it.id == s.id }
+                    val opts = listOf("Move to top", "Move up", "Move down", "Move to bottom")
+                    ZDialog.choose(this@MainActivity, "Move \"${s.name}\"", opts, -1) { i ->
+                        LayoutPresets.move(p, s.id, when (i) { 0 -> 0; 1 -> pos - 1; 2 -> pos + 1; else -> all.size - 1 }); rebuild()
+                    }
+                    true
+                }
             }, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(8) })
             ZTheme.style(box, ZTheme.palette(mode))
         }

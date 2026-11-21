@@ -361,6 +361,7 @@ class TripWidget(private val ctx: Context) {
             x = p.getInt("twX", a.first); y = p.getInt("twY", a.second)
         }
         // One finger anywhere drags the window, a pinch resizes it (about its centre), a tap raises it: the same gestures as the camera windows.
+        var revealBtns: () -> Unit = {}   // a tap shows the hide / pencil / pin buttons for a few seconds, so they never cover the content
         val touch = View(ctx).apply {
             var pinched = false; var dx = 0f; var dy = 0f; var ox = 0; var oy = 0; var moved = false
             val slop = dp(8)
@@ -390,7 +391,7 @@ class TripWidget(private val ctx: Context) {
                             FloatPush.moved("tw", dm.widthPixels, dm.heightPixels)
                         }
                     }
-                    MotionEvent.ACTION_UP -> { if (moved) savePlace(); if (!pinched && !moved) raise(); pinched = false; moved = false }
+                    MotionEvent.ACTION_UP -> { if (moved) savePlace(); if (!pinched && !moved) { raise(); revealBtns() }; pinched = false; moved = false }
                 }
                 true
             }
@@ -425,9 +426,12 @@ class TripWidget(private val ctx: Context) {
             builtHdr = hdrDp(); val hb = dp(builtHdr) - dp(10)   // exactly the camera windows' button size: header minus a 5 dp margin all round
             addView(hideBtn, FrameLayout.LayoutParams(hb, hb, Gravity.TOP or Gravity.END).apply { setMargins(0, dp(PAD_DP + 5), dp(PAD_DP + 8), 0) })
             addView(editBtn, FrameLayout.LayoutParams(hb, hb, Gravity.TOP or Gravity.END).apply { setMargins(0, dp(PAD_DP + 5), dp(PAD_DP + 8) + hb + dp(2), 0) })
-            spaceButtons = { on -> val m = dp(PAD_DP) + (if (on) dp(cz) + dp(2) else dp(8)); (hideBtn.layoutParams as FrameLayout.LayoutParams).marginEnd = m; (editBtn.layoutParams as FrameLayout.LayoutParams).marginEnd = m + hb + dp(2); (pinBtn.layoutParams as FrameLayout.LayoutParams).marginEnd = m + 2 * (hb + dp(2)); pinBtn.requestLayout(); hideBtn.requestLayout(); editBtn.requestLayout() }
+            spaceButtons = { on -> val m = dp(PAD_DP) + (if (on) dp(cz) + dp(2) else dp(8)); (hideBtn.layoutParams as FrameLayout.LayoutParams).marginEnd = m; (editBtn.layoutParams as FrameLayout.LayoutParams).marginEnd = m + hb + dp(2); (pinBtn.layoutParams as FrameLayout.LayoutParams).marginEnd = m + 2 * (hb + dp(2)); pinBtn.requestLayout(); hideBtn.requestLayout(); editBtn.requestLayout(); if (!on) revealBtns() }
             addView(pinBtn, FrameLayout.LayoutParams(hb, hb, Gravity.TOP or Gravity.END).apply { setMargins(0, dp(PAD_DP + 5), dp(PAD_DP + 8) + 2 * (hb + dp(2)), 0) })
             fun fl(g: Int, mx: Int, my: Int) = FrameLayout.LayoutParams(dp(cz), dp(cz), g).apply { setMargins(if (g and Gravity.START == Gravity.START) mx else 0, if (g and Gravity.TOP == Gravity.TOP) my else 0, if (g and Gravity.END == Gravity.END) mx else 0, if (g and Gravity.BOTTOM == Gravity.BOTTOM) my else 0) }
+            val btns = listOf(hideBtn, editBtn, pinBtn); btns.forEach { it.visibility = View.GONE }
+            val hideRun = Runnable { if (!editBtn.on) btns.forEach { it.visibility = View.GONE } }
+            revealBtns = { btns.forEach { it.visibility = View.VISIBLE }; main.removeCallbacks(hideRun); main.postDelayed(hideRun, 4000) }
             addView(cTL, fl(Gravity.TOP or Gravity.START, dp(PAD_DP), dp(PAD_DP))); addView(cTR, fl(Gravity.TOP or Gravity.END, dp(PAD_DP), dp(PAD_DP)))
             addView(cBL, fl(Gravity.BOTTOM or Gravity.START, dp(PAD_DP), dp(PAD_DP))); addView(cBR, fl(Gravity.BOTTOM or Gravity.END, dp(PAD_DP), dp(PAD_DP)))
         }
