@@ -1,3 +1,25 @@
+0.107.2
+- What's new now lists every version (it had stopped at 0.104.1).
+
+0.107.1
+- New switch: Window animations (floating windows settings). Off makes every floating window cut in and out with no fade or animation.
+
+0.107.0
+- New: heartbeat. Z_Cam logs a beat every minute and sends them to your relay, so ZDash can show whether Z_Cam is still running (needs a linked relay; without one it only writes locally).
+- Minimised window dock can be dragged: near the left or right edge it snaps and stacks vertically, near the top it stays where you put it.
+- Trip widget: the hide, pencil and pin buttons only show for a few seconds after you tap the widget, so they no longer cover the content.
+- Trip widget Full: chart beside the speed with a taller top section, shorter tiles with larger text, and a square-ish box keeps the Full layout.
+- Layout sets now also save the trip widget (detail, orientation, chart, tiles, size). Switching layout brings back every minimised window.
+- Long press a layout set to move it up or down; the floating arc follows the same order.
+
+0.106.0
+- The minimised window dock can be dragged out of the way. Drop it near the left or right edge and it snaps there and stacks vertically.
+- Trip widget: when you resize it to a square, the small tiles move to the bottom under the chart.
+
+0.105.1
+- New: leave-car trigger. When both front seats are empty, the gear is P and the car reads locked, Z_Cam tells your relay so Auto Sentry and the other automations run within seconds instead of at the next 5-minute check. Needs a linked relay; without one nothing is sent.
+- The ping retries when the car internet is still reconnecting, and the Z_Cam log shows left: ping sent or failed.
+
 0.104.1
 - Credits screen now opens with the required Zeekr Shortcut attribution line.
 - Added the GPL-3.0 LICENSE file and the missing source header on the Civic Type R voice.
