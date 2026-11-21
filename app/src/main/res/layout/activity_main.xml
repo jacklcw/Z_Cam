@@ -405,6 +405,8 @@
                     <TextView android:id="@+id/flAnimMsLabel" android:tag="m" android:text="Blinker animation speed: 320 ms"
                         android:layout_width="wrap_content" android:layout_height="wrap_content" android:paddingTop="6dp"/>
                     <SeekBar android:id="@+id/flAnimMs" android:tag="seek" android:layout_width="match_parent" android:layout_height="wrap_content" android:max="92"/>
+                    <Button android:id="@+id/flAnimOff" android:tag="seg" android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp" android:textAllCaps="false" android:text="Window animations: On"/>
                     <Button android:id="@+id/flMinAnim" android:tag="seg" android:layout_width="match_parent" android:layout_height="wrap_content"
                         android:layout_marginTop="10dp" android:textAllCaps="false" android:text="Minimize animation: Fade"/>
                     <TextView android:id="@+id/flMinMsLabel" android:tag="m" android:text="Minimize speed: 200 ms"

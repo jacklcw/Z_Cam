@@ -380,6 +380,11 @@ class MainActivity : AppCompatActivity() {
                 override fun onStopTrackingTouch(sb: SeekBar) {}
             })
         }
+        findViewById<Button>(R.id.flAnimOff).apply {
+            fun paint() { text = "Window animations: " + (if (p.getBoolean("flAnimOff", false)) "Off (windows cut in and out)" else "On") + " (tap to change)" }
+            paint()
+            setOnClickListener { p.edit().putBoolean("flAnimOff", !p.getBoolean("flAnimOff", false)).apply(); paint() }
+        }
         // Minimize / restore animation of the floating windows (same choices as the HUD exit animation)
         findViewById<Button>(R.id.flMinAnim).apply {
             fun paint() { text = "Minimize animation: " + ExitAnim.NAMES[p.getInt("flMinAnim", 1).coerceIn(0, ExitAnim.NAMES.size - 1)] }

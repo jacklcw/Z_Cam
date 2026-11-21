@@ -67,6 +67,7 @@ object FloatMaster {
     }
 
     fun start(ctx: Context) {
+        FloatAnim.app = ctx.applicationContext
         main.post { if (view == null) add(ctx.applicationContext) }
     }
 

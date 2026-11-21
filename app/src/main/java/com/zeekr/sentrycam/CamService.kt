@@ -100,6 +100,7 @@ class CamService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         hookCrashLog()
+        FloatAnim.app = applicationContext
         mainH.removeCallbacks(dailyUpdate); mainH.postDelayed(dailyUpdate, 60_000L)
         enterForeground()
         acquireWake()

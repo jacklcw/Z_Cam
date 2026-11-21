@@ -11,13 +11,18 @@ import android.view.animation.AccelerateDecelerateInterpolator
 object FloatAnim {
     private const val MS = 320L
 
+    /** Set by the service when it starts: lets the animation switch (pref flAnimOff) be read where no Context is at hand. */
+    @Volatile var app: android.content.Context? = null
+    fun off(): Boolean = try { app?.getSharedPreferences("cfg", android.content.Context.MODE_PRIVATE)?.getBoolean("flAnimOff", false) == true } catch (_: Throwable) { false }
+
     /** True shortly after the floating button brought the windows back, so new windows should fade in. */
     fun revealing() = android.os.SystemClock.uptimeMillis() - FloatMaster.shownAt < 1500L
 
     /** Initial window alpha: 0 when the window is about to fade in, so its first frame is already transparent. */
-    fun startAlpha() = if (revealing()) 0f else 1f
+    fun startAlpha() = if (revealing() && !off()) 0f else 1f
 
     private fun fade(wm: WindowManager, v: View, lp: WindowManager.LayoutParams, to: Float, onEnd: () -> Unit) {
+        if (off()) { lp.alpha = to; try { wm.updateViewLayout(v, lp) } catch (_: Throwable) {}; onEnd(); return }
         val from = lp.alpha
         val a = ValueAnimator.ofFloat(from, to).apply { duration = MS; interpolator = AccelerateDecelerateInterpolator() }
         a.addUpdateListener {
@@ -30,7 +35,7 @@ object FloatAnim {
 
     /** Configurable in/out for blinker windows: style "none" | "fade" | "slide" | "zoom" over [ms]; slide moves in from / out toward the screen edge on [dir] (-1 left, +1 right). */
     fun run(wm: WindowManager, v: View, lp: WindowManager.LayoutParams, style: String, ms: Long, inward: Boolean, dir: Int, onEnd: () -> Unit) {
-        if (style == "none" || ms <= 0L) { lp.alpha = if (inward) 1f else 0f; try { wm.updateViewLayout(v, lp) } catch (_: Throwable) {}; onEnd(); return }
+        if (off() || style == "none" || ms <= 0L) { lp.alpha = if (inward) 1f else 0f; try { wm.updateViewLayout(v, lp) } catch (_: Throwable) {}; onEnd(); return }
         val baseX = lp.x; val shift = (v.width.coerceAtLeast(200) * 0.6f * dir).toInt()
         val a = ValueAnimator.ofFloat(0f, 1f).apply { duration = ms; interpolator = AccelerateDecelerateInterpolator() }
         a.addUpdateListener {
@@ -59,7 +64,7 @@ object FloatAnim {
         val kind = sp.getInt("flMinAnim", 1).coerceIn(0, ExitAnim.NAMES.size - 1)
         val ms = sp.getInt("flMinMs", 200).coerceIn(100, 1000).toLong()
         fun finish() { ExitAnim.reset(v); if (inward) { lp.alpha = 1f; try { wm.updateViewLayout(v, lp) } catch (_: Throwable) {} }; onEnd() }
-        if (kind == 0) { finish(); return }
+        if (kind == 0 || off()) { finish(); return }
         fun go() {
             if (inward) { ExitAnim.at(v, kind, 1f); lp.alpha = 1f; try { wm.updateViewLayout(v, lp) } catch (_: Throwable) {} }
             val a = ValueAnimator.ofFloat(0f, 1f).apply { duration = ms; interpolator = android.view.animation.LinearInterpolator() }
