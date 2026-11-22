@@ -243,17 +243,19 @@ object FloatQuick {
         private val sIn = fIn; private val sOut = fIn + fTh
         private val gIn = sOut + 4f * d; private val gOut = gIn + fTh
         private val lIn = gOut + 4f * d; private val lOut = lIn + fTh
-        private fun rowIn(row: Int) = when (row) { 0 -> sIn; 1 -> gIn; else -> lIn }
-        private fun rowOut(row: Int) = when (row) { 0 -> sOut; 1 -> gOut; else -> lOut }
-        private fun feelKey(row: Int) = (when (row) { 0 -> "pfSteer_"; 1 -> "pfRegen_"; else -> "pfLka_" }) + DriveProfile.hex(modes[smode].first)
+        private val eIn = lOut + 4f * d; private val eOut = eIn + fTh
+        private fun rowIn(row: Int) = when (row) { 0 -> sIn; 1 -> gIn; 2 -> lIn; else -> eIn }
+        private fun rowOut(row: Int) = when (row) { 0 -> sOut; 1 -> gOut; 2 -> lOut; else -> eOut }
+        private fun feelKey(row: Int) = (when (row) { 0 -> "pfSteer_"; 1 -> "pfRegen_"; 2 -> "pfLka_"; else -> "pfEped_" }) + DriveProfile.hex(modes[smode].first)
         private val LKA_OPTS = listOf(1 to "On", 2 to "Off")   // stored per mode: 1 on, 2 off, 0 keep
-        private fun feelOpts(row: Int) = when (row) { 0 -> DriveProfile.STEER; 1 -> DriveProfile.REGEN; else -> LKA_OPTS }
+        private val EPED_OPTS = listOf(1 to "On", 2 to "Off")   // one-pedal drive, stored per mode: 1 on, 2 off, 0 keep
+        private fun feelOpts(row: Int) = when (row) { 0 -> DriveProfile.STEER; 1 -> DriveProfile.REGEN; 2 -> LKA_OPTS; else -> EPED_OPTS }
         private fun feelVal(row: Int): Int = p.getString(feelKey(row), "0")?.toIntOrNull() ?: 0
         /** Start angle and per-option sweep of a feel row centred on the open mode sector, kept on screen. */
         private fun feelPlace(count: Int): Pair<Float, Float> {
             val mid = b0[smode] + sweep2 / 2.0
             var w = Math.min(30.0, sweep2.toDouble())
-            val r = run(usable(lOut + grow), mid)
+            val r = run(usable(eOut + grow), mid)
             if (r == null) return Pair((mid - w * count / 2).toFloat(), w.toFloat())
             w = Math.min(w, Math.max(14.0, r.second / 3)).coerceAtLeast(14.0)
             val span = w * count; val inRun = norm(mid - r.first) <= r.second
@@ -267,7 +269,7 @@ object FloatQuick {
             layout()
             val dx = (x - bx).toDouble(); val dy = (y - by).toDouble()
             val dist = Math.hypot(dx, dy); val ang = Math.toDegrees(Math.atan2(dy, dx))
-            if (open && smode >= 0) for (row in 0..2) {
+            if (open && smode >= 0) for (row in 0..3) {
                 val lo = rowIn(row); val hi = rowOut(row)
                 if (dist in (lo - 2f * d)..(hi + grow)) { val (st, w) = feelPlace(feelOpts(row).size); for (k in feelOpts(row).indices) if (inSector(ang, st + w * k, w)) return 3000 + row * 100 + k }
             }
@@ -431,6 +433,11 @@ object FloatQuick {
                 LIVE -> {   // screen with a play triangle
                     cv.drawRoundRect(cx - h, cy - h * 0.7f, cx + h, cy + h * 0.7f, 3 * d, 3 * d, line)
                     q.moveTo(cx - h * 0.25f, cy - h * 0.35f); q.lineTo(cx + h * 0.35f, cy); q.lineTo(cx - h * 0.25f, cy + h * 0.35f); q.close(); cv.drawPath(q, fill)
+                }
+                "epoff" -> { icon(cv, "ep", cx, cy, h, color); cv.drawLine(cx - h, cy - h, cx + h, cy + h, line) }
+                "ep" -> {   // a slanted pedal
+                    cv.drawLine(cx - h * 0.5f, cy - h * 0.9f, cx + h * 0.5f, cy - h * 0.9f, line); cv.drawLine(cx + h * 0.5f, cy - h * 0.9f, cx + h * 0.7f, cy + h * 0.9f, line)
+                    cv.drawLine(cx + h * 0.7f, cy + h * 0.9f, cx - h * 0.7f, cy + h * 0.9f, line); cv.drawLine(cx - h * 0.7f, cy + h * 0.9f, cx - h * 0.5f, cy - h * 0.9f, line)
                 }
                 "lkaoff" -> { icon(cv, "lka", cx, cy, h, color); cv.drawLine(cx - h, cy - h, cx + h, cy + h, line) }
                 "lka" -> {   // top-down: car drifting over the lane line, with an alert mark
@@ -609,16 +616,16 @@ object FloatQuick {
             }
             if (gopen >= 0) for ((k, it) in grp(gopen)!!.withIndex()) { val on = gOn(it); drawSector((g0[gopen] + gSweep[gopen] * k).toFloat(), gSweep[gopen].toFloat(), r2a, r2, on, hover == 2000 + k, it.key, !on) }
             if (open) for ((j, m) in modes.withIndex()) drawSector(b0[j], sweep2, r2a, r2, m.first == curMode, hover == n + j || j == smode, modeIcon(m.first))
-            if (open && smode >= 0) for (row in 0..2) {
+            if (open && smode >= 0) for (row in 0..3) {
                 val (st, w) = feelPlace(feelOpts(row).size)
-                for ((k, o) in feelOpts(row).withIndex()) drawSector(st + w * k, w, rowIn(row), rowOut(row), feelVal(row) == o.first, hover == 3000 + row * 100 + k, if (row == 2) (if (k == 0) "lka" else "lkaoff") else (if (row == 0) "st" else "rg") + (k + 1))
+                for ((k, o) in feelOpts(row).withIndex()) drawSector(st + w * k, w, rowIn(row), rowOut(row), feelVal(row) == o.first, hover == 3000 + row * 100 + k, if (row == 3) (if (k == 0) "ep" else "epoff") else if (row == 2) (if (k == 0) "lka" else "lkaoff") else (if (row == 0) "st" else "rg") + (k + 1))
             }
             if (vopen) { val vb = visBands(); for (s in vb.indices) drawBand(s, vb[s]) }
             // name of the sector under the finger, at the top of the screen
             val label = when {
                 hover == paIdx -> if (LivePa.status.isNotEmpty()) LivePa.status else "LIVE outside  " + "|".repeat((LivePa.level * 20).toInt().coerceIn(0, 20))
                 hover in 0 until n -> ITEMS[hover].label + if (ITEMS[hover].key == DIR) (if (outside()) ": Outside" else ": Cabin") else if (ITEMS[hover].key == APP || ITEMS[hover].key == VOL || grp(hover) != null) "" else if (hover != driveIdx) (if (flag(ITEMS[hover].key)) ": ON" else ": OFF") else (curMode?.let { c -> modes.firstOrNull { it.first == c }?.second?.let { m -> ": $m" } } ?: "")
-                hover in 3000 until 4000 -> { val row = (hover - 3000) / 100; modes[smode].second + (when (row) { 0 -> " steering: "; 1 -> " regen: "; else -> " lane keep assist: " }) + feelOpts(row)[(hover - 3000) % 100].second + if (feelVal(row) == feelOpts(row)[(hover - 3000) % 100].first) " (set)" else "" }
+                hover in 3000 until 4000 -> { val row = (hover - 3000) / 100; modes[smode].second + (when (row) { 0 -> " steering: "; 1 -> " regen: "; 2 -> " lane keep assist: "; else -> " one-pedal drive: " }) + feelOpts(row)[(hover - 3000) % 100].second + if (feelVal(row) == feelOpts(row)[(hover - 3000) % 100].first) " (set)" else "" }
                 hover in 2000 until 3000 -> grp(gopen)!![hover - 2000].let { g -> if (g.key == "@none") g.label else if (g.key.startsWith(SET)) g.label + (if (gOn(g)) " (in use)" else "") else g.label + if (gOn(g)) ": ON" else ": OFF" }
                 hover >= 1000 -> bandName[hover - 1000] + ": " + bandText(hover - 1000)
                 hover >= n -> modes[hover - n].second + if (modes[hover - n].first == curMode) " (current)" else ""

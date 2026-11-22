@@ -1,3 +1,6 @@
+0.108.0
+- New: One-pedal drive in the driving profiles (Keep / On / Off per drive mode) and on the floating arc (outermost ring).
+
 0.107.2
 - What's new now lists every version (it had stopped at 0.104.1).
 

@@ -1115,7 +1115,8 @@ class MainActivity : AppCompatActivity() {
             host.addView(trio)
             val trio2 = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(0, dp(10), 0, 0) }
             trio2.addView(cell("Lane keep assist", picker("pfLka_$h", "$name: lane keep assist", listOf("0", "1", "2"), listOf("Keep", "On", "Off"))), LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
-            trio2.addView(View(this), LinearLayout.LayoutParams(0, 1, 2f).apply { marginStart = dp(8) })
+            trio2.addView(cell("One-pedal drive", picker("pfEped_$h", "$name: one-pedal drive", listOf("0", "1", "2"), listOf("Keep", "On", "Off"))), LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply { marginStart = dp(8) })
+            trio2.addView(View(this), LinearLayout.LayoutParams(0, 1, 1f).apply { marginStart = dp(8) })
             host.addView(trio2)
             host.addView(label("Rev bar on the HUD: set in the HUD section.", 12))
             // rev bar: this mode's own switch and look, shown in the HUD section (one mode at a time), copied into the rev bar settings when the mode applies
@@ -1358,7 +1359,7 @@ class MainActivity : AppCompatActivity() {
     // Kill the whole process (floating windows, HUD, camera hub) and have the system bring the service and the app back.
     // Stops the service and kills the whole process (floating windows, HUD, camera hub). Nothing brings it back; open the app again to start it.
     // The built-in preset (assets/default_settings.json): replaces every backed-up setting except the personal web data (bookmarks, history, tabs), then reloads.
-    private val STRING_PREFS = listOf("pfRev", "pfRevShape", "pfRevScheme", "pfRevPos", "pfSpd", "pfRegen", "pfRegenColor", "pfSteer", "pfLka", "pfSound", "pfColor", "pfSlow", "pfFastC", "pfStart", "pfVoice")
+    private val STRING_PREFS = listOf("pfRev", "pfRevShape", "pfRevScheme", "pfRevPos", "pfSpd", "pfRegen", "pfRegenColor", "pfSteer", "pfLka", "pfEped", "pfSound", "pfColor", "pfSlow", "pfFastC", "pfStart", "pfVoice")
     /** One pref from a preset or backup; the profile pickers read their keys as strings, so a number there would crash the settings screen. Anything unexpected is skipped, never thrown. */
     private fun putPref(e: android.content.SharedPreferences.Editor, k: String, v: Any?): Boolean {
         try {
