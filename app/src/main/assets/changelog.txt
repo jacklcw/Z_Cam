@@ -1,3 +1,9 @@
+0.109.0
+BETA: untested in the car: padlock, one-pedal fix, now playing.
+- New: Padlock sector on the floating arc (Lock window position). Locked windows (camera, web, trip) cannot be dragged; resizing still works.
+- Fix: One-pedal drive no longer flips off when the profile sets it to On (the car toggles the switch if the same value is written, so it is only written when it differs).
+- New (off by default, needs adb): Trip widget Now playing strip with tap controls (left previous, middle play/pause, right next), read from the car's Bluetooth media session. The car has no notification access page, so it only works after one adb command: pm grant com.zeekr.sentrycam android.permission.WRITE_SECURE_SETTINGS.
+
 0.108.0
 - New: One-pedal drive in the driving profiles (Keep / On / Off per drive mode) and on the floating arc (outermost ring).
 

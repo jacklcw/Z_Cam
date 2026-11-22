@@ -128,7 +128,7 @@ class FloatCam(private val ctx: Context) {
             setOnTouchListener { _, e ->
                 when (e.actionMasked) {
                     MotionEvent.ACTION_DOWN -> { dx = e.rawX; dy = e.rawY; ox = lp.x; oy = lp.y }
-                    MotionEvent.ACTION_MOVE -> {
+                    MotionEvent.ACTION_MOVE -> if (!p.getBoolean("flLock", false)) {
                         lp.x = (ox + (e.rawX - dx).toInt()).coerceIn(0, dm.widthPixels - dp(40))
                         lp.y = (oy + (e.rawY - dy).toInt()).coerceIn(0, dm.heightPixels - dp(40))
                         try { wm.updateViewLayout(w.root, lp) } catch (_: Throwable) {}
@@ -206,7 +206,7 @@ class FloatCam(private val ctx: Context) {
                     MotionEvent.ACTION_DOWN -> { dx = e.rawX; dy = e.rawY; ox = lp.x; oy = lp.y; moved = false; pinched = false }
                     MotionEvent.ACTION_MOVE -> if (!pinched && e.pointerCount == 1) {
                         if (Math.abs(e.rawX - dx) > slop || Math.abs(e.rawY - dy) > slop) moved = true
-                        if (moved) {
+                        if (moved && !p.getBoolean("flLock", false)) {
                             lp.x = (ox + (e.rawX - dx).toInt()).coerceIn(0, dm.widthPixels - dp(40))
                             lp.y = (oy + (e.rawY - dy).toInt()).coerceIn(0, dm.heightPixels - dp(40))
                             try { wm.updateViewLayout(w.root, lp) } catch (_: Throwable) {}

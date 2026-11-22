@@ -120,6 +120,18 @@ canvas{flex:1;min-height:calc(14*var(--u));height:auto}
 
 .pd.rg i{background:#32d74b}
 .w.norg .rgw{display:none}
+/* now playing strip: own row under the header, only present while something plays */
+.np{display:none;align-items:center;gap:calc(1.6*var(--u));font-size:max(calc(3.6*var(--u)),12px);color:var(--mut);white-space:nowrap;overflow:hidden;min-width:0}
+.np.on{display:flex}
+.npi{flex:none;width:0;height:0;border-style:solid;border-width:.42em 0 .42em .72em;border-color:transparent transparent transparent var(--acc)}
+.np.pa .npi{width:.7em;height:.8em;border:none;border-left:.22em solid var(--mut);border-right:.22em solid var(--mut)}
+.w.hasnp .in{grid-template-rows:auto auto minmax(0,1fr) auto auto}
+.w.h.hasnp .in{grid-template-rows:auto auto minmax(0,1fr) auto}
+.w.h .np{grid-column:1/-1}
+.npt{overflow:hidden;text-overflow:ellipsis;min-width:0;flex:1}
+.npb{flex:none;color:var(--acc);font-weight:800;padding:0 .6em}
+.np{padding:.5em 0}
+.npt b{color:var(--fg);font-weight:700}
 .tile.warn .v{color:#ff453a}
 
 .tile{display:flex;flex-direction:column}
@@ -155,6 +167,7 @@ canvas{flex:1;min-height:calc(14*var(--u));height:auto}
     <div class="in">
      <div class="hd"><span class="t"><b>TRIP</b><span id="mode"></span></span><span class="sp"></span><span class="t" id="clock">00:00:00</span><span class="bat"><span class="bb"><i id="bbi"></i></span><b id="bpc">78</b>%</span><span class="chip on" id="gear">D</span></div>
 
+     <div class="np" id="np"><span class="npb">&lt;</span><span class="npi" id="npi"></span><span class="npt" id="npt"></span><span class="npb">&gt;</span></div>
      <div class="stack">
       <div class="hero">
        <div style="min-width:0"><div class="spd" id="spd">0</div><div class="spd" id="spm" aria-hidden="true">888</div><div class="unit"><span id="unit">km/h</span><span id="sg"></span></div></div>
@@ -214,7 +227,7 @@ function onData(d){
  if(d.batt!=null){if(S.soc0==null)S.soc0=d.batt;S.soc=d.batt}
  S.stk+=dt;if(S.stk>=1){S.stk=0;if(S.cur){sampleTiles(S.cur);drawSparks()}if(S.soc!=null){S.sh.push(S.soc);if(S.sh.length>3600)S.sh.shift()}}
  S.tick+=dt;if(S.tick>=.2){S.tick=0;S.hist.push({v:kmh,th,br,ld:(th-br)*100,g:S.g});if(S.hist.length>300)S.hist.shift()}
- S.cur={kmh,th,br,rg:d.rg,regen:!!d.regen,gear:d.gear||'-',sg:d.sg||0,mode:d.mode||'',range:d.range,aux:d.aux,auxPct:d.auxPct,age:d.age,why:d.why||''};
+ S.cur={np:d.np,kmh,th,br,rg:d.rg,regen:!!d.regen,gear:d.gear||'-',sg:d.sg||0,mode:d.mode||'',range:d.range,aux:d.aux,auxPct:d.auxPct,age:d.age,why:d.why||''};
  if(now-lastDraw>=190){lastDraw=now;draw()}ui();
 }
 function draw(){
@@ -313,7 +326,7 @@ function drawSparks(){
   x.globalAlpha=.9;x.fillStyle=x.strokeStyle;const lv=a[a.length-1];x.beginPath();x.arc((a.length-1)/Math.max(1,a.length-1)*(w-2*pad)+pad,h-pad-(lv-lo)/sp*(h-2*pad),3.2*dpr,0,7);x.fill();
  });
 }
-let gridKey='';
+let gridKey='',npKey='';
 function buildGrid(){
  const full=C.detail==='full';
  const ids=full?ORDER.concat(['#'],PERF):(C.slots&&C.slots.length?C.slots:['eff','avg','dist','rng','soc','reg']).filter(x=>M[x]).slice(0,6);
@@ -335,6 +348,10 @@ function ui(){
  $('clock').textContent=fmt(S.t);$('mode').textContent=c.mode?' \u00b7 '+c.mode:'';$('gear').textContent=c.gear;
  {const k=C.accMode?((C.modeCols||{})[c.mode]||C.acc):C.acc;if(S.ac!==k){S.ac=k;const r=document.documentElement.style;r.setProperty('--acc',k);r.setProperty('--onacc',lum(k)>.55?'#10170a':'#fff')}}   // accent follows the ambient colour the user set for the current drive mode (the chosen accent when that mode keeps the car's own)
  buildGrid();
+ {const n=c.np,on=!!(n&&n.title),key=on?n.title+'|'+n.artist+'|'+n.playing:'';
+  if(key!==npKey){npKey=key;const el=$('np');el.classList.toggle('on',on);el.classList.toggle('pa',on&&!n.playing);W.classList.toggle('hasnp',on);
+   if(on){const t=$('npt');t.textContent='';const b=document.createElement('b');b.textContent=n.title;t.appendChild(b);if(n.artist)t.appendChild(document.createTextNode(' · '+n.artist))}
+   layout()}}
  document.querySelectorAll('#grid .tile').forEach(t=>{const m=M[t.dataset.m],r=m.f(c,k),miss=m.s==='RELAY'&&r[0]==='--'&&c.why;t.querySelector('.val').textContent=r[0];t.querySelector('.un').textContent=miss?c.why:r[1];t.title=miss?c.why:'';t.classList.toggle('warn',!!(m.warn&&m.warn(c)))});
  const bp=S.soc!=null?Math.max(0,Math.min(100,S.soc)):0;$('bpc').textContent=S.soc!=null?Math.round(S.soc):'--';$('bbi').style.width=bp+'%';document.querySelector('.bat').classList.toggle('low',S.soc!=null&&S.soc<20);
  $('srcs').textContent=c.why?('relay: '+c.why):'';$('srcs').parentNode.style.display=c.why?'':'none';
@@ -358,7 +375,9 @@ function layout(){
  const key=o+C.detail+C.font;
  if(window.ZW&&natReported!==key){natReported=key;ZW.nat(Math.round(hn/bw*1000),o==='h'?1:0)}   // natural height/width, per mille: the app's default for a fresh size
  fitSpeed();draw();
+ npReport();
 }
+function npReport(){if(!window.ZW||!ZW.npRect)return;const e=$('np'),d=window.devicePixelRatio||1;if(!e.classList.contains('on')){ZW.npRect(0,0,0,0);return}const r=e.getBoundingClientRect();ZW.npRect(Math.round(r.left*d),Math.round(r.top*d),Math.round(r.right*d),Math.round(r.bottom*d))}
 window.zw={cfg:o=>{Object.assign(C,o);applyCfg();ui()},data:onData,reset:()=>{reset();ui()}};
 applyCfg();ui();layout();
 </script></body></html>

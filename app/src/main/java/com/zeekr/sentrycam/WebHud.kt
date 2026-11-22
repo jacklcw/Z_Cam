@@ -721,7 +721,7 @@ class WebHud(private val ctx: Context) {
                     MotionEvent.ACTION_DOWN -> { dx = e.rawX; dy = e.rawY; ox = lp.x; oy = lp.y; hMoved = false }
                     MotionEvent.ACTION_MOVE -> {
                         if (Math.abs(e.rawX - dx) > dp(8) || Math.abs(e.rawY - dy) > dp(8)) hMoved = true
-                        if (!hMoved) return@setOnTouchListener true
+                        if (!hMoved || p.getBoolean("flLock", false)) return@setOnTouchListener true
                         lp.x = ox + (e.rawX - dx).toInt(); lp.y = oy + (e.rawY - dy).toInt(); winX = lp.x; winY = lp.y
                         try { ctx.getSystemService(WindowManager::class.java).updateViewLayout(floatRoot, lp) } catch (_: Throwable) {}
                         FloatPush.moved("web", ctx.resources.displayMetrics.widthPixels, ctx.resources.displayMetrics.heightPixels)

@@ -67,6 +67,8 @@ class TripWidget(private val ctx: Context) {
     private var function: Any? = null; private var getFn: java.lang.reflect.Method? = null
     private var lastTry = 0L; private var slowAt = 0L
     private var gear = "-"; private var mode = ""; private var regen = false
+    @Volatile private var npBox = intArrayOf(0, 0, 0, 0)
+    private var npAt = 0L; private var np: JSONObject? = null   // now playing, refreshed every second
     private val meter = RegenMeter { Logger.log(ctx, "tripwidget: $it") }
 
     // relay values (written by the relay thread, read by the poll thread)
@@ -200,6 +202,11 @@ class TripWidget(private val ctx: Context) {
                 mode = when (fn(DRIVE_MODE)) { 0x22010101 -> "Comfort"; 0x22010102 -> "Standard"; 0x22010103 -> "Sport"; else -> mode }
                 regen = fn(POWER_FLOW) in REGEN_FLOWS
             }
+        }
+        if (p.getBoolean("twNow", false)) {
+            val t = System.currentTimeMillis()
+            if (t - npAt >= 1_000) { npAt = t; np = NowPlaying.read(ctx) }
+            np?.let { o.put("np", it) }
         }
         o.put("gear", gear); o.put("mode", mode); o.put("regen", regen)
         o.put("sg", if (p.getString("engGearShow", "on") == "off") 0 else com.zeekr.sentrycam.sound.DriveSound.simGear())
@@ -343,6 +350,8 @@ class TripWidget(private val ctx: Context) {
             isClickable = false; isFocusable = false
             addJavascriptInterface(object {
                 /** The page's natural height/width (per mille) for the current layout: used once as the default size of a layout the user never resized. */
+                /** The now-playing strip's box in view pixels (0 = hidden): taps on it control the music. */
+                @JavascriptInterface fun npRect(l: Int, t: Int, r: Int, b: Int) { npBox = intArrayOf(l, t, r, b) }
                 @JavascriptInterface fun nat(perMille: Int, horiz: Int) { main.post { natRatio = perMille / 1000f; if (heightPref() <= 0) { applySize() } } }
             }, "ZW")
             webViewClient = object : android.webkit.WebViewClient() {
@@ -384,14 +393,14 @@ class TripWidget(private val ctx: Context) {
                     MotionEvent.ACTION_DOWN -> { dx = e.rawX; dy = e.rawY; ox = l.x; oy = l.y; moved = false; pinched = false }
                     MotionEvent.ACTION_MOVE -> if (!pinched && e.pointerCount == 1) {
                         if (Math.abs(e.rawX - dx) > slop || Math.abs(e.rawY - dy) > slop) moved = true
-                        if (moved) {
+                        if (moved && !p.getBoolean("flLock", false)) {
                             l.x = (ox + (e.rawX - dx).toInt()).coerceIn(-dp(PAD_DP), (dm.widthPixels - l.width + dp(PAD_DP)).coerceAtLeast(-dp(PAD_DP)))
                             l.y = (oy + (e.rawY - dy).toInt()).coerceIn(-dp(PAD_DP), (dm.heightPixels - l.height + dp(PAD_DP)).coerceAtLeast(-dp(PAD_DP)))
                             try { wm.updateViewLayout(root, l) } catch (_: Throwable) {}
                             FloatPush.moved("tw", dm.widthPixels, dm.heightPixels)
                         }
                     }
-                    MotionEvent.ACTION_UP -> { if (moved) savePlace(); if (!pinched && !moved) { raise(); revealBtns() }; pinched = false; moved = false }
+                    MotionEvent.ACTION_UP -> { if (moved) savePlace(); if (!pinched && !moved) { if (!npTap(e.x, e.y)) { raise(); revealBtns() } }; pinched = false; moved = false }
                 }
                 true
             }
@@ -444,6 +453,16 @@ class TripWidget(private val ctx: Context) {
         wv.loadDataWithBaseURL("file:///android_asset/", ctx.assets.open("tripwidget.html").bufferedReader().use { it.readText() }, "text/html", "utf-8", null)
         if (l.alpha < 1f) FloatAnim.genie(wm, box, l, true) {}
         main.post { OverlayTop.raise(ctx) }   // the dock and the floating button always sit above every window
+    }
+
+    /** A tap on the now-playing strip: left quarter previous, right quarter next, middle play/pause. */
+    private fun npTap(x: Float, y: Float): Boolean {
+        val b = npBox
+        if (b[2] <= b[0] || x < b[0] || x > b[2] || y < b[1] || y > b[3]) return false
+        val f = (x - b[0]) / (b[2] - b[0])
+        val cmd = if (f < .25f) -1 else if (f > .75f) 1 else 0
+        Thread { NowPlaying.control(ctx, cmd) }.start()
+        return true
     }
 
     /** Tapping the widget while it overlaps another window brings it to the front (overlay windows only stack by add order). */

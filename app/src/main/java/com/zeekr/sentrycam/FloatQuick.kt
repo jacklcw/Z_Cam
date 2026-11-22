@@ -39,7 +39,7 @@ object FloatQuick {
     private val ITEMS = listOf(
         Item("engOn", "Engine sound"), Item("mcOn", "Zed"), Item(VOL, "Volume"), Item(DIR, "Sound direction"), Item(PA, "Announce outside"), Item(HUD, "HUD"),
         Item(DRIVE, "Driving profile"),
-        Item(LIVE, "Floating windows"), Item(LAY, "Layout sets"),
+        Item(LIVE, "Floating windows"), Item(LAY, "Layout sets"), Item("flLock", "Lock window position"),
         Item(APP, "Open Z Cam"))
     private val GROUPS = mapOf(
         HUD to listOf(Item("revOn", "Rev bar"), Item("webHudOn", "Web on HUD"), Item("bsHud", "HUD side cam"), Item("bsSignal", "Turn arrow on HUD"), Item("slOn", "Speed limit on HUD"), Item("slBeep", "Speed limit sound"), Item("slDebug", "Road info text"), Item("mmOn", "Drive mode on HUD")),
@@ -497,6 +497,13 @@ object FloatQuick {
                     for (a in intArrayOf(210, 270, 330)) { val r = Math.toRadians(a.toDouble()); cv.drawLine(cx + h * 0.72f * Math.cos(r).toFloat(), cy + h * 0.72f * Math.sin(r).toFloat(), cx + h * 0.9f * Math.cos(r).toFloat(), cy + h * 0.9f * Math.sin(r).toFloat(), line) }
                     cv.drawLine(cx, cy + h * 0.15f, cx + h * 0.5f, cy - h * 0.35f, line)
                     cv.drawCircle(cx, cy + h * 0.15f, h * 0.15f, fill)
+                }
+                "flLock" -> {   // padlock: body and shackle; the shackle lifts and swings aside while unlocked
+                    cv.drawRoundRect(cx - h * 0.7f, cy - h * 0.1f, cx + h * 0.7f, cy + h * 0.95f, 2.5f * d, 2.5f * d, fill)
+                    val lk = p.getBoolean("flLock", false); val lift = if (lk) 0f else h * 0.35f; val sx = if (lk) 0f else h * 0.45f
+                    cv.drawArc(RectF(cx - h * 0.4f + sx, cy - h * 0.95f - lift, cx + h * 0.4f + sx, cy + h * 0.05f - lift), 180f, 180f, false, line)
+                    cv.drawLine(cx - h * 0.4f + sx, cy - h * 0.45f - lift, cx - h * 0.4f + sx, cy - h * 0.1f - (if (lk) 0f else lift * 0.2f), line)
+                    cv.drawLine(cx + h * 0.4f + sx, cy - h * 0.45f - lift, cx + h * 0.4f + sx, cy - h * 0.1f, line)
                 }
                 "webHudOn", "webFloatOn" -> {
                     cv.drawCircle(cx, cy, h, line); cv.drawOval(RectF(cx - h * 0.45f, cy - h, cx + h * 0.45f, cy + h), line); cv.drawLine(cx - h, cy, cx + h, cy, line)

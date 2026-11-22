@@ -107,7 +107,9 @@ object DriveProfile {
     }
 
     private fun epedal(ctx: Context, p: android.content.SharedPreferences, h: String) {
-        when (p.getString("pfEped_$h", "0")) { "1" -> write(ctx, FUNC_EPEDAL, 1); "2" -> write(ctx, FUNC_EPEDAL, 0) }
+        // the car toggles this switch when the value written equals the current one (car log: 0x1 -> 0x1 ends at 0x0), so write only on a difference
+        val want = when (p.getString("pfEped_$h", "0")) { "1" -> 1; "2" -> 0; else -> return }
+        if (read(ctx, FUNC_EPEDAL) != want) write(ctx, FUNC_EPEDAL, want)
     }
 
     /** The car's current drive-mode code, or null if unreadable. */

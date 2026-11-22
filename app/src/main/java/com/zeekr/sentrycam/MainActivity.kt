@@ -927,6 +927,15 @@ class MainActivity : AppCompatActivity() {
                 tag = "sw"; text = "Regen pill"; isChecked = p.getBoolean("twRegen", true)
                 setOnCheckedChangeListener { _, on -> p.edit().putBoolean("twRegen", on).apply(); sync() }
             }, 8)
+        // Now playing (the car's Bluetooth media session); needs Notification access for Z_Cam
+        pair(androidx.appcompat.widget.SwitchCompat(this).apply {
+            tag = "sw"; text = "Now playing"; isChecked = p.getBoolean("twNow", false)
+            setOnCheckedChangeListener { _, on -> p.edit().putBoolean("twNow", on).apply(); sync() }
+        }, Button(this).apply {
+            tag = "seg"; isAllCaps = false
+            text = if (NowPlaying.enabled(this@MainActivity)) "Media access: on" else "Grant media access"
+            setOnClickListener { try { startActivity(Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS")) } catch (_: Throwable) {} }
+        }, 8)
         // The six tiles of the Glance (compact) grid: each slot picks any metric
         body.addView(label("Glance tiles (the 3 x 2 grid)"))
         // alphabetical by name
