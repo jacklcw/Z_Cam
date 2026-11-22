@@ -3,7 +3,6 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.CAMERA"/>
-    <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS" tools:ignore="ProtectedPermissions"/>
     <uses-permission android:name="android.permission.RECORD_AUDIO"/>
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
@@ -57,11 +56,6 @@
             <property
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="Parked sentry camera: listens for capture commands and uploads snapshots while the car is locked."/>
-        </service>
-
-        <service android:name=".NowPlayingListener" android:exported="true" android:label="Z_Cam now playing"
-            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
-            <intent-filter><action android:name="android.service.notification.NotificationListenerService"/></intent-filter>
         </service>
 
         <service android:name=".ServiceWatchdog" android:exported="false" android:permission="android.permission.BIND_JOB_SERVICE"/>
