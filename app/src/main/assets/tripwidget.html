@@ -203,9 +203,10 @@ function onData(d){
  S.t+=dt;S.v=v;S.x+=v*dt;const kmh=v*3.6;if(kmh>S.top)S.top=kmh;
  if(kmh>1)S.moving+=dt;else S.stop+=dt;
  if(dt>0&&S.pv!=null){const a=(v-S.pv)/dt;S.g+=((a/9.81)-S.g)*.35;if(S.g>S.pa)S.pa=S.g;if(-S.g>S.pb)S.pb=-S.g}
- if(d.regen&&S.pv!=null&&v<S.pv)S.regE+=.5*2575*(S.pv*S.pv-v*v)*.6/3.6e6;   // kWh put back: kinetic energy shed while the car regenerates, x about 0.6 (motor, inverter, drag)
+ const rgOn=!!d.regen||(d.rg||0)>0;   // same signal the graph uses: the car's flag is slow and can miss, the estimate also sees lift-off decel
+ if(rgOn&&S.pv!=null&&v<S.pv)S.regE+=.5*2575*(S.pv*S.pv-v*v)*.6/3.6e6;   // kWh put back: kinetic energy shed while the car regenerates, x about 0.6 (motor, inverter, drag)
  S.pv=v;
- if(d.regen&&kmh>=1)S.regT+=dt;
+ if(rgOn&&kmh>=1)S.regT+=dt;
  if(kmh<1)S.run0=null;
  if(kmh<2)S.still=true;
  if(S.run0==null&&S.still&&kmh>=1){if(th>.5){S.run0=S.t;S.still=false;S.lift=0}else if(kmh>=8)S.still=false}   // only a launch from standstill counts
@@ -273,7 +274,7 @@ const M={
  dist:{k:'Distance',s:'CALC',f:(c,k)=>[(S.x/1000*k).toFixed(1),C.unit]},
  rng:{k:'Range',s:'RELAY',f:(c,k)=>[c.range!=null?Math.round(c.range*k):'--',C.unit]},
  top:{k:'Top',s:'CALC',f:(c,k)=>[Math.round(S.top*k),C.unit==='mi'?'mph':'km/h']},
- reg:{k:'Regen back',s:'CALC',f:()=>[(S.regE/Math.max(1,C.pack)*100).toFixed(1),'%']},
+ reg:{k:'Regen back',s:'EST',f:()=>{const q=S.regE/Math.max(1,C.pack)*100;return[q<10?q.toFixed(2):q.toFixed(1),'%']}},
  soc:{k:'HV batt',s:'RELAY',f:()=>[S.soc!=null?Math.round(S.soc):'--','%']},
  v12:{k:'12V batt',s:'RELAY',f:c=>[c.aux!=null?c.aux.toFixed(1):'--','V'],warn:c=>c.aux!=null&&c.aux<12.2},
  p0100:{k:'0-100',s:'CALC',f:()=>[S.run0!=null?(S.t-S.run0).toFixed(1):S.last0?S.last0.toFixed(1):S.best0?S.best0.toFixed(1):'--','s']},

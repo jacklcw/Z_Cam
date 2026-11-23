@@ -920,6 +920,24 @@ class MainActivity : AppCompatActivity() {
             }
         }
         pair(chartSw[0], chartSw[1], 0); pair(chartSw[2], chartSw[3], 0)
+        val syncSw = androidx.appcompat.widget.SwitchCompat(this).apply { tag = "sw" }
+                fun paintSync() {
+            val ok = TripLink.linked(p)
+            syncSw.text = if (ok) "Link trip data to my ZDash journeys" else "Link trip data to my ZDash journeys (link ZDash first)"
+            syncSw.isEnabled = ok; syncSw.alpha = if (ok) 1f else 0.5f
+            syncSw.setOnCheckedChangeListener(null); syncSw.isChecked = ok && p.getBoolean("twSync", false)
+            syncSw.setOnCheckedChangeListener { _, on ->
+                if (!on) { p.edit().putBoolean("twSync", false).apply(); sync(); return@setOnCheckedChangeListener }
+                syncSw.setOnCheckedChangeListener(null); syncSw.isChecked = false   // only on after the user agrees below
+                ZDialog.show(this, "Link trip data to ZDash?",
+                    "While you drive, the trip widget's readings (speed, accelerator, brake, regen, gear, battery % and the time) are recorded and uploaded to YOUR OWN relay only, the one this app is linked to. " +
+                    "ZDash then matches them to your Zeekr journeys by time so the Day tab can play them back. Nothing is sent anywhere else, and it is off unless you turn it on.",
+                    "Turn on", "Cancel", false, { paintSync() }) { p.edit().putBoolean("twSync", true).apply(); paintSync(); sync() }
+            }
+        }
+        paintSync(); paintTripSync = ::paintSync
+        add(syncSw, 12)
+        add(TextView(this).apply { tag = "m"; textSize = 12f; text = "Note: Regen back is only an approximation. It is estimated from the speed the car sheds while regenerating, not measured by the car, so treat it as a guide." }, 8)
         pair(seekBox("twParkMin", "Auto-reset after parked (P)", 0, 120, 30) { if (it == 0) "never" else "$it min" }, null, 12)
         pair(seekBox("twFade", "Edge fade", 0, 30, 0) { if (it == 0) "off" else "$it%" }, seekBox("twOpacity", "Opacity", 50, 100, 90) { "$it%" }, 12)
         pair(seekBox("twHdrText", "Header text size (clock, battery, gear)", 60, 200, 100) { "$it%" }, null, 12)
@@ -2031,9 +2049,12 @@ class MainActivity : AppCompatActivity() {
             if (path.isNullOrEmpty()) "Sentry folder: not selected" else "Sentry folder: selected"
     }
 
+    private var paintTripSync: (() -> Unit)? = null
+
     override fun onResume() {
         WebHud.appVisible = true
         super.onResume()
+        paintTripSync?.invoke()   // the ZDash link may have just changed
         resumed = true; updateLiveHold()
         startMirror()
         startQueueLoop()

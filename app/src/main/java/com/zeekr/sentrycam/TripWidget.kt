@@ -67,6 +67,7 @@ class TripWidget(private val ctx: Context) {
     private var function: Any? = null; private var getFn: java.lang.reflect.Method? = null
     private var lastTry = 0L; private var slowAt = 0L
     private var gear = "-"; private var mode = ""; private var regen = false
+    private val link = TripLink(ctx); private var linkWasOn = false
     private val meter = RegenMeter { Logger.log(ctx, "tripwidget: $it") }
 
     // relay values (written by the relay thread, read by the poll thread)
@@ -117,11 +118,15 @@ class TripWidget(private val ctx: Context) {
         if (!running) return
         val show = want()
         main.post { state(show) }
-        if (show && root != null && !hidden) {
+        val sync = p.getBoolean("twSync", false) && TripLink.linked(p) && p.getBoolean("twOn", false)   // opt-in; needs the ZDash link
+        val shown = show && root != null && !hidden
+        if (shown || sync) {
             val json = readData()
-            main.post { if (pageReady) web?.evaluateJavascript("zw.data($json)", null) }
-            pollRelay()
+            if (shown) { main.post { if (pageReady) web?.evaluateJavascript("zw.data($json)", null) }; pollRelay() }
+            if (sync) { try { link.sample(JSONObject(json), System.currentTimeMillis()) } catch (_: Throwable) {} }
         }
+        if (linkWasOn && !p.getBoolean("twSync", false)) link.clear()   // switched off: nothing waits to be sent
+        linkWasOn = sync
         h.postDelayed(::tick, TICK_MS)
     }
 
