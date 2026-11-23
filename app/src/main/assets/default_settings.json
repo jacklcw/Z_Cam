@@ -188,6 +188,7 @@
  "twTheme": "dark",
  "bsExitMs": 200,
  "twFade": 0,
+ "twParkMin": 30,
  "flRearH": 695,
  "revRegenColor": -16718246,
  "pfSteer_22010101": "537331715",

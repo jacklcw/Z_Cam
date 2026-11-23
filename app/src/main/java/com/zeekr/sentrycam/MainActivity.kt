@@ -920,6 +920,7 @@ class MainActivity : AppCompatActivity() {
             }
         }
         pair(chartSw[0], chartSw[1], 0); pair(chartSw[2], chartSw[3], 0)
+        pair(seekBox("twParkMin", "Auto-reset after parked (P)", 0, 120, 30) { if (it == 0) "never" else "$it min" }, null, 12)
         pair(seekBox("twFade", "Edge fade", 0, 30, 0) { if (it == 0) "off" else "$it%" }, seekBox("twOpacity", "Opacity", 50, 100, 90) { "$it%" }, 12)
         pair(seekBox("twHdrText", "Header text size (clock, battery, gear)", 60, 200, 100) { "$it%" }, null, 12)
         pair(seekBox("twPack", "Battery size", 30, 150, 100) { "$it kWh" },

@@ -266,7 +266,7 @@ class TripWidget(private val ctx: Context) {
             .put("font", p.getString("twFont", "Inter")).put("theme", themeKey())
             .put("unit", p.getString("twUnit", "km")).put("opacity", p.getInt("twOpacity", 90).coerceIn(50, 100))
             .put("fade", p.getInt("twFade", 0).coerceIn(0, 30)).put("pack", p.getInt("twPack", 100).coerceIn(30, 150))
-            .put("corner", p.getInt("flCorner", 0).coerceIn(0, 40)).put("resetSeq", p.getInt("twReset", 0)).toString()
+            .put("corner", p.getInt("flCorner", 0).coerceIn(0, 40)).put("parkMin", p.getInt("twParkMin", 30).coerceIn(0, 120)).put("resetSeq", p.getInt("twReset", 0)).toString()
     }
 
     private fun pushCfg() {

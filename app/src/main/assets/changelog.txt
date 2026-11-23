@@ -1,3 +1,8 @@
+0.110.0
+BETA: untested in the car.
+- New: Trip widget chart shows regen strength as a green band from the bottom (also while braking, when the line still dives red); the line turns green while regen is charging.
+- New: Trip widget resets itself after the car has been in P for 30 minutes (Auto-reset after parked, 0-120 min, 0 = never). A short stop in P keeps the trip going.
+
 0.109.1
 - New: Padlock sector on the floating arc (Lock window position). Locked windows (camera, web, trip) cannot be dragged; resizing still works.
 - Fix: One-pedal drive no longer flips off when the profile sets it to On (the car toggles the switch if the same value is written, so it is only written when it differs).
