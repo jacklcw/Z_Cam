@@ -1,6 +1,9 @@
+0.111.1
+- Change: the Trip widget chart's load line no longer turns green while regen is charging (it was confusing); the green band under it shows the regen strength, and red still means braking.
+
 0.111.0
 - New: Link trip data to ZDash journeys (Trip widget settings, off by default). It records speed, accelerator, brake, regen, gear and battery % while you drive and uploads them to your own relay only; the switch only works after Z_Cam is linked to ZDash. The ZDash Day tab can then play them back with each journey.
-- New: Trip widget chart line turns green while regen is charging, and a green band shows the regen strength (also while braking, when the line still dives red).
+- New: Trip widget chart: a green band shows the regen strength (also while braking, when the line still dives red).
 - New: Trip widget resets itself after the car has been in P for 30 minutes (Auto-reset after parked, 0-120 min, 0 = never). A short stop in P keeps the trip going.
 - Fix: the Regen back tile stayed at 0 because it only counted while the car's slow regen flag was on; it now uses the same signal as the graph and shows two decimals under 10%.
 - Note: Regen back is only an approximation (estimated from the speed shed while regenerating); the app now says so.
