@@ -148,6 +148,12 @@
                     <LinearLayout android:id="@+id/pfBody" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical"/>
                 </LinearLayout>
 
+                <LinearLayout android:id="@+id/acCard" android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:orientation="vertical" android:tag="card" android:layout_marginBottom="10dp">
+                    <TextView android:tag="h" android:text="Air conditioner" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+                    <LinearLayout android:id="@+id/acBody" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical"/>
+                </LinearLayout>
+
                 <LinearLayout android:id="@+id/campCard" android:layout_width="match_parent" android:layout_height="wrap_content"
                     android:orientation="vertical" android:tag="card" android:layout_marginBottom="10dp">
                     <TextView android:tag="h" android:text="Camping mode" android:layout_width="wrap_content" android:layout_height="wrap_content"/>

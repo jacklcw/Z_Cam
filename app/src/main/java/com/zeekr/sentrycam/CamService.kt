@@ -144,7 +144,7 @@ class CamService : Service() {
             return
         }
         CampGuard.sync(this, false); WelcomeWatch.sync(this, false)
-        DriveProfile.sync(this, getSharedPreferences("cfg", MODE_PRIVATE).let { it.getBoolean("pfOn", false) || it.getBoolean("mmOn", false) }); syncBlindSpot(); syncRevBar(); syncWebHud(); syncFloatCam(); syncTripWidget(); syncSpeedLimit(); syncPark(); Mascot.sync(this)
+        DriveProfile.sync(this, getSharedPreferences("cfg", MODE_PRIVATE).let { it.getBoolean("pfOn", false) || it.getBoolean("mmOn", false) || (it.getString("acCirc", "0") ?: "0") != "0" }); syncBlindSpot(); syncRevBar(); syncWebHud(); syncFloatCam(); syncTripWidget(); syncSpeedLimit(); syncPark(); Mascot.sync(this)
         try { com.zeekr.sentrycam.sound.DriveSound.refresh(this) } catch (e: Throwable) { Logger.log(this, "enginesound: ${e.javaClass.simpleName} ${e.message ?: ""}") }
     }
 

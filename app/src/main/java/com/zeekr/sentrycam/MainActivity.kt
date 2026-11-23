@@ -324,6 +324,15 @@ class MainActivity : AppCompatActivity() {
             setOnCheckedChangeListener { _, on -> p.edit().putBoolean("pfOn", on).apply(); syncService() }
         }
         buildProfileCard()
+        findViewById<LinearLayout>(R.id.acBody).apply {
+            val vals = listOf("0", "1", "2", "3", "4"); val names = listOf("Keep (the car decides)", "Always recirculation", "Always fresh air", "Always auto", "Remember my last choice")
+            fun show(b: Button) { b.text = "Circulation at start: " + names[vals.indexOf(p.getString("acCirc", "0")).coerceAtLeast(0)] }
+            addView(TextView(context).apply { tag = "m"; textSize = 13f; text = "Sets the air circulation mode each time the car is switched on." })
+            addView(Button(context).apply {
+                tag = "seg"; isAllCaps = false; show(this)
+                setOnClickListener { ZDialog.choose(this@MainActivity, "Circulation at start", names, vals.indexOf(p.getString("acCirc", "0")).coerceAtLeast(0)) { i -> p.edit().putString("acCirc", vals[i]).apply(); show(this); syncService() } }
+            }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = (8 * ZScale.density(context)).toInt() })
+        }
         buildTripCard { syncService() }
         buildMascotCard { syncService() }
         findViewById<SeekBar>(R.id.flHdr).apply {
@@ -1309,7 +1318,7 @@ class MainActivity : AppCompatActivity() {
     private val cards = ArrayList<Triple<LinearLayout, TextView, String>>()
     private fun openSet(): MutableSet<String> = (p.getString("openSections", null) ?: "Driving profiles").split("|").filter { it.isNotEmpty() }.toMutableSet()
     private val SECTION_ICONS = mapOf("Relay" to R.drawable.ic_sec_relay, "Cameras" to R.drawable.ic_sec_camera, "Backup" to R.drawable.ic_sec_backup,
-        "Driving profiles" to R.drawable.ic_sec_profile, "Engine sound" to R.drawable.ic_sec_engine, "HUD" to R.drawable.ic_sec_blind, "Camping mode" to R.drawable.ic_sec_camp,
+        "Driving profiles" to R.drawable.ic_sec_profile, "Engine sound" to R.drawable.ic_sec_engine, "HUD" to R.drawable.ic_sec_blind, "Camping mode" to R.drawable.ic_sec_camp, "Air conditioner" to R.drawable.ic_sec_ac,
         "360° live view" to R.drawable.ic_sec_live, "Web view" to R.drawable.ic_sec_web, "Floating windows" to R.drawable.ic_sec_float, "Trip widget" to R.drawable.ic_sec_trip, "Zed" to R.drawable.ic_sec_mascot, "Snapshot (works with ZDash)" to R.drawable.ic_sec_sentry)
     private val SIDE_BUTTONS = mapOf(R.id.checkUpdate to R.drawable.ic_btn_update, R.id.applyDefaults to R.drawable.ic_btn_reset, R.id.layoutSets to R.drawable.ic_btn_layout, R.id.backupCard to R.drawable.ic_sec_backup, R.id.dataUsage to R.drawable.ic_btn_data,
         R.id.viewLog to R.drawable.ic_btn_log, R.id.whatsNew to R.drawable.ic_btn_whatsnew, R.id.unlink to R.drawable.ic_btn_unlink, R.id.restartApp to R.drawable.ic_btn_restart, R.id.credits to R.drawable.ic_btn_credits, R.id.resetAll to R.drawable.ic_btn_reset)
@@ -1347,6 +1356,7 @@ class MainActivity : AppCompatActivity() {
         "Cameras" to "choose cameras, previews",
         "Driving profiles" to "sound, light, regen per drive mode",
         "Camping mode" to "auto-off when the car is empty",
+        "Air conditioner" to "air circulation at start",
         "Engine sound" to "simulated engine, volume, style",
         "HUD" to "rev bar, side camera, turn arrow",
         "360\u00b0 live view" to "tune the four camera pictures",
@@ -1378,7 +1388,7 @@ class MainActivity : AppCompatActivity() {
     // Kill the whole process (floating windows, HUD, camera hub) and have the system bring the service and the app back.
     // Stops the service and kills the whole process (floating windows, HUD, camera hub). Nothing brings it back; open the app again to start it.
     // The built-in preset (assets/default_settings.json): replaces every backed-up setting except the personal web data (bookmarks, history, tabs), then reloads.
-    private val STRING_PREFS = listOf("pfRev", "pfRevShape", "pfRevScheme", "pfRevPos", "pfSpd", "pfRegen", "pfRegenColor", "pfSteer", "pfLka", "pfEped", "pfSound", "pfColor", "pfSlow", "pfFastC", "pfStart", "pfVoice")
+    private val STRING_PREFS = listOf("pfRev", "pfRevShape", "pfRevScheme", "pfRevPos", "pfSpd", "pfRegen", "pfRegenColor", "pfSteer", "pfLka", "pfEped", "pfSound", "pfColor", "pfSlow", "pfFastC", "pfStart", "pfVoice", "acCirc")
     /** One pref from a preset or backup; the profile pickers read their keys as strings, so a number there would crash the settings screen. Anything unexpected is skipped, never thrown. */
     private fun putPref(e: android.content.SharedPreferences.Editor, k: String, v: Any?): Boolean {
         try {
@@ -1446,7 +1456,7 @@ class MainActivity : AppCompatActivity() {
         k == "webBookmarks" || k == "webHistory" || k == "webTabs" || k == "webTabsDesk" || k == "webTabIdx" || k == "webUrl" -> "webdata"
         k.startsWith("web") -> "web"
         k.startsWith("eng") || k.startsWith("welcome") || k.startsWith("lock") -> "eng"
-        k.startsWith("pf") -> "pf"
+        k.startsWith("pf") || k == "acCirc" || k == "acLast" -> "pf"
         k.startsWith("tw") -> "tw"
         k.startsWith("mc") -> "mc"
         k.startsWith("rev") -> "rev"

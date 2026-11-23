@@ -11,8 +11,8 @@ android {
         applicationId = "com.zeekr.sentrycam"
         minSdk = 29
         targetSdk = 34
-        versionCode = 196
-        versionName = "0.112.0"
+        versionCode = 198
+        versionName = "0.113.0"
     }
     buildTypes {
         release {

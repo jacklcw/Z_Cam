@@ -1,3 +1,6 @@
+0.113.0
+- BETA (untested in the car): New: Air conditioner card. Choose the air circulation mode the car starts with (recirculation, fresh air, auto, or remember your last choice). It is applied a few seconds after the car is switched on.
+
 0.112.0
 - New: Floating camera windows have an Adjust button (sliders icon) with live Zoom, Tilt, Turn and Rotate sliders for that camera, so you can tune the view right on the window.
 - Change: the buttons on the camera windows now hide when you are not touching the window; tap or drag it to show them again (like the Trip widget).

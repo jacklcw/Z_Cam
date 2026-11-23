@@ -9,10 +9,10 @@ import java.lang.reflect.Modifier
  * Output goes to Logger (and is uploaded to the relay by the caller).
  */
 object CarProbe {
-    private val WANT = Regex("AMBIENT|ATMOS|LIGHT|DRIVE_?MODE|DRIVING_?MODE|SPORT|COMFORT|ECO|REGEN|RECUP|ENERGY|PEDAL|ONE_?PEDAL|DECEL|BRAKE|MONO|EFFECT|THEME|SINGLE|VOL|AUDIO|SOUND|MEDIA|BLUETOOTH|BT_|SPEAKER|MUTE|NAVI|RADIO|CHARG|AMP|CURRENT|EVSE|GUN|PLUG|CABLE|SOC|BATT|SPEED_?LIMIT|LIMIT|TSR|TRAFFIC|SIGN|ISA|SLA|ADAS|CRUISE|LANE|LKA|LKS|LDW|ELK|LCA|STEER|ASSIST|DEPART", RegexOption.IGNORE_CASE)
+    private val WANT = Regex("AMBIENT|ATMOS|LIGHT|DRIVE_?MODE|DRIVING_?MODE|SPORT|COMFORT|ECO|REGEN|RECUP|ENERGY|PEDAL|ONE_?PEDAL|DECEL|BRAKE|MONO|EFFECT|THEME|SINGLE|VOL|AUDIO|SOUND|MEDIA|BLUETOOTH|BT_|SPEAKER|MUTE|NAVI|RADIO|CHARG|AMP|CURRENT|EVSE|GUN|PLUG|CABLE|SOC|BATT|SPEED_?LIMIT|LIMIT|TSR|TRAFFIC|SIGN|ISA|SLA|ADAS|CRUISE|LANE|LKA|LKS|LDW|ELK|LCA|STEER|ASSIST|DEPART|CIRC|HVAC|AIRCON|FRESH|RECIRC|DEFROST|DEFOG|CLIMATE", RegexOption.IGNORE_CASE)
 
     /** Classes whose int constants are all logged, whatever their names (regen / propulsion / ambient experience values). */
-    private val ALL_CLASSES = Regex("PropulsionSysMode|BpfMode|RabMode|HybridFunction|AmbienceLightExperienceMode|AmbienceLightMainColorMode|AmbienceLightFunction|DriveModeFunction|IExtensionVehicle|VehicleFunction|IDriveMode$|IHybrid$|IVehicle$|Adas|ADAS|Lane|Assist|Charg|Battery|Energy")
+    private val ALL_CLASSES = Regex("PropulsionSysMode|BpfMode|RabMode|HybridFunction|AmbienceLightExperienceMode|AmbienceLightMainColorMode|AmbienceLightFunction|DriveModeFunction|IExtensionVehicle|VehicleFunction|IDriveMode$|IHybrid$|IVehicle$|Adas|ADAS|Lane|Assist|Charg|Battery|Energy|Hvac|AirCond|Climate|Circul")
 
     fun run(ctx: Context) {
         // the dump is hundreds of lines and used to push the real log (engine sound etc.) out of the capped log, so only the summary lines go there
@@ -26,13 +26,14 @@ object CarProbe {
             val get = fn.javaClass.getMethod("getFunctionValue", Int::class.javaPrimitiveType)
             val sup = try { fn.javaClass.getMethod("isFunctionSupported", Int::class.javaPrimitiveType) } catch (_: Throwable) { null }
             log("start impl=${fn.javaClass.name}")
+            hvacPoll(ctx, fn)
             val ifaces = fn.javaClass.interfaces.toList() + fn.javaClass.superclass?.interfaces.orEmpty().toList()
             ifaces.forEach { i -> log("iface ${i.name}: " + i.methods.joinToString(",") { m -> m.name + "(" + m.parameterTypes.joinToString("") { it.simpleName.take(1) } + ")" }) }
             val seen = HashSet<Class<*>>()
             fun scan(c: Class<*>) {
                 if (!seen.add(c)) return
                 c.declaredFields.filter { Modifier.isStatic(it.modifiers) && it.type == Int::class.javaPrimitiveType }.forEach { f ->
-                    try { f.isAccessible = true; val id = f.getInt(null); if (id >= 0x20000000 && (id and 0xFF) == 0) pollIds.add(id) } catch (_: Throwable) {}
+                    try { f.isAccessible = true; val id = f.getInt(null); if ((id >= 0x20000000 && (id and 0xFF) == 0) || (id >= 0x20000000 && Regex("Hvac|AirCond|Climate|Circul", RegexOption.IGNORE_CASE).containsMatchIn(c.name))) pollIds.add(id) } catch (_: Throwable) {}
                 }
                 c.declaredFields.filter { Modifier.isStatic(it.modifiers) && it.type == Int::class.javaPrimitiveType && (WANT.containsMatchIn(it.name) || ALL_CLASSES.containsMatchIn(c.name)) }.forEach { f ->
                     try {
@@ -49,7 +50,7 @@ object CarProbe {
             }
             ifaces.forEach { scan(it) }
             // Also sibling classes in the same package that expose function-id constants.
-            listOf("ICarFunction", "ICarFunction\$IFunctionId", "ICarFunction\$IFunctionValue", "IFunctionId", "IFunctionValue").forEach { n ->
+            listOf("IHvac", "IAirConditioner", "IHvacFunction", "IHvacFunction\$IHvacFunctionId", "IClimate", "ICarFunction", "ICarFunction\$IFunctionId", "ICarFunction\$IFunctionValue", "IFunctionId", "IFunctionValue").forEach { n ->
                 for (pkg in listOf("com.ecarx.xui.adaptapi.car", "com.ecarx.xui.adaptapi.car.base", "com.ecarx.xui.adaptapi.car.vehicle", "com.ecarx.xui.adaptapi.car.hvac")) {
                     try { scan(Class.forName("$pkg.$n")) } catch (_: Throwable) {}
                 }
@@ -122,6 +123,42 @@ object CarProbe {
         }
     }
 
+    private var hvacRunning = false
+    /** Starts at once (before the long dump) and watches the recirculation ids; every change and the start values are uploaded. */
+    private fun hvacPoll(ctx: Context, fn: Any) {
+        if (hvacRunning) return
+        hvacRunning = true
+        val i = Int::class.javaPrimitiveType
+        val get = fn.javaClass.getMethod("getFunctionValue", i)
+        val getZ = try { fn.javaClass.getMethod("getFunctionValue", i, i) } catch (_: Throwable) { null }
+        val ids = intArrayOf(0x10030100, 0x10030300, 0x10030200, 0x10010300, 0x10010200, 0x10070100)
+        val zones = intArrayOf(0x80000000.toInt(), 1, 2, 4, 8)
+        fun note(m: String) { val line = "hvacpoll: $m"; Logger.log(ctx, line); synchronized(keep) { keep.append(line).append('\n') }; upload(ctx) }
+        Thread {
+            val last = HashMap<String, Int>()
+            var first = true
+            val t0 = System.currentTimeMillis()
+            while (true) {
+                try {
+                    val sb = StringBuilder()
+                    for (id in ids) {
+                        val reads = ArrayList<Pair<String, Int?>>()
+                        reads.add("plain" to try { (get.invoke(fn, id) as? Number)?.toInt() } catch (_: Throwable) { null })
+                        for (z in zones) reads.add("z" + Integer.toHexString(z) to try { (getZ?.invoke(fn, id, z) as? Number)?.toInt() } catch (_: Throwable) { null })
+                        for ((n, v) in reads) {
+                            val key = Integer.toHexString(id) + "/" + n
+                            if (first) sb.append(" $key=${v?.let { "0x" + Integer.toHexString(it) }}")
+                            else if (v != null && last[key] != v) note("+${(System.currentTimeMillis() - t0) / 1000}s 0x$key ${last[key]?.let { "0x" + Integer.toHexString(it) }} -> 0x${Integer.toHexString(v)}")
+                            if (v != null) last[key] = v
+                        }
+                    }
+                    if (first) { first = false; note("started:$sb") }
+                } catch (e: Throwable) { note("error ${e.javaClass.simpleName}") }
+                Thread.sleep(300)
+            }
+        }.start()
+    }
+
     private var watching = false
     private val pollIds = java.util.TreeSet<Int>()
     private var polling = false
@@ -136,6 +173,7 @@ object CarProbe {
             val am = ctx.getSystemService(android.media.AudioManager::class.java)
             val streams = HashMap<Int, Int>()
             val ids = pollIds.toList()
+            val getZ = try { fn.javaClass.getMethod("getFunctionValue", Int::class.javaPrimitiveType, Int::class.javaPrimitiveType) } catch (_: Throwable) { null }
             Logger.log(ctx, "carpoll: polling ${ids.size} ids, change settings in the car now")
             while (true) {
                 for (st in 0..11) {   // Android's own stream volumes: does the car's volume change show up on any of them?
@@ -147,6 +185,11 @@ object CarProbe {
                     }
                 }
                 for (id in ids) {
+                    if ((id ushr 24) == 0x10) for (z in intArrayOf(0x80000000.toInt(), 1, 2, 4, 8)) {   // A/C ids are zoned: also read them per zone
+                        val vz = try { (getZ?.invoke(fn, id, z) as? Number)?.toInt() } catch (_: Throwable) { null } ?: continue
+                        val oz = last.put(id xor (0x40000000 + z * 0x100001), vz)
+                        if (oz != null && oz != vz) { val line = "carpoll: hvac 0x${Integer.toHexString(id)} zone 0x${Integer.toHexString(z)} $oz -> $vz (0x${Integer.toHexString(vz)})"; Logger.log(ctx, line); synchronized(keep) { keep.append(line).append('\n') }; upload(ctx) }
+                    }
                     val v = try { (get.invoke(fn, id) as? Number)?.toInt() } catch (_: Throwable) { null } ?: continue
                     val old = last.put(id, v)
                     if (old != null && old != v) {

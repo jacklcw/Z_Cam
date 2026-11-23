@@ -17,6 +17,11 @@ object DriveProfile {
     private val FUNC_COLOR = intArrayOf(0x2a040100, 0x2a020100)
     private const val FUNC_AMBIENT_ON = 0x2a080600
     private const val FUNC_REGEN = 0x20020500
+    /** A/C air circulation (IHvac HVAC_FUNC_CIRCULATION), plain read/write: 0x10030101 recirculation, ...102 fresh air, ...103 auto (seen in the car log). */
+    private const val FUNC_CIRC = 0x10030100
+    private val CIRC_VALUES = intArrayOf(0, 0x10030101, 0x10030102, 0x10030103)
+    private var acApplyAt = 0L
+    private var acSettleUntil = 0L
     private const val FUNC_POWER_FLOW = 0x24010100
     /** POWER_FLOW values that mean the car is regenerating (REGENERATION, _FRONT, _AWD and the engine-off / engine-on regen-brake flows). */
     private val REGEN_FLOWS = setOf(0x24010115, 0x24010116, 0x24010117, 0x2401010a, 0x2401010b, 0x2401010c)
@@ -238,6 +243,7 @@ object DriveProfile {
             val start = (p.getString("pfStart", "0") ?: "0").toIntOrNull() ?: 0
             if (start != 0 && start != mode) { log(ctx, "ignition on, starting in 0x${hex(start)}"); write(ctx, FUNC_DRIVE_MODE, start) }
         }
+        try { acTick(ctx, p, ignOn, lastIgn != -1 && lastIgn !in IGN_ON && ignOn) } catch (e: Throwable) { log(ctx, "circ ${e.javaClass.simpleName} ${e.message}") }
         lastIgn = ign
         if (mode > 0 && mode != lastMode && MODES.any { it.first == mode }) {
             log(ctx, "drive mode 0x${hex(mode)}")
@@ -252,6 +258,27 @@ object DriveProfile {
             if (profiles) apply(ctx, mode)
         } else if (mode > 0) lastMode = mode
         if (profiles && lastMode > 0 && !regenOn) speedColour(ctx, p, lastMode)
+    }
+
+    /**
+     * Air circulation at start. The car may reset the mode itself a moment after ignition, so the wanted mode is applied a few seconds after
+     * ignition-on (and the car's own value before/after is logged). "Remember last" (4) stores the mode you last picked; the settle window
+     * after ignition is not stored, so the car's own reset is never mistaken for your choice.
+     */
+    private fun acTick(ctx: Context, p: android.content.SharedPreferences, ignOn: Boolean, edgeOn: Boolean) {
+        val opt = (p.getString("acCirc", "0") ?: "0").toIntOrNull() ?: 0
+        if (opt == 0) { acApplyAt = 0L; return }
+        val now = System.currentTimeMillis()
+        val cur = read(ctx, FUNC_CIRC)?.takeIf { it in CIRC_VALUES } ?: return
+        if (edgeOn) { acApplyAt = now + 4000; acSettleUntil = now + 8000; log(ctx, "circ: ignition on, car reads 0x${hex(cur)}") }
+        if (opt == 4 && ignOn && now > acSettleUntil && acApplyAt == 0L && p.getInt("acLast", 0) != cur) p.edit().putInt("acLast", cur).apply()
+        if (opt == 4 && p.getInt("acLast", 0) == 0) p.edit().putInt("acLast", cur).apply()
+        if (acApplyAt != 0L && now >= acApplyAt) {
+            acApplyAt = 0L
+            val want = if (opt == 4) p.getInt("acLast", 0) else CIRC_VALUES[opt]
+            log(ctx, "circ: after start car reads 0x${hex(cur)}, want 0x${hex(want)}")
+            if (want in CIRC_VALUES && want != 0 && want != cur) write(ctx, FUNC_CIRC, want)
+        }
     }
 
     /** Fast loop (4 times a second): while the car regenerates and the mode has "Change the ambient colour while regen braking" ticked, show the braking colour; restore afterwards. */
