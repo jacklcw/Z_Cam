@@ -1,3 +1,7 @@
+0.112.0
+- New: Floating camera windows have an Adjust button (sliders icon) with live Zoom, Tilt, Turn and Rotate sliders for that camera, so you can tune the view right on the window.
+- Change: the buttons on the camera windows now hide when you are not touching the window; tap or drag it to show them again (like the Trip widget).
+
 0.111.2
 - Fix: the Trip widget no longer restarts its trace when you minimize it. The trip keeps running in the background and the window picks up where it left off, however many times you minimize, resize or rebuild it.
 

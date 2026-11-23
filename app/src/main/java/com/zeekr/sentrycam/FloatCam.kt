@@ -113,6 +113,7 @@ class FloatCam(private val ctx: Context) {
             }
             override fun onSurfaceTextureUpdated(st: SurfaceTexture) {}
         }
+        var revealBtns: () -> Unit = {}   // a tap shows the buttons for a few seconds, so they never cover the picture
         // Top bar: drag to move.
         val bar = TextView(ctx).apply {
             w.bar = this
@@ -127,7 +128,7 @@ class FloatCam(private val ctx: Context) {
             var dx = 0f; var dy = 0f; var ox = 0; var oy = 0
             setOnTouchListener { _, e ->
                 when (e.actionMasked) {
-                    MotionEvent.ACTION_DOWN -> { dx = e.rawX; dy = e.rawY; ox = lp.x; oy = lp.y }
+                    MotionEvent.ACTION_DOWN -> { dx = e.rawX; dy = e.rawY; ox = lp.x; oy = lp.y; revealBtns() }
                     MotionEvent.ACTION_MOVE -> if (!p.getBoolean("flLock", false)) {
                         lp.x = (ox + (e.rawX - dx).toInt()).coerceIn(0, dm.widthPixels - dp(40))
                         lp.y = (oy + (e.rawY - dy).toInt()).coerceIn(0, dm.heightPixels - dp(40))
@@ -174,6 +175,42 @@ class FloatCam(private val ctx: Context) {
         val guideBtn = IconButton(ctx, IconButton.Kind.GUIDE, halo = true).apply {
             setOnClickListener { on = !on; guide.editing = on }
         }
+        // Live view adjust: zoom / tilt / turn / rotate for this camera, applied within a tick (same prefs as the app's Live view editor)
+        val adjPanel = android.widget.LinearLayout(ctx).apply {
+            orientation = android.widget.LinearLayout.VERTICAL; visibility = View.GONE
+            background = rounded(0xE6000000.toInt(), 12); setPadding(dp(12), dp(8), dp(12), dp(8))
+            setOnTouchListener { _, _ -> revealBtns(); false }
+            fun row(label: String, key: String, invert: Boolean) {
+                val lo = CamTune.min(key, w.cam); val hi = CamTune.max(key, w.cam)
+                val tvl = TextView(ctx).apply { setTextColor(0xFFF5F5F7.toInt()); textSize = 13f; typeface = ZFont.bold }
+                fun shown(v: Int) { tvl.text = label + "  " + v }
+                val sb = android.widget.SeekBar(ctx).apply {
+                    // small round knob and a thin track (the default knob is huge on the car screen)
+                    val kn = dp(16)
+                    thumb = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(0xFFA3E635.toInt()); setSize(kn, kn) }
+                    val trk = GradientDrawable().apply { setColor(0x66FFFFFF); cornerRadius = dp(2).toFloat(); setSize(1, dp(3)) }
+                    val fillD = android.graphics.drawable.ClipDrawable(GradientDrawable().apply { setColor(0xFFA3E635.toInt()); cornerRadius = dp(2).toFloat(); setSize(1, dp(3)) }, Gravity.START, android.graphics.drawable.ClipDrawable.HORIZONTAL)
+                    progressDrawable = android.graphics.drawable.LayerDrawable(arrayOf(trk, fillD)).also { it.setId(0, android.R.id.background); it.setId(1, android.R.id.progress) }
+                    thumbOffset = 0; splitTrack = false; setPadding(kn / 2, 0, kn / 2, 0)
+                    max = hi - lo
+                    val cur = CamTune.get(p, key, w.cam)
+                    progress = if (invert) hi - cur else cur - lo; shown(cur)
+                    setOnSeekBarChangeListener(object : android.widget.SeekBar.OnSeekBarChangeListener {
+                        override fun onProgressChanged(s: android.widget.SeekBar, v: Int, user: Boolean) {
+                            val nv = if (invert) hi - v else lo + v; shown(nv)
+                            if (user) { p.edit().putInt("${key}_${w.cam}", nv).apply(); revealBtns() }
+                        }
+                        override fun onStartTrackingTouch(s: android.widget.SeekBar) {}
+                        override fun onStopTrackingTouch(s: android.widget.SeekBar) {}
+                    })
+                }
+                addView(tvl); addView(sb, android.widget.LinearLayout.LayoutParams(-1, dp(32)))
+            }
+            row("Zoom", "bsFov", true); row("Tilt", "bsTilt", false); row("Turn", "bsYaw", false); row("Rotate", "bsRoll", false)
+        }
+        val adjBtn = IconButton(ctx, IconButton.Kind.ADJUST, halo = true).apply {
+            setOnClickListener { on = !on; adjPanel.visibility = if (on) View.VISIBLE else View.GONE; revealBtns() }
+        }
         val box = FrameLayout(ctx).apply {
             if (fadePct() > 0) setBackgroundColor(0)   // soft edge: no frame, the picture itself fades out
             else { background = rounded(0xFF000000.toInt(), cornerDp()); outlineProvider = ViewOutlineProvider.BACKGROUND; clipToOutline = true }
@@ -203,7 +240,7 @@ class FloatCam(private val ctx: Context) {
                 pinch.onTouchEvent(e)
                 if (e.pointerCount > 1 || pinch.isInProgress) pinched = true
                 when (e.actionMasked) {
-                    MotionEvent.ACTION_DOWN -> { dx = e.rawX; dy = e.rawY; ox = lp.x; oy = lp.y; moved = false; pinched = false }
+                    MotionEvent.ACTION_DOWN -> { dx = e.rawX; dy = e.rawY; ox = lp.x; oy = lp.y; moved = false; pinched = false; revealBtns() }
                     MotionEvent.ACTION_MOVE -> if (!pinched && e.pointerCount == 1) {
                         if (Math.abs(e.rawX - dx) > slop || Math.abs(e.rawY - dy) > slop) moved = true
                         if (moved && !p.getBoolean("flLock", false)) {
@@ -226,9 +263,16 @@ class FloatCam(private val ctx: Context) {
             addView(bar, FrameLayout.LayoutParams(-1, dp(hdr), Gravity.TOP))
             addView(hideBtn, FrameLayout.LayoutParams(btn, btn, Gravity.TOP or Gravity.END).apply { setMargins(0, dp(5), dp(8), 0) })
             addView(editBtn, FrameLayout.LayoutParams(btn, btn, Gravity.TOP or Gravity.END).apply { setMargins(0, dp(5), dp(8) + btn + dp(2), 0) })
-            spaceButtons = { on -> val m = if (on) dp(cz) + dp(2) else dp(8); (hideBtn.layoutParams as FrameLayout.LayoutParams).marginEnd = m; (editBtn.layoutParams as FrameLayout.LayoutParams).marginEnd = m + btn + dp(2); (pinBtn.layoutParams as FrameLayout.LayoutParams).marginEnd = m + 2 * (btn + dp(2)); (guideBtn.layoutParams as? FrameLayout.LayoutParams)?.let { it.marginEnd = m + 3 * (btn + dp(2)); guideBtn.requestLayout() }; hideBtn.requestLayout(); editBtn.requestLayout(); pinBtn.requestLayout() }
+            spaceButtons = { on -> val m = if (on) dp(cz) + dp(2) else dp(8); (hideBtn.layoutParams as FrameLayout.LayoutParams).marginEnd = m; (editBtn.layoutParams as FrameLayout.LayoutParams).marginEnd = m + btn + dp(2); (pinBtn.layoutParams as FrameLayout.LayoutParams).marginEnd = m + 2 * (btn + dp(2)); (adjBtn.layoutParams as? FrameLayout.LayoutParams)?.let { it.marginEnd = m + 3 * (btn + dp(2)); adjBtn.requestLayout() }; (guideBtn.layoutParams as? FrameLayout.LayoutParams)?.let { it.marginEnd = m + 4 * (btn + dp(2)); guideBtn.requestLayout() }; if (!on) revealBtns(); hideBtn.requestLayout(); editBtn.requestLayout(); pinBtn.requestLayout() }
             addView(pinBtn, FrameLayout.LayoutParams(btn, btn, Gravity.TOP or Gravity.END).apply { setMargins(0, dp(5), dp(8) + 2 * (btn + dp(2)), 0) })
-            if (w === leftW || w === rightW) addView(guideBtn, FrameLayout.LayoutParams(btn, btn, Gravity.TOP or Gravity.END).apply { setMargins(0, dp(5), dp(8) + 3 * (btn + dp(2)), 0) })
+            addView(adjBtn, FrameLayout.LayoutParams(btn, btn, Gravity.TOP or Gravity.END).apply { setMargins(0, dp(5), dp(8) + 3 * (btn + dp(2)), 0) })
+            if (w === leftW || w === rightW) addView(guideBtn, FrameLayout.LayoutParams(btn, btn, Gravity.TOP or Gravity.END).apply { setMargins(0, dp(5), dp(8) + 4 * (btn + dp(2)), 0) })
+            addView(adjPanel, FrameLayout.LayoutParams(minOf(dp(280), winW - dp(16)), -2, Gravity.TOP or Gravity.END).apply { setMargins(0, dp(hdr) + dp(2), dp(8), 0) })
+            // buttons hide again a few seconds after the last touch (like the trip widget); kept while the pencil or the adjust panel is open
+            val btns = listOfNotNull(hideBtn, editBtn, pinBtn, adjBtn, if (w === leftW || w === rightW) guideBtn else null)
+            btns.forEach { it.visibility = View.GONE }
+            val hideRun = Runnable { if (!editBtn.on && !adjBtn.on && !guideBtn.on) btns.forEach { it.visibility = View.GONE } }
+            revealBtns = { btns.forEach { it.visibility = View.VISIBLE }; main.removeCallbacks(hideRun); main.postDelayed(hideRun, 4000) }
             addView(cTL, FrameLayout.LayoutParams(dp(cz), dp(cz), Gravity.TOP or Gravity.START)); addView(cTR, FrameLayout.LayoutParams(dp(cz), dp(cz), Gravity.TOP or Gravity.END))
             addView(cBL, FrameLayout.LayoutParams(dp(cz), dp(cz), Gravity.BOTTOM or Gravity.START)); addView(cBR, FrameLayout.LayoutParams(dp(cz), dp(cz), Gravity.BOTTOM or Gravity.END))
         }
