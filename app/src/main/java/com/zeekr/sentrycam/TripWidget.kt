@@ -54,6 +54,7 @@ class TripWidget(private val ctx: Context) {
     private var web: WebView? = null
     private var lp: WindowManager.LayoutParams? = null
     private var pageReady = false
+    private var tracer: WebView? = null; private var tracerReady = false   // headless copy of the page: keeps the trip running while the window is minimized
     private var cfgSent = ""
     private var natRatio = 0.9f   // natural height / width of the page for the current layout
     private var hidden = p.getBoolean("twMin", false)   // minimized into the dock (survives a restart)
@@ -95,7 +96,7 @@ class TripWidget(private val ctx: Context) {
         thread?.quitSafely(); thread = null; bg = null
         FloatMaster.tripUp = { false }
         if (instance === this) instance = null
-        main.post { BubbleRow.remove(ctx, "tw"); removeView() }
+        main.post { BubbleRow.remove(ctx, "tw"); removeView(); dropTracer() }
     }
 
     /** Prefs changed: re-apply width, look and (after "Snap to") place at once. */
@@ -103,7 +104,7 @@ class TripWidget(private val ctx: Context) {
         main.post {
             cfgSent = ""
             if (root != null && builtHdr != hdrDp() && !leaving) { removeView(); return@post }   // header height changed: rebuild so the hide button gets the new size (the next tick re-adds it)
-            if (root != null) { pushCfg(); applySize(); checkSnap() } else checkSnap()
+            if (root != null) { pushCfg(); applySize(); checkSnap() } else { pushCfg(); checkSnap() }
         }
     }
     private var builtHdr = 0
@@ -120,8 +121,10 @@ class TripWidget(private val ctx: Context) {
         main.post { state(show) }
         val sync = p.getBoolean("twSync", false) && TripLink.linked(p) && p.getBoolean("twOn", false)   // opt-in; needs the ZDash link
         val shown = show && root != null && !hidden
-        if (shown || sync) {
+        val trace = p.getBoolean("twOn", false)   // the trip keeps running even when the window is minimized
+        if (shown || sync || trace) {
             val json = readData()
+            main.post { if (trace) { ensureTracer(); if (tracerReady) tracer?.evaluateJavascript("zw.data($json)", null) } else dropTracer() }
             if (shown) { main.post { if (pageReady) web?.evaluateJavascript("zw.data($json)", null) }; pollRelay() }
             if (sync) { try { link.sample(JSONObject(json), System.currentTimeMillis()) } catch (_: Throwable) {} }
         }
@@ -276,9 +279,33 @@ class TripWidget(private val ctx: Context) {
 
     private fun pushCfg() {
         val c = cfgJson()
-        if (c == cfgSent || !pageReady) return
+        if (c == cfgSent || (!pageReady && !tracerReady)) return
         cfgSent = c
-        web?.evaluateJavascript("zw.cfg($c)", null)
+        if (pageReady) web?.evaluateJavascript("zw.cfg($c)", null)
+        if (tracerReady) tracer?.evaluateJavascript("zw.cfg($c)", null)
+    }
+
+    @SuppressLint("SetJavaScriptEnabled")
+    private fun ensureTracer() {
+        if (tracer != null) return
+        val t = WebView(ctx.applicationContext)
+        t.settings.javaScriptEnabled = true; t.settings.allowFileAccess = true
+        t.webViewClient = object : android.webkit.WebViewClient() {
+            override fun onPageFinished(v: WebView, u: String?) {
+                v.evaluateJavascript("zw.headless()", null); tracerReady = true
+                v.evaluateJavascript("zw.cfg(${cfgJson()})", null)
+            }
+            override fun onRenderProcessGone(v: WebView, d: android.webkit.RenderProcessGoneDetail): Boolean { dropTracer(); return true }
+        }
+        tracer = t
+        t.loadDataWithBaseURL("file:///android_asset/", ctx.assets.open("tripwidget.html").bufferedReader().use { it.readText() }, "text/html", "utf-8", null)
+    }
+    private fun dropTracer() { val t = tracer ?: return; tracer = null; tracerReady = false; try { t.loadUrl("about:blank"); t.destroy() } catch (_: Throwable) {} }
+
+    /** A freshly built window starts from the tracer's running numbers instead of from zero. */
+    private fun restoreFromTracer(w: WebView) {
+        val t = tracer; if (t == null || !tracerReady) return
+        t.evaluateJavascript("zw.snap()") { s -> if (s != null && s != "null" && w === web) w.evaluateJavascript("zw.restore($s)", null) }
     }
 
     // ---- main: the window ----
@@ -351,7 +378,7 @@ class TripWidget(private val ctx: Context) {
                 @JavascriptInterface fun nat(perMille: Int, horiz: Int) { main.post { natRatio = perMille / 1000f; if (heightPref() <= 0) { applySize() } } }
             }, "ZW")
             webViewClient = object : android.webkit.WebViewClient() {
-                override fun onPageFinished(v: WebView, u: String?) { pageReady = true; cfgSent = ""; pushCfg() }
+                override fun onPageFinished(v: WebView, u: String?) { pageReady = true; cfgSent = ""; restoreFromTracer(v); pushCfg() }
                 override fun onRenderProcessGone(v: WebView, d: android.webkit.RenderProcessGoneDetail): Boolean {
                     Logger.log(ctx, "tripwidget: render process gone"); main.post { removeView() }; return true
                 }

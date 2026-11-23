@@ -1,3 +1,6 @@
+0.111.2
+- Fix: the Trip widget no longer restarts its trace when you minimize it. The trip keeps running in the background and the window picks up where it left off, however many times you minimize, resize or rebuild it.
+
 0.111.1
 - Change: the Trip widget chart's load line no longer turns green while regen is charging (it was confusing); the green band under it shows the regen strength, and red still means braking.
 

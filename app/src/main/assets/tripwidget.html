@@ -176,7 +176,7 @@ canvas{flex:1;min-height:calc(14*var(--u));height:auto}
 const $=id=>document.getElementById(id), W=$('w');
 const SER={load:{n:'Load',c:'#a3e635',acc:1},speed:{n:'Speed',c:'#64d2ff'},accel:{n:'G',c:'#ffb340'},batt:{n:'Batt',c:'#f5f5f7'}};
 let C={regenPill:true,slots:['eff','avg','dist','rng','soc','reg'],hdr:56,acc:'#a3e635',bg:null,orient:'v',detail:'glance',chart:['load'],font:'Inter',theme:'dark',unit:'km',opacity:90,fade:0,pack:100,parkMin:30,resetSeq:0};
-let S,last=0,fitN=0,lastH=0;
+let S,last=0,fitN=0,lastH=0,HL=false;   // HL: headless tracer page (never shown), it only keeps the trip numbers running while the window is minimized
 function lum(h){const n=parseInt(h.slice(1),16);return(.299*(n>>16)+.587*(n>>8&255)+.114*(n&255))/255}
 function mixc(h,t,a){const n=parseInt(h.slice(1),16),m=parseInt(t.slice(1),16),f=(x,y)=>Math.round(x+(y-x)*a);return '#'+[f(n>>16,m>>16),f(n>>8&255,m>>8&255),f(n&255,m&255)].map(v=>v.toString(16).padStart(2,'0')).join('')}
 function reset(){for(const k in (window.MH||{}))delete MH[k];S={t:0,v:0,pv:null,x:0,moving:0,stop:0,top:0,pa:0,pb:0,regT:0,regE:0,run0:null,last0:null,still:true,lift:0,best0:null,brk:null,best100:null,soc0:null,soc:null,g:0,rg:0,hist:[],sh:[],tick:0,stk:0,cur:null}}
@@ -215,9 +215,10 @@ function onData(d){
  if(kmh>=100)S.brk=S.x;
  if(S.brk!=null&&kmh<1){const t=S.x-S.brk;if(S.best100==null||t<S.best100)S.best100=t;S.brk=null}
  if(d.batt!=null){if(S.soc0==null)S.soc0=d.batt;S.soc=d.batt}
- S.stk+=dt;if(S.stk>=1){S.stk=0;if(S.cur){sampleTiles(S.cur);drawSparks()}if(S.soc!=null){S.sh.push(S.soc);if(S.sh.length>3600)S.sh.shift()}}
+ S.stk+=dt;if(S.stk>=1){S.stk=0;if(S.cur){sampleTiles(S.cur);if(!HL)drawSparks()}if(S.soc!=null){S.sh.push(S.soc);if(S.sh.length>3600)S.sh.shift()}}
  S.tick+=dt;if(S.tick>=.2){S.tick=0;S.hist.push({v:kmh,th,br,ld:(th-br)*100,g:S.g,rg:d.rg!=null?d.rg:(d.regen?30:0)});if(S.hist.length>300)S.hist.shift()}
  S.cur={kmh,th,br,rg:d.rg,regen:!!d.regen,gear:d.gear||'-',sg:d.sg||0,mode:d.mode||'',range:d.range,aux:d.aux,auxPct:d.auxPct,age:d.age,why:d.why||''};
+ if(HL)return;
  if(now-lastDraw>=190){lastDraw=now;draw()}ui();
 }
 function draw(){
@@ -366,6 +367,6 @@ function layout(){
  if(window.ZW&&natReported!==key){natReported=key;ZW.nat(Math.round(hn/bw*1000),o==='h'?1:0)}   // natural height/width, per mille: the app's default for a fresh size
  fitSpeed();draw();
 }
-window.zw={cfg:o=>{Object.assign(C,o);applyCfg();ui()},data:onData,reset:()=>{reset();ui()}};
+window.zw={cfg:o=>{Object.assign(C,o);if(!HL){applyCfg();ui()}},data:onData,reset:()=>{reset();if(!HL)ui()},headless:()=>{HL=true},snap:()=>JSON.stringify({S:S,MH:window.MH||{}}),restore:j=>{try{const o=typeof j==='string'?JSON.parse(j):j;if(o&&o.S){S=o.S;window.MH=o.MH||{};last=0;ui()}}catch(e){}}};
 applyCfg();ui();layout();
 </script></body></html>
