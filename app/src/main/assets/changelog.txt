@@ -1,3 +1,9 @@
+0.115.0
+- New: Browser > Downloads: Clear button deletes all downloaded files (tap twice), including the copies Z Cam put in the public Downloads folder.
+- Change: with the Trip widget camera background on, the header and section titles are outlined text instead of solid panels, so more of the camera shows.
+- Fix: requested Sentry clips upload in smaller 128 KB pieces, so the relay no longer fails on large clips.
+- Tested: the 0.114.0 camera background and Sentry clip upload are confirmed working (no longer BETA).
+
 0.114.0 (BETA)
 - BETA: untested are the Trip widget camera background and the Sentry clip upload fix. Skip this version if you want a tested one.
 - New: Trip widget can use the front camera as a see-through background (Trip widget settings, off by default), with zoom, angle and blur sliders (settings, or the Adjust button on the widget, which also turns the camera on). With the camera on, the header and speedometer get solid panels and the tiles get shadows.

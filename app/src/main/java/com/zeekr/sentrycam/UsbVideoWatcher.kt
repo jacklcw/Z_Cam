@@ -193,7 +193,7 @@ class UsbVideoWatcher(private val ctx: Context) {
     // Requested clips: small pieces (cheap for the relay) and never give up on a passing error -- keep
     // retrying with growing waits until 30 min pass with no piece going through. The relay is told when
     // the car is retrying and when it finally gives up, so the phone can show it and offer a retry.
-    private val REQ_PIECE = 262_144
+    private val REQ_PIECE = 131_072
     private val REQ_PATIENCE_MS = 30 * 60_000L
 
     private fun reqStatus(base: String, token: String, name: String, state: String, err: String, attempt: Int) {

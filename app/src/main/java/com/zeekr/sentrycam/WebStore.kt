@@ -98,6 +98,17 @@ object WebStore {
             tabs.addView(label("History", tab == 1) { tab = 1; refresh() }, LinearLayout.LayoutParams(0, dp(72), 1f).apply { marginStart = dp(8) })
             tabs.addView(label("Downloads", tab == 2) { tab = 2; refresh() }, LinearLayout.LayoutParams(0, dp(72), 1.2f).apply { marginStart = dp(8) })
             if (history) tabs.addView(label("Clear", false) { clearHistory(p); refresh() }, LinearLayout.LayoutParams(0, dp(72), 0.7f).apply { marginStart = dp(8) })
+            if (tab == 2 && WebDownload.files(ctx).isNotEmpty()) tabs.addView(TextView(ctx).apply {
+                // two taps: the first arms it for 3 s, the second deletes every downloaded file
+                text = "Clear"; gravity = Gravity.CENTER; textSize = 24f; typeface = ZFont.reg; setTextColor(0xFFF5F5F7.toInt())
+                background = chip(0xFF2C2C2E.toInt(), 12)
+                var armed = false
+                setOnClickListener {
+                    if (armed) { WebDownload.deleteAll(ctx); refresh(); return@setOnClickListener }
+                    armed = true; text = "Sure?"; setTextColor(0xFFFF6B6B.toInt())
+                    postDelayed({ armed = false; text = "Clear"; setTextColor(0xFFF5F5F7.toInt()) }, 3000)
+                }
+            }, LinearLayout.LayoutParams(0, dp(72), 0.7f).apply { marginStart = dp(8) })
             if (tab == 2) {
                 val files = WebDownload.files(ctx)
                 if (files.isEmpty()) list.addView(TextView(ctx).apply {

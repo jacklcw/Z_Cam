@@ -145,6 +145,17 @@ object WebDownload {
         } catch (e: Throwable) { Logger.log(ctx, "download: public copy failed ${e.javaClass.simpleName} ${e.message ?: ""}") }
     }
 
+    /** Deletes every file the browser saved, plus the public Downloads copies Z Cam made of them (only rows Z Cam owns). */
+    fun deleteAll(ctx: Context) {
+        val names = files(ctx).map { it.name }
+        files(ctx).forEach { it.delete() }
+        if (Build.VERSION.SDK_INT >= 29) for (n in names) try {
+            ctx.contentResolver.delete(MediaStore.Downloads.EXTERNAL_CONTENT_URI,
+                "${MediaStore.MediaColumns.DISPLAY_NAME}=? AND ${MediaStore.MediaColumns.OWNER_PACKAGE_NAME}=?", arrayOf(n, ctx.packageName))
+        } catch (e: Throwable) { Logger.log(ctx, "download: public delete failed $n ${e.message ?: ""}") }
+        Logger.log(ctx, "download: deleted all (${names.size} files)")
+    }
+
     /** The files saved by the browser, newest first. */
     fun files(ctx: Context): List<File> = (dir(ctx).listFiles()?.filter { it.isFile } ?: emptyList()).sortedByDescending { it.lastModified() }
 
