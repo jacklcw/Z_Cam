@@ -186,7 +186,47 @@ class UsbVideoWatcher(private val ctx: Context) {
     @Volatile var abortUpload = false
 
     fun uploadRequested(name: String) {
+        abortUpload = true   // a newer request replaces one still uploading (single upload thread)
         try { uploads.execute { uploadRequestedNow(name) } } catch (_: java.util.concurrent.RejectedExecutionException) {}
+    }
+
+    // Requested clips: small pieces (cheap for the relay) and never give up on a passing error -- keep
+    // retrying with growing waits until 30 min pass with no piece going through. The relay is told when
+    // the car is retrying and when it finally gives up, so the phone can show it and offer a retry.
+    private val REQ_PIECE = 262_144
+    private val REQ_PATIENCE_MS = 30 * 60_000L
+
+    private fun reqStatus(base: String, token: String, name: String, state: String, err: String, attempt: Int) {
+        try { Net.postJson("$base/cam/video/request/status", token, JSONObject().put("filename", name).put("state", state).put("err", err).put("attempt", attempt)) } catch (_: Throwable) {}
+    }
+
+    private fun runRequested(base: String, token: String, name: String, size: Long, upload: (Long, Int, (Int, String) -> Unit) -> Net.UploadResult) {
+        log("Uploading requested file $name…", remote = true)
+        var res: JSONObject? = null
+        val start = System.currentTimeMillis()
+        var tries = 0
+        while (!abortUpload) {   // the report itself is retried too (no signal right when the request came in)
+            tries++
+            res = Net.postJson("$base/cam/video/request/report", token, JSONObject().put("filename", name).put("sizeBytes", size).put("pieceBytes", REQ_PIECE))
+            if (res != null && res.optBoolean("ok", false)) break
+            val st = res?.optInt("_status", -1) ?: -1
+            if (st in 400..499 || System.currentTimeMillis() - start > REQ_PATIENCE_MS) break
+            Thread.sleep(minOf(60_000L, 2000L shl minOf(tries - 1, 5)))
+        }
+        if (abortUpload) { log("Requested upload of $name cancelled."); return }
+        val id = res?.optLong("id", 0L) ?: 0L
+        if (res == null || !res.optBoolean("ok", false) || id <= 0) {
+            log("Relay rejected the request-report for $name.", remote = true); reqStatus(base, token, name, "failed", "relay unreachable", tries); return
+        }
+        if (res.optBoolean("done", false)) { log("Requested file $name is already on the relay."); return }
+        val r = upload(id, res.optInt("have", 0)) { attempt, why ->
+            if (attempt == 1 || attempt % 5 == 0) { log("Requested upload of $name: retrying ($why, try $attempt)", remote = attempt == 1); reqStatus(base, token, name, "retrying", why, attempt) }
+        }
+        if (r.ok) { log("Uploaded requested file $name successfully.", remote = true); return }
+        if (r.error == "cancelled" || abortUpload) { log("Requested upload of $name cancelled."); return }
+        val why = uploadFailReason(r)
+        log("Upload failed for requested file $name: $why", remote = true)
+        reqStatus(base, token, name, "failed", why, 0)
     }
 
     private fun uploadRequestedNow(name: String) {
@@ -200,12 +240,7 @@ class UsbVideoWatcher(private val ctx: Context) {
                 if (isSentryFolderName(name)) {
                     val video = findSentryFolderClip(name)
                     if (video == null) { log("Requested upload: $name not found in the Sentry folder (removed?)."); return }
-                    log("Uploading requested file $name…", remote = true)
-                    val res = Net.postJson("$base/cam/video/request/report", token, JSONObject().put("filename", name).put("sizeBytes", video.length()))
-                    val id = res?.optLong("id", 0L) ?: 0L
-                    if (res == null || !res.optBoolean("ok", false) || id <= 0) { log("Relay rejected the request-report for $name.", remote = true); return }
-                    val r = uploadFile(base, token, video, id, res.optInt("have", 0))
-                    log(if (r.ok) "Uploaded requested file $name successfully." else "Upload failed for requested file $name: " + uploadFailReason(r), remote = true)
+                    runRequested(base, token, name, video.length()) { id, have, onRetry -> uploadFile(base, token, video, id, have, onRetry) }
                 } else {
                     uploadRequestedFromMediaStore(base, token, name)
                 }
@@ -230,13 +265,8 @@ class UsbVideoWatcher(private val ctx: Context) {
             }
         } catch (e: Throwable) { log("Requested upload: query for $name failed: ${e.message}"); return }
         if (mediaId < 0) { log("Requested upload: $name not found on USB storage (removed?)."); return }
-        log("Uploading requested file $name…", remote = true)
         try {
-            val res = Net.postJson("$base/cam/video/request/report", token, JSONObject().put("filename", name).put("sizeBytes", size))
-            val id = res?.optLong("id", 0L) ?: 0L
-            if (res == null || !res.optBoolean("ok", false) || id <= 0) { log("Relay rejected the request-report for $name.", remote = true); return }
-            val r = uploadMedia(base, token, mediaId, id, res.optInt("have", 0))
-            log(if (r.ok) "Uploaded requested file $name successfully." else "Upload failed for requested file $name: " + uploadFailReason(r), remote = true)
+            runRequested(base, token, name, size) { id, have, onRetry -> uploadMedia(base, token, mediaId, id, have, onRetry) }
         } catch (e: Throwable) { log("Requested upload threw for $name: ${e.message}") }
     }
 
@@ -393,23 +423,26 @@ class UsbVideoWatcher(private val ctx: Context) {
 
     // Streams one MediaStore item's bytes to the relay for a clip already reported via
     // /cam/video/new or /cam/video/request/report (which hands back `id`).
-    private fun uploadMedia(base: String, token: String?, mediaId: Long, id: Long, have: Int = 0): Net.UploadResult {
+    // onRetry set = a dashboard-requested clip: small pieces, patient retries (see runRequested).
+    private fun uploadMedia(base: String, token: String?, mediaId: Long, id: Long, have: Int = 0, onRetry: ((Int, String) -> Unit)? = null): Net.UploadResult {
         return try {
             val uri = Uri.withAppendedPath(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, mediaId.toString())
             var result = Net.UploadResult(false, -1, "couldn't open the file (gone / permission?)")
             ctx.contentResolver.openInputStream(uri)?.use { stream ->
-                result = Net.uploadInPieces("$base/cam/video/upload?id=$id", "$base/cam/video/upload/complete?id=$id", token, stream, startSeq = have, abort = { abortUpload })
+                result = Net.uploadInPieces("$base/cam/video/upload?id=$id", "$base/cam/video/upload/complete?id=$id", token, stream, startSeq = have, abort = { abortUpload },
+                    pieceBytes = if (onRetry != null) REQ_PIECE else 1_000_000, patienceMs = if (onRetry != null) REQ_PATIENCE_MS else 0L, onRetry = onRetry ?: { _, _ -> })
             }
             result
         } catch (e: Throwable) { Net.UploadResult(false, -1, e.message) }
     }
 
     // Same as uploadMedia() but for a plain File (the Sentry folder's own clips).
-    private fun uploadFile(base: String, token: String?, file: java.io.File, id: Long, have: Int = 0): Net.UploadResult {
+    private fun uploadFile(base: String, token: String?, file: java.io.File, id: Long, have: Int = 0, onRetry: ((Int, String) -> Unit)? = null): Net.UploadResult {
         return try {
             var result = Net.UploadResult(false, -1, "couldn't open the file (gone / permission?)")
             file.inputStream().use { stream ->
-                result = Net.uploadInPieces("$base/cam/video/upload?id=$id", "$base/cam/video/upload/complete?id=$id", token, stream, startSeq = have, abort = { abortUpload })
+                result = Net.uploadInPieces("$base/cam/video/upload?id=$id", "$base/cam/video/upload/complete?id=$id", token, stream, startSeq = have, abort = { abortUpload },
+                    pieceBytes = if (onRetry != null) REQ_PIECE else 1_000_000, patienceMs = if (onRetry != null) REQ_PATIENCE_MS else 0L, onRetry = onRetry ?: { _, _ -> })
             }
             result
         } catch (e: Throwable) { Net.UploadResult(false, -1, e.message) }

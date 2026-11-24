@@ -62,7 +62,24 @@ object Net {
     // piece a few times before giving up (a dropped cellular connection then only costs that one
     // piece, not the whole clip), then POSTs `$completeUrl&chunks=N` so the relay can verify the
     // full set arrived. startSeq resumes after pieces the relay already has. pieceBytes must stay under the relay's per-chunk D1 limit (1.5MB).
-    fun uploadInPieces(baseUrl: String, completeUrl: String, token: String?, stream: InputStream, pieceBytes: Int = 1_000_000, maxRetries: Int = 4, startSeq: Int = 0, abort: () -> Boolean = { false }): UploadResult {
+    //
+    // patienceMs > 0 (Sentry clips): a piece is retried with growing waits (2s up to 60s) until it goes
+    // through, the upload is aborted, the relay answers with a permanent error, or nothing has gone through
+    // for patienceMs -- so a dead spot, a relay hiccup (1102) or a long signal loss only pauses the upload.
+    // onRetry(attempt, reason) is called on every failed try.
+    fun uploadInPieces(baseUrl: String, completeUrl: String, token: String?, stream: InputStream, pieceBytes: Int = 1_000_000, maxRetries: Int = 4, startSeq: Int = 0, abort: () -> Boolean = { false },
+                       patienceMs: Long = 0L, onRetry: (Int, String) -> Unit = { _, _ -> }): UploadResult {
+        var lastOk = System.currentTimeMillis()
+        // true = try again. Sleeps in short slices so a cancel is seen quickly.
+        fun again(attempt: Int, status: Int, reason: String): Boolean {
+            if (patienceMs <= 0L) { if (attempt >= maxRetries) return false; Thread.sleep(1500L * attempt); return true }
+            if (status in listOf(400, 401, 403, 404, 409, 413)) return false
+            if (System.currentTimeMillis() - lastOk > patienceMs) return false
+            onRetry(attempt, reason)
+            val until = System.currentTimeMillis() + minOf(60_000L, 2000L shl minOf(attempt - 1, 5))
+            while (System.currentTimeMillis() < until) { if (abort()) return false; Thread.sleep(500L) }
+            return true
+        }
         val buf = ByteArray(pieceBytes)
         var seq = startSeq
         try {
@@ -78,22 +95,28 @@ object Net {
                 }
                 if (len == 0) break
                 if (abort()) return UploadResult(false, -1, "cancelled")
-                var result = UploadResult(false, -1, null)
-                for (attempt in 1..maxRetries) {
+                var result: UploadResult
+                var attempt = 0
+                while (true) {
+                    attempt++
                     result = uploadBytes("$baseUrl&seq=$seq", token, "application/octet-stream", buf, len)
                     if (result.ok) break
-                    if (attempt < maxRetries) Thread.sleep(1500L * attempt)
+                    if (abort()) return UploadResult(false, -1, "cancelled")
+                    if (!again(attempt, result.status, if (result.status > 0) "HTTP ${result.status}" else (result.error ?: "network error"))) return result
                 }
-                if (!result.ok) return result
+                lastOk = System.currentTimeMillis()
                 seq++
                 if (len < pieceBytes) break   // short read = end of stream
             }
         } catch (e: Throwable) { return UploadResult(false, -1, e.message) }
-        var result = postJson(completeUrl + "&chunks=$seq", token, JSONObject())
-        for (attempt in 2..maxRetries) {
-            if (result != null && result.optBoolean("ok", false)) break
-            Thread.sleep(1500L * attempt)
+        var result: JSONObject?
+        var attempt = 0
+        while (true) {
+            attempt++
             result = postJson(completeUrl + "&chunks=$seq", token, JSONObject())
+            if (result != null && result.optBoolean("ok", false)) break
+            val st = result?.optInt("_status", -1) ?: -1
+            if (!again(attempt, st, if (st > 0) "HTTP $st on complete" else "network error on complete")) break
         }
         if (result == null) return UploadResult(false, -1, "network error on complete")
         val ok = result.optBoolean("ok", false)

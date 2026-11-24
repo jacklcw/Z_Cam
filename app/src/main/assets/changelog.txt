@@ -1,3 +1,8 @@
+0.114.0 (BETA)
+- BETA: untested are the Trip widget camera background and the Sentry clip upload fix. Skip this version if you want a tested one.
+- New: Trip widget can use the front camera as a see-through background (Trip widget settings, off by default), with zoom, angle and blur sliders (settings, or the Adjust button on the widget, which also turns the camera on). With the camera on, the header and speedometer get solid panels and the tiles get shadows.
+- Fixed: requested Sentry clips no longer stop halfway. The car keeps retrying through signal loss and relay errors (smaller pieces, up to 30 min without progress) and tells ZDash if it finally gives up.
+
 0.113.0
 - New: Air conditioner card. Choose the air circulation mode the car starts with (recirculation, fresh air, auto, or remember your last choice). It is applied a few seconds after the car is switched on.
 

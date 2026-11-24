@@ -13,6 +13,7 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
 import android.widget.FrameLayout
+import android.widget.TextView
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
 import org.json.JSONObject
@@ -25,7 +26,7 @@ import org.json.JSONObject
  * A real floating window, like the camera windows: drag it anywhere, pinch or use the corner grip to resize it, the hide button (or the
  * floating button) minimizes it into the dock, and it shoves other windows aside ([FloatPush]). Position and width are remembered.
  * Prefs (all "tw*", see [cfgJson]): twOn, twOrient, twDetail, twChart, twFont, twTheme, twUnit, twAcc, twBg, twFade, twOpacity, twPack, twReset,
- * twX/twY (place), twW_<o><d>/twH_<o><d> (widget width and height in dp, per orientation v/h and detail g/f; 0 = not set yet, the page's natural size is used), twMin (minimized), twPos + twSnapSeq ("Snap to" in settings).
+ * twX/twY (place), twW_<o><d>/twH_<o><d> (widget width and height in dp, per orientation v/h and detail g/f; 0 = not set yet, the page's natural size is used), twCam / twCamFov / twCamTilt / twCamBlur (front camera see-through background: on, zoom, angle), twMin (minimized), twPos + twSnapSeq ("Snap to" in settings).
  * Owned by CamService.
  */
 class TripWidget(private val ctx: Context) {
@@ -103,11 +104,29 @@ class TripWidget(private val ctx: Context) {
     fun sync() {
         main.post {
             cfgSent = ""
-            if (root != null && builtHdr != hdrDp() && !leaving) { removeView(); return@post }   // header height changed: rebuild so the hide button gets the new size (the next tick re-adds it)
+            if (root != null && (builtHdr != hdrDp() || builtCam != camOn()) && !leaving) { removeView(); return@post }
+            camOut?.let { tuneCam(it) }   // header height changed: rebuild so the hide button gets the new size (the next tick re-adds it)
             if (root != null) { pushCfg(); applySize(); checkSnap() } else { pushCfg(); checkSnap() }
         }
     }
     private var builtHdr = 0
+    private var builtCam = false
+    private var adjOpen = false
+    private var camView: android.view.TextureView? = null; private var camOut: PanelOut? = null
+    private fun camOn() = p.getBoolean("twCam", false)
+    /** See-through background: the front camera, flattened with the zoom (field of view) and angle (tilt) from the trip widget settings. */
+    /** Blur of the camera picture behind the tiles (Android 12+), so the grids look like they float above it. */
+    private fun blurCam() {
+        if (android.os.Build.VERSION.SDK_INT < 31) return
+        val b = p.getInt("twCamBlur", 0).coerceIn(0, 40).toFloat()
+        camView?.setRenderEffect(if (b <= 0f) null else android.graphics.RenderEffect.createBlurEffect(b, b, android.graphics.Shader.TileMode.CLAMP))
+    }
+    private fun tuneCam(r: PanelOut) {
+        blurCam()
+        CamTune.apply(p, "F", r)
+        r.fovDeg = p.getInt("twCamFov", 100).coerceIn(50, 160).toFloat(); r.tiltDeg = p.getInt("twCamTilt", 25).coerceIn(-30, 60).toFloat()
+        r.feather = p.getInt("twFade", 0).coerceIn(0, 30) / 100f
+    }
     private var layoutSeen = -1L
     private fun hdrDp() = p.getInt("flHeader", 56).coerceIn(36, 96)   // the camera windows' header height setting
 
@@ -274,7 +293,7 @@ class TripWidget(private val ctx: Context) {
             .put("font", p.getString("twFont", "Inter")).put("theme", themeKey())
             .put("unit", p.getString("twUnit", "km")).put("opacity", p.getInt("twOpacity", 90).coerceIn(50, 100))
             .put("fade", p.getInt("twFade", 0).coerceIn(0, 30)).put("pack", p.getInt("twPack", 100).coerceIn(30, 150))
-            .put("corner", p.getInt("flCorner", 0).coerceIn(0, 40)).put("parkMin", p.getInt("twParkMin", 30).coerceIn(0, 120)).put("resetSeq", p.getInt("twReset", 0)).toString()
+            .put("cam", camOn()).put("corner", p.getInt("flCorner", 0).coerceIn(0, 40)).put("parkMin", p.getInt("twParkMin", 30).coerceIn(0, 120)).put("resetSeq", p.getInt("twReset", 0)).toString()
     }
 
     private fun pushCfg() {
@@ -451,18 +470,81 @@ class TripWidget(private val ctx: Context) {
             setOnClickListener { on = !on; p.edit().putBoolean("twPin", on).apply() }
         }
         val hideBtn = IconButton(ctx, IconButton.Kind.HIDE, halo = true).apply { setOnClickListener { if (!p.getBoolean("twPin", false)) setHidden(true) } }
+        // Live adjust of the see-through camera: zoom / angle / blur, same prefs as the settings sliders, applied at once
+        val adjPanel = android.widget.LinearLayout(ctx).apply {
+            orientation = android.widget.LinearLayout.VERTICAL; visibility = if (adjOpen) View.VISIBLE else View.GONE
+            background = android.graphics.drawable.GradientDrawable().apply { setColor(0xE6000000.toInt()); cornerRadius = dp(12).toFloat() }
+            setPadding(dp(12), dp(8), dp(12), dp(8))
+            setOnTouchListener { _, _ -> revealBtns(); false }
+            fun row(label: String, key: String, lo: Int, hi: Int, def: Int, invert: Boolean) {
+                val tvl = TextView(ctx).apply { setTextColor(0xFFF5F5F7.toInt()); textSize = 13f; typeface = ZFont.bold }
+                val sb = android.widget.SeekBar(ctx).apply {
+                    val kn = dp(16)
+                    thumb = android.graphics.drawable.GradientDrawable().apply { shape = android.graphics.drawable.GradientDrawable.OVAL; setColor(0xFFA3E635.toInt()); setSize(kn, kn) }
+                    val trk = android.graphics.drawable.GradientDrawable().apply { setColor(0x66FFFFFF); cornerRadius = dp(2).toFloat(); setSize(1, dp(3)) }
+                    val fillD = android.graphics.drawable.ClipDrawable(android.graphics.drawable.GradientDrawable().apply { setColor(0xFFA3E635.toInt()); cornerRadius = dp(2).toFloat(); setSize(1, dp(3)) }, Gravity.START, android.graphics.drawable.ClipDrawable.HORIZONTAL)
+                    progressDrawable = android.graphics.drawable.LayerDrawable(arrayOf(trk, fillD)).also { it.setId(0, android.R.id.background); it.setId(1, android.R.id.progress) }
+                    thumbOffset = 0; splitTrack = false; setPadding(kn / 2, 0, kn / 2, 0)
+                    max = hi - lo
+                    val cur = p.getInt(key, def).coerceIn(lo, hi)
+                    progress = if (invert) hi - cur else cur - lo; tvl.text = "$label  $cur"
+                    setOnSeekBarChangeListener(object : android.widget.SeekBar.OnSeekBarChangeListener {
+                        override fun onProgressChanged(s: android.widget.SeekBar, v: Int, user: Boolean) {
+                            val nv = if (invert) hi - v else lo + v; tvl.text = "$label  $nv"
+                            if (user) { p.edit().putInt(key, nv).apply(); camOut?.let { tuneCam(it) }; revealBtns() }
+                        }
+                        override fun onStartTrackingTouch(s: android.widget.SeekBar) {}
+                        override fun onStopTrackingTouch(s: android.widget.SeekBar) {}
+                    })
+                }
+                addView(tvl); addView(sb, android.widget.LinearLayout.LayoutParams(-1, dp(32)))
+            }
+            addView(android.widget.Switch(ctx).apply {
+                text = "Camera background"; setTextColor(0xFFF5F5F7.toInt()); textSize = 13f; typeface = ZFont.bold; isChecked = p.getBoolean("twCam", false)
+                setOnCheckedChangeListener { _, on -> adjOpen = true; p.edit().putBoolean("twCam", on).apply(); sync() }   // rebuilds the window; the panel reopens
+            })
+            row("Zoom", "twCamFov", 50, 160, 100, true); row("Angle", "twCamTilt", -30, 60, 25, false); row("Blur", "twCamBlur", 0, 40, 0, false)
+        }
+        val adjBtn = IconButton(ctx, IconButton.Kind.ADJUST, halo = true).apply {
+            on = adjOpen; setOnClickListener { on = !on; adjOpen = on; adjPanel.visibility = if (on) View.VISIBLE else View.GONE; revealBtns() }
+        }
+        builtCam = camOn()
         val box = FrameLayout(ctx).apply {
+            if (builtCam) {
+                val tv = android.view.TextureView(ctx)
+                val cr = dp(p.getInt("flCorner", 0).coerceIn(0, 40)).toFloat()
+                tv.outlineProvider = object : android.view.ViewOutlineProvider() { override fun getOutline(v: View, o: android.graphics.Outline) { o.setRoundRect(0, 0, v.width, v.height, cr) } }
+                tv.clipToOutline = cr > 0
+                tv.surfaceTextureListener = object : android.view.TextureView.SurfaceTextureListener {
+                    override fun onSurfaceTextureAvailable(st: android.graphics.SurfaceTexture, tw: Int, th: Int) {
+                        if (camOut != null) return
+                        val r = PanelOut(st).also { camOut = it; it.boxW = tw; it.boxH = th }; tuneCam(r); CamHub.add(ctx, "tw", r)
+                    }
+                    override fun onSurfaceTextureSizeChanged(st: android.graphics.SurfaceTexture, tw: Int, th: Int) { camOut?.let { it.boxW = tw; it.boxH = th } }
+                    override fun onSurfaceTextureDestroyed(st: android.graphics.SurfaceTexture): Boolean {
+                        val r = camOut; if (r != null && r.st === st) { camOut = null; CamHub.remove("tw", r) }
+                        return true
+                    }
+                    override fun onSurfaceTextureUpdated(st: android.graphics.SurfaceTexture) {}
+                }
+                camView = tv; blurCam()
+                addView(tv, FrameLayout.LayoutParams(-1, -1).apply { setMargins(dp(PAD_DP), dp(PAD_DP), dp(PAD_DP), dp(PAD_DP)) })
+            }
             addView(wv, FrameLayout.LayoutParams(-1, -1))
             addView(touch, FrameLayout.LayoutParams(-1, -1))
             // the hide button sits in the widget's header, the same size and place as in the camera windows' header bar
             builtHdr = hdrDp(); val hb = dp(builtHdr) - dp(10)   // exactly the camera windows' button size: header minus a 5 dp margin all round
             addView(hideBtn, FrameLayout.LayoutParams(hb, hb, Gravity.TOP or Gravity.END).apply { setMargins(0, dp(PAD_DP + 5), dp(PAD_DP + 8), 0) })
             addView(editBtn, FrameLayout.LayoutParams(hb, hb, Gravity.TOP or Gravity.END).apply { setMargins(0, dp(PAD_DP + 5), dp(PAD_DP + 8) + hb + dp(2), 0) })
-            spaceButtons = { on -> val m = dp(PAD_DP) + (if (on) dp(cz) + dp(2) else dp(8)); (hideBtn.layoutParams as FrameLayout.LayoutParams).marginEnd = m; (editBtn.layoutParams as FrameLayout.LayoutParams).marginEnd = m + hb + dp(2); (pinBtn.layoutParams as FrameLayout.LayoutParams).marginEnd = m + 2 * (hb + dp(2)); pinBtn.requestLayout(); hideBtn.requestLayout(); editBtn.requestLayout(); if (!on) revealBtns() }
+            spaceButtons = { on -> val m = dp(PAD_DP) + (if (on) dp(cz) + dp(2) else dp(8)); (hideBtn.layoutParams as FrameLayout.LayoutParams).marginEnd = m; (editBtn.layoutParams as FrameLayout.LayoutParams).marginEnd = m + hb + dp(2); (pinBtn.layoutParams as FrameLayout.LayoutParams).marginEnd = m + 2 * (hb + dp(2)); (adjBtn.layoutParams as FrameLayout.LayoutParams).marginEnd = m + 3 * (hb + dp(2)); adjBtn.requestLayout(); pinBtn.requestLayout(); hideBtn.requestLayout(); editBtn.requestLayout(); if (!on) revealBtns() }
             addView(pinBtn, FrameLayout.LayoutParams(hb, hb, Gravity.TOP or Gravity.END).apply { setMargins(0, dp(PAD_DP + 5), dp(PAD_DP + 8) + 2 * (hb + dp(2)), 0) })
             fun fl(g: Int, mx: Int, my: Int) = FrameLayout.LayoutParams(dp(cz), dp(cz), g).apply { setMargins(if (g and Gravity.START == Gravity.START) mx else 0, if (g and Gravity.TOP == Gravity.TOP) my else 0, if (g and Gravity.END == Gravity.END) mx else 0, if (g and Gravity.BOTTOM == Gravity.BOTTOM) my else 0) }
-            val btns = listOf(hideBtn, editBtn, pinBtn); btns.forEach { it.visibility = View.GONE }
-            val hideRun = Runnable { if (!editBtn.on) btns.forEach { it.visibility = View.GONE } }
+            run {
+                addView(adjBtn, FrameLayout.LayoutParams(hb, hb, Gravity.TOP or Gravity.END).apply { setMargins(0, dp(PAD_DP + 5), dp(PAD_DP + 8) + 3 * (hb + dp(2)), 0) })
+                addView(adjPanel, FrameLayout.LayoutParams(dp(260), -2, Gravity.TOP or Gravity.END).apply { setMargins(0, dp(PAD_DP + 5) + hb + dp(6), dp(PAD_DP + 8), 0) })
+            }
+            val btns = listOf(hideBtn, editBtn, pinBtn, adjBtn); btns.forEach { it.visibility = View.GONE }
+            val hideRun = Runnable { if (!editBtn.on && !adjBtn.on) btns.forEach { it.visibility = View.GONE } }
             revealBtns = { btns.forEach { it.visibility = View.VISIBLE }; main.removeCallbacks(hideRun); main.postDelayed(hideRun, 4000) }
             addView(cTL, fl(Gravity.TOP or Gravity.START, dp(PAD_DP), dp(PAD_DP))); addView(cTR, fl(Gravity.TOP or Gravity.END, dp(PAD_DP), dp(PAD_DP)))
             addView(cBL, fl(Gravity.BOTTOM or Gravity.START, dp(PAD_DP), dp(PAD_DP))); addView(cBR, fl(Gravity.BOTTOM or Gravity.END, dp(PAD_DP), dp(PAD_DP)))
@@ -499,6 +581,7 @@ class TripWidget(private val ctx: Context) {
         val r = root ?: return
         val v = web
         root = null; web = null; lp = null; pageReady = false; cfgSent = ""
+        camOut?.let { r -> camOut = null; r.dead = true; CamHub.remove("tw", r) }; camView = null
         FloatPush.unregister("tw")
         try { wm.removeView(r) } catch (_: Throwable) {}
         try { v?.loadUrl("about:blank"); v?.destroy() } catch (_: Throwable) {}

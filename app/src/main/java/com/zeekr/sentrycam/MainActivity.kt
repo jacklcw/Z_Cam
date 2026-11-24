@@ -949,6 +949,12 @@ class MainActivity : AppCompatActivity() {
         add(TextView(this).apply { tag = "m"; textSize = 12f; text = "Note: Regen back is only an approximation. It is estimated from the speed the car sheds while regenerating, not measured by the car, so treat it as a guide." }, 8)
         pair(seekBox("twParkMin", "Auto-reset after parked (P)", 0, 120, 30) { if (it == 0) "never" else "$it min" }, null, 12)
         pair(seekBox("twFade", "Edge fade", 0, 30, 0) { if (it == 0) "off" else "$it%" }, seekBox("twOpacity", "Opacity", 50, 100, 90) { "$it%" }, 12)
+        pair(androidx.appcompat.widget.SwitchCompat(this).apply {
+            tag = "sw"; text = "See-through front camera background"; isChecked = p.getBoolean("twCam", false)
+            setOnCheckedChangeListener { _, on -> p.edit().putBoolean("twCam", on).apply(); sync() }
+        }, null, 12)
+        pair(seekBox("twCamFov", "Camera zoom (view angle, lower = zoomed in)", 50, 160, 100) { "$it deg" }, seekBox("twCamTilt", "Camera angle (up / down)", -30, 60, 25) { "$it deg" }, 12)
+        pair(seekBox("twCamBlur", "Camera blur (grids float above it, Android 12+)", 0, 40, 0) { if (it == 0) "off" else "$it" }, null, 12)
         pair(seekBox("twHdrText", "Header text size (clock, battery, gear)", 60, 200, 100) { "$it%" }, null, 12)
         pair(seekBox("twPack", "Battery size", 30, 150, 100) { "$it kWh" },
             androidx.appcompat.widget.SwitchCompat(this).apply {
