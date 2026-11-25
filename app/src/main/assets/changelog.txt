@@ -1,3 +1,7 @@
+0.116.1
+- Fix: the phone media buttons stay on top of the floating camera, web and trip windows instead of being hidden behind them.
+- Fix: the phone media buttons snap flush to the top, bottom, left and right edges when let go near them (the bottom one sits right on the bottom bar).
+
 0.116.0
 - New: phone media buttons (Settings > Floating windows, or the floating button's quick ring): a separate floating bar with previous, play / pause and next for phone Bluetooth music, shown while a phone is connected. The play / pause button follows the phone. Drag it anywhere; it snaps to the edges like the minimize bar and keeps its place.
 - New: after a Z Cam browser video stops, a card explains that the car paused your phone music, with a Play phone music button. After a car app plays sound, the car pauses music started from the phone itself; play it from Z Cam or the car instead.

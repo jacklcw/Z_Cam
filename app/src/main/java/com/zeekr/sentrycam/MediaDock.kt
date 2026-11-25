@@ -44,6 +44,9 @@ object MediaDock {
         remove(c)
     }
 
+    /** Re-adds the bar above every floating window (called whenever a window opens or comes back). */
+    fun raise() { val c = app ?: return; if (bar != null) { remove(c); build(c) } }
+
     private fun prefs(c: Context) = c.getSharedPreferences("cfg", Context.MODE_PRIVATE)
 
     private fun refresh(c: Context) {
@@ -84,7 +87,7 @@ object MediaDock {
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED,
             PixelFormat.TRANSLUCENT).apply {
                 val sx = p.getInt("flMediaX", dp(10))
-                gravity = Gravity.TOP or (if (sx < 0) Gravity.RIGHT else Gravity.LEFT); x = if (sx < 0) dp(10) else sx; y = p.getInt("flMediaY", dp(120))
+                gravity = Gravity.TOP or (if (sx < 0) Gravity.RIGHT else Gravity.LEFT); x = if (sx < 0) 0 else sx; y = p.getInt("flMediaY", dp(120))
             }
         try {
             c.getSystemService(WindowManager::class.java).addView(b, lp); bar = b; playBtn = play
@@ -112,18 +115,34 @@ object MediaDock {
         val p = prefs(c)
         val loc = IntArray(2); b.getLocationOnScreen(loc)
         if (inset < 0) inset = 0
-        val y = (loc[1] - inset).coerceIn(0, (dm.heightPixels - inset - b.height).coerceAtLeast(0))
+        val yMax = (usableBottom(c) - inset - b.height).coerceAtLeast(0)
+        val y = (loc[1] - inset).coerceIn(0, yMax)
         val wasVertical = p.getBoolean("flMediaV", false)
         var vertical = false
         val x: Int
         when {
-            rawX < dm.widthPixels * 0.2f || loc[0] < 3 * m -> { vertical = true; x = m }
+            rawX < dm.widthPixels * 0.2f || loc[0] < 3 * m -> { vertical = true; x = 0 }   // flush with the edge, like the bottom
             rawX > dm.widthPixels * 0.8f || loc[0] + b.width > dm.widthPixels - 3 * m -> { vertical = true; x = -1 }   // right edge: placed once its upright size is known
             else -> x = loc[0].coerceIn(0, (dm.widthPixels - b.width).coerceAtLeast(0))
         }
-        val yy = if (y < 60 * dm.density && !vertical) m else y
+        val yy = when {
+            !vertical && y < 60 * dm.density -> 0                 // near the top: flush with the top edge
+            !vertical && y > yMax - 60 * dm.density -> yMax       // near the bottom: sits right on the bottom bar
+            else -> y
+        }
+        Logger.log(c, "mediadock: let go at y ${loc[1]}, usable bottom ${usableBottom(c)}, top inset $inset, bar ${b.width}x${b.height}, placed y $yy (max $yMax)")
         p.edit().putInt("flMediaX", x).putInt("flMediaY", yy).putBoolean("flMediaV", vertical).apply()
         if (vertical != wasVertical || x < 0) { remove(c); build(c) } else place(c, x, yy)
+    }
+
+    /** Screen y where the usable area ends (top of the bottom bar). displayMetrics already leaves both bars out, so it can't be used with the top inset. */
+    private fun usableBottom(c: Context): Int {
+        if (android.os.Build.VERSION.SDK_INT >= 30) try {
+            val wm = c.getSystemService(WindowManager::class.java).currentWindowMetrics
+            val ins = wm.windowInsets.getInsetsIgnoringVisibility(android.view.WindowInsets.Type.systemBars())
+            return wm.bounds.height() - ins.bottom
+        } catch (_: Throwable) {}
+        return c.resources.displayMetrics.heightPixels + (if (inset < 0) 0 else inset)
     }
 
     private fun place(c: Context, x: Int, y: Int) {
