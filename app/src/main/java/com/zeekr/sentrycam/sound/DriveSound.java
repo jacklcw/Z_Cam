@@ -97,6 +97,12 @@ public final class DriveSound {
         return r == null ? 0 : r.gear;
     }
 
+    /** Z_Cam: the simulated engine's rpm for the rev bar's "engine revs" source, 0 when there is none. */
+    public static float simRpm() {
+        Run r = INSTANCE.run;
+        return r == null ? 0f : r.rpm;
+    }
+
     public static void shift(int step) {
         Run r = INSTANCE.run;
         if (r != null) {

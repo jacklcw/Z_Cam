@@ -305,6 +305,22 @@ class FloatCam(private val ctx: Context) {
     private var webSeen = FloatMaster.webAddedSeq
     private var restoreSeen = FloatMaster.restoreSeq
     init { FloatMaster.camUp = { all.any { it.root != null && !it.leaving && !pinned(it) } } }   // a pinned window does not count: the button must still restore the minimized ones
+    // Follow gear ("<key>Gear" per window): opens in D, minimizes in P; R and N are ignored. A gear must hold GEAR_MS before it counts,
+    // and only a change between P and D acts, so a D-R-D turn never reopens a window the driver minimized.
+    private var gearCand: Char? = null; private var gearCandAt = 0L; private var gearLast: Char? = null; private var gearPoll = 0L
+    private fun gearEvent(): Char? {
+        val now = android.os.SystemClock.uptimeMillis()
+        if (now - gearPoll < 500) return null
+        gearPoll = now
+        if (all.none { p.getBoolean(it.key + "Gear", false) }) { gearCand = null; gearLast = null; return null }
+        val g = CampGuard.gearPD(ctx) ?: return null
+        if (g != gearCand) { gearCand = g; gearCandAt = now; return null }
+        if (g == 'x' || g == gearLast || now - gearCandAt < 1500) return null
+        if (gearLast == null) { gearLast = g; return null }   // first reading after (re)start is only remembered: a reopen while parked must not minimize the windows
+        gearLast = g
+        Logger.log(ctx, "floatcam: gear " + g + " held, follow-gear windows " + (if (g == 'D') "open" else "minimize"))
+        return g
+    }
     private var lastPark: String? = null
     private val tick = object : Runnable {
         override fun run() {
@@ -326,6 +342,7 @@ class FloatCam(private val ctx: Context) {
             val stampNow = p.getLong("flSizeStamp", 0L)
             val ls = p.getLong("layoutStamp", 0L); if (layoutSeen < 0) layoutSeen = ls
             val layoutChanged = ls != layoutSeen; layoutSeen = ls   // a layout set was applied: rebuild the open windows from the saved layout
+            val gearEvt = gearEvent()
             for (w in all) {
                 if (w.leaving) continue
                 val want = wanted(w)
@@ -336,6 +353,7 @@ class FloatCam(private val ctx: Context) {
                     continue
                 }
                 if (restoreAll && want) w.hidden = false
+                if (gearEvt != null && want && !pinned(w) && p.getBoolean(w.key + "Gear", false)) w.hidden = gearEvt == 'P'   // follow gear: D opens, P minimizes
                 if (minimizeAll && want && !pinned(w)) w.hidden = true   // double-tap on the floating button: collapse everything to the top dock
                 if (!want && !FloatMaster.hidden && !Park.parked(ctx)) w.hidden = false   // blinker off / switched off: next time it comes back expanded (hide-all on the floating button and a parked / just-started app keep who was minimized)
                 // Blinker on: this side's window comes to the front (expanded, optionally centred); when it stops it goes back where it was.

@@ -12,16 +12,15 @@ import java.net.URL
 
 /**
  * Downloads the latest APK (proxied by the relay from GitHub's private repo -- see
- * MainActivity.kt's checkForUpdate() and the relay's /cam/update* routes) into the app's
+ * MainActivity.kt's checkForUpdate() and update-relay's /v1/cam/update* routes) into the app's
  * cache dir and hands it straight to the system installer. Same mechanism as the phone
  * app's UpdateInstaller, so the user never has to plug the head unit into anything or
  * manually sideload a file in the car.
  */
 object UpdateInstaller {
     const val BASE = "https://zdash-updates.wai10691.workers.dev"
-    // Gates the Worker against scanners only (embedded in compiled code, not real auth). Same key as the phone app.
-    private const val CLIENT_KEY = "242dd459cbf963243bc9d0dc4a6b7f03c023fd8ea449e3ed76f2f6116d01f2c8"
-    val HEADERS = mapOf("X-ZDash-Key" to CLIENT_KEY)
+    // No key: Z_Cam is public, so its update files are public too. The ZDash phone app's key must never live in this repo.
+    val HEADERS = emptyMap<String, String>()
 
     /** Asks the update server and stores the result in prefs: "updAvail" = the newer version name, or "" when up to date. Null = server not reachable. */
     fun refresh(ctx: android.content.Context): String? {

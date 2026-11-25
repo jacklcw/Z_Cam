@@ -20,9 +20,11 @@ class HudPadView(c: Context, private val onSelect: (Item) -> Unit, private val o
         var x = 16; var y = 50; var size = 50; var shown = true
         var gw = 300; var gh = 200   // kind 4 only: width/height in HUD pixels (1440 x 480)
         var aspect = 100; var icon = 0; var color = BlindSpotHud.ARROW_GREEN; var pos = 1; var gap = 0
+        var len = 90; var vert = false   // kind 3, pos 3 (Custom): the bar is free, length % of the visible windshield side, vert = standing
         /** Smallest gap that keeps the rev bar inside the visible windshield area (bottom edge is cut at y 341 of 480, right edge at x 1329 of 1440). */
         fun minGap() = if (kind == 3) (when (pos) { 1 -> 29; 2 -> 8; else -> 0 }) else 0
-        fun min() = when (kind) { 0 -> 40; 1 -> 20; 3 -> 2; 5 -> 10; 6 -> 8; else -> 5 }
+        fun custom() = kind == 3 && pos == 3
+        fun min() = when (kind) { 0 -> 40; 1 -> 20; 3 -> 2; 5 -> 10; 6 -> 8; 7 -> 6; else -> 5 }
         fun max() = when (kind) { 0 -> 100; 1 -> 200; 3 -> 30; 5 -> 80; 6 -> 60; else -> 40 }
     }
     val items = ArrayList<Item>()      // drawn in this order, so later ones sit on top
@@ -52,6 +54,12 @@ class HudPadView(c: Context, private val onSelect: (Item) -> Unit, private val o
 
     private fun rect(i: Item): RectF {
         val w = width.toFloat(); val h = height.toFloat()
+        if (i.custom()) {   // Custom: free bar, centre x / y in % of the HUD, kept inside the windshield area
+            val t = 480f * i.size / 100f; val l = (if (i.vert) 341f else 1218f) * i.len / 100f
+            val bw = (if (i.vert) t else l) * sc(); val bh = (if (i.vert) l else t) * sc()
+            val cx = px(i.x.toFloat()); val cy = py(i.y.toFloat())
+            return RectF(cx - bw / 2, cy - bh / 2, cx + bw / 2, cy + bh / 2)
+        }
         if (i.kind == 3) {   // the bar sits at the real HUD edge (1440 x 480), which may be outside the visible pad
             val gp = if (i.pos == 2) 1440f * i.gap / 100f else 480f * i.gap / 100f
             val t = if (i.pos == 2) 1440f * i.size / 100f else 480f * i.size / 100f
@@ -65,7 +73,7 @@ class HudPadView(c: Context, private val onSelect: (Item) -> Unit, private val o
             return RectF(cx - gw / 2, cy - gh / 2, cx + gw / 2, cy + gh / 2)
         }
         val hh = 480f * i.size / 100f * sc()
-        val ww = when (i.kind) { 0 -> hh * i.aspect / 100f; 1 -> hh * 9f / 16f; 5 -> hh; 6 -> hh * 6.5f; 2 -> hh * i.aspect / 100f; else -> hh * 2f }
+        val ww = when (i.kind) { 0 -> hh * i.aspect / 100f; 1 -> hh * 9f / 16f; 5 -> hh; 6 -> hh * 6.5f; 7 -> hh * 1.8f; 2 -> hh * i.aspect / 100f; else -> hh * 2f }
         val cx = px(i.x.toFloat()); val cy = py(i.y.toFloat())
         return RectF(cx - ww / 2, cy - hh / 2, cx + ww / 2, cy + hh / 2)
     }
@@ -94,7 +102,7 @@ class HudPadView(c: Context, private val onSelect: (Item) -> Unit, private val o
         sel?.takeIf { it.shown }?.let {
             val r = rect(it); if (it.kind == 2) r.inset(-r.height() * 0.1f, -r.height() * 0.1f)
             line.color = ZTheme.LIME; line.strokeWidth = 5f; cv.drawRect(r, line); line.strokeWidth = 3f
-            if (it.kind == 2 || it.kind == 3) { val q = rect(it); fill.color = ZTheme.LIME; val hr = resources.displayMetrics.density * 5f
+            if (it.kind != 4) { val q = rect(it); fill.color = ZTheme.LIME; val hr = resources.displayMetrics.density * 5f
                 for ((cx, cy) in listOf(q.left to q.top, q.right to q.top, q.left to q.bottom, q.right to q.bottom)) cv.drawCircle(cx, cy, hr, fill) }
         }
     }
@@ -108,7 +116,7 @@ class HudPadView(c: Context, private val onSelect: (Item) -> Unit, private val o
         when (e.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
                 corner = null
-                val sa = sel?.takeIf { it.shown && (it.kind == 2 || it.kind == 3) }
+                val sa = sel?.takeIf { it.shown && it.kind != 4 }   // every item but the two fixed guides
                 if (sa != null) {   // tap a corner of the selected arrow to resize it from that corner (the opposite corner stays put)
                     val q = rect(sa); val rad = resources.displayMetrics.density * 22f
                     val c = listOf(q.left to q.top, q.right to q.top, q.left to q.bottom, q.right to q.bottom)
@@ -127,6 +135,14 @@ class HudPadView(c: Context, private val onSelect: (Item) -> Unit, private val o
             MotionEvent.ACTION_MOVE -> {
                 val s = sel?.takeIf { it.shown } ?: return true
                 val cn = corner
+                if (cn != null && s.custom() && e.pointerCount == 1) {   // free rev bar: a corner drags thickness and length; the opposite corner stays put
+                    val l = Math.min(cn[0], e.x); val r = Math.max(cn[0], e.x); val t = Math.min(cn[1], e.y); val b = Math.max(cn[1], e.y)
+                    val thkPx = if (s.vert) r - l else b - t; val lenPx = if (s.vert) b - t else r - l
+                    s.size = (thkPx / sc() / 480f * 100f).toInt().coerceIn(s.min(), s.max())
+                    s.len = (lenPx / sc() / (if (s.vert) 341f else 1218f) * 100f).toInt().coerceIn(20, 100)
+                    s.x = xPct((l + r) / 2f).toInt().coerceIn(0, 100); s.y = yPct((t + b) / 2f).toInt().coerceIn(0, 100)
+                    invalidate(); onChange(s); return true
+                }
                 if (cn != null && s.kind == 3 && e.pointerCount == 1) {   // rev bar: a corner drags its thickness; the opposite edge stays put
                     if (s.pos == 2) {
                         val l = Math.min(cn[0], e.x); val r = Math.max(cn[0], e.x)
@@ -146,6 +162,22 @@ class HudPadView(c: Context, private val onSelect: (Item) -> Unit, private val o
                     s.x = xPct(ax).toInt().coerceIn(0, 100); s.y = yPct(ay).toInt().coerceIn(0, 100)
                     invalidate(); onChange(s); return true
                 }
+                if (cn != null && s.kind != 2 && s.kind != 3 && s.kind != 4 && e.pointerCount == 1) {   // corner resize: the opposite corner stays put
+                    val lo = 480f * s.min() / 100f * sc(); val hi = 480f * s.max() / 100f * sc()
+                    val dx = Math.abs(e.x - cn[0]); val dy = Math.abs(e.y - cn[1])
+                    val hh: Float; val ww: Float
+                    if (s.kind == 0) {   // camera box: free shape (width / height)
+                        hh = dy.coerceIn(lo, hi); ww = dx.coerceIn(hh * 0.4f, hh * 2.5f)
+                        s.aspect = (ww / hh * 100f).toInt().coerceIn(40, 250)
+                    } else {   // fixed shape: the larger pull wins
+                        val ratio = when (s.kind) { 1 -> 9f / 16f; 6 -> 6.5f; 7 -> 1.8f; else -> 1f }
+                        hh = Math.max(dy, dx / ratio).coerceIn(lo, hi); ww = hh * ratio
+                    }
+                    s.size = (hh / sc() / 480f * 100f).toInt().coerceIn(s.min(), s.max())
+                    val ax = if (e.x >= cn[0]) cn[0] + ww / 2 else cn[0] - ww / 2; val ay = if (e.y >= cn[1]) cn[1] + hh / 2 else cn[1] - hh / 2
+                    s.x = xPct(ax).toInt().coerceIn(0, 100); s.y = yPct(ay).toInt().coerceIn(0, 100)
+                    sizeF = s.size.toFloat(); invalidate(); onChange(s); return true
+                }
                 if (cn != null && s.kind == 2 && e.pointerCount == 1) {
                     val hh = Math.abs(e.y - cn[1]).coerceIn(480f * s.min() / 100f * sc(), 480f * s.max() / 100f * sc())
                     val ww = Math.abs(e.x - cn[0]).coerceIn(hh * 0.5f, hh * 5f)
@@ -157,10 +189,10 @@ class HudPadView(c: Context, private val onSelect: (Item) -> Unit, private val o
                 if (e.pointerCount >= 2) {
                     val d = dist(e)
                     if (s.kind == 4) { s.gw = (s.gw * d / lastD).toInt().coerceIn(20, 1440); s.gh = (s.gh * d / lastD).toInt().coerceIn(20, 480) }
-                    else { sizeF = (sizeF * d / lastD).coerceIn(s.min().toFloat(), s.max().toFloat()); s.size = sizeF.toInt() }
+                    else { sizeF = (sizeF * d / lastD).coerceIn(s.min().toFloat(), s.max().toFloat()); s.size = sizeF.toInt(); if (s.custom()) s.len = (s.len * d / lastD).toInt().coerceIn(20, 100) }
                     lastD = d
                 } else {
-                    if (s.kind == 3) {   // the bar goes to the nearest HUD edge and follows the finger away from it (gap)
+                    if (s.kind == 3 && !s.custom()) {   // the bar goes to the nearest HUD edge and follows the finger away from it (gap)
                         val hx = xPct(e.x) / 100f * 1440f; val hy = yPct(e.y) / 100f * 480f
                         val dt = hy; val db = 480f - hy; val dr = 1440f - hx
                         s.pos = if (dt <= db && dt <= dr) 0 else if (db <= dr) 1 else 2
@@ -171,8 +203,13 @@ class HudPadView(c: Context, private val onSelect: (Item) -> Unit, private val o
                         }.toInt().coerceIn(s.minGap(), 40)
                     } else { val r = rect(s)   // the HUD keeps the whole box inside its screen, so the pad does too (what you see here is what the HUD shows)
                         val hx = r.width() / 2f / sc() / 1440f * 100f; val hy = r.height() / 2f / sc() / 480f * 100f
+                        if (s.custom() || s.kind == 7) {   // free items stay inside the part of the HUD the windshield shows
+                            val lo = VL / 1440f * 100f + hx; val hi = VR / 1440f * 100f - hx; val tp = VT / 480f * 100f + hy; val bt = VB / 480f * 100f - hy
+                            s.x = xPct(e.x + gx).coerceIn(lo.coerceAtMost(hi), hi.coerceAtLeast(lo)).toInt().coerceIn(0, 100)
+                            s.y = yPct(e.y + gy).coerceIn(tp.coerceAtMost(bt), bt.coerceAtLeast(tp)).toInt().coerceIn(0, 100)
+                        } else {
                         s.x = xPct(e.x + gx).coerceIn(hx.coerceAtMost(50f), 100f - hx.coerceAtMost(50f)).toInt().coerceIn(0, 100)
-                        s.y = yPct(e.y + gy).coerceIn(hy.coerceAtMost(50f), 100f - hy.coerceAtMost(50f)).toInt().coerceIn(0, 100) }
+                        s.y = yPct(e.y + gy).coerceIn(hy.coerceAtMost(50f), 100f - hy.coerceAtMost(50f)).toInt().coerceIn(0, 100) } }
                 }
                 invalidate(); onChange(s)
             }

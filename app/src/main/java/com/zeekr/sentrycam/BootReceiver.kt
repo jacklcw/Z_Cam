@@ -27,7 +27,7 @@ class BootReceiver : BroadcastReceiver() {
             val p = ctx.getSharedPreferences("cfg", Context.MODE_PRIVATE)
             val featureOn = listOf("bsHud", "revOn", "webHudOn", "webFloatOn", "flLeft", "flRight", "flRear", "flFront", "twOn", "pfOn", "flMedia").any { p.getBoolean(it, false) } || p.getBoolean("flMaster", true)
             if (p.getString("token", "").isNullOrEmpty() && !p.getBoolean("standalone", false) && !featureOn) return
-            if (p.getBoolean("suspended", false)) return   // relay suspended it (battery floor)
+            // a battery-floor pause (relay "suspended") only stops Sentry capture inside the running service; HUD, floating windows and engine sound must still start
             try {
                 val i = Intent(ctx, CamService::class.java)
                 if (Build.VERSION.SDK_INT >= 26) ctx.startForegroundService(i) else ctx.startService(i)

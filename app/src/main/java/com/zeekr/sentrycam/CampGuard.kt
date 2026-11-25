@@ -24,6 +24,7 @@ object CampGuard {
     private var h: Handler? = null
     private var emptySince = 0L
     private var lastLine = ""
+    private var lastLock: Int? = null; @Volatile private var tracing = false
     private var fn: Any? = null; private var getFn: Method? = null; private var getFnZ: Method? = null
     private var setFn: Method? = null; private var setFnZ: Method? = null
     private var sensor: Any? = null; private var getEvent: Method? = null
@@ -112,6 +113,14 @@ object CampGuard {
         } catch (_: Throwable) { null }
     }
 
+    /** 'P' / 'D' while the gear selector is in park / drive; 'x' for R or N; null when unreadable. */
+    @Synchronized fun gearPD(ctx: Context): Char? {
+        if (!connect(ctx.applicationContext)) return null
+        return try {
+            when ((getEvent?.invoke(sensor, 0x00200200) as? Number)?.toInt()) { 0x00200230 -> 'P'; 0x00200220 -> 'D'; 0x00200240, 0x00200210 -> 'x'; else -> null }
+        } catch (_: Throwable) { null }
+    }
+
     private fun seat(id: Int): Boolean? = try {
         when (((getEvent?.invoke(sensor, id) as? Number)?.toInt() ?: -1) and 0xFF) { 1 -> false; 2 -> true; else -> null }   // true = occupied
     } catch (_: Throwable) { null }
@@ -126,12 +135,15 @@ object CampGuard {
         val port = readFn(CHARGE_PORT)
         val line = "camping=$camping driverSeat=$drv passengerSeat=$pas lock=$lockRaw chargePort=$port"
         if (line != lastLine) { lastLine = line; Logger.log(ctx, "campguard: $line") }
+        // Every lock with both front seats empty (a normal walk-away): log how the car winds down, so a reliable "car is off" reading can be found.
+        if (lockRaw == 1 && lastLock == 0 && drv != true && pas != true) traceAfterLock(ctx, if (camping) "lock (Camping on)" else "lock")
+        if (lockRaw != null && lockRaw != 255) lastLock = lockRaw
         // Someone may be sleeping in the rear while it charges: never cut while the charge port is open (or unreadable).
         val empty = camping && drv == false && pas == false && locked && port == 0
         val now = System.currentTimeMillis()
         if (!empty) { emptySince = 0L; return }
         if (emptySince == 0L) { emptySince = now; Logger.log(ctx, "campguard: nobody inside, car locked, waiting"); return }
-        val waitMs = p.getInt("campMin", 15).coerceIn(1, 120) * 60_000L
+        val waitMs = p.getInt("campMin", 15).coerceIn(0, 120) * 60_000L   // 0 = right after locking
         if (now - emptySince < waitMs) return
         emptySince = 0L
         var ok = try { setFnZ?.invoke(fn, campId!!, ZONE_ALL, 0) } catch (_: Throwable) { null }
@@ -141,8 +153,74 @@ object CampGuard {
         Logger.log(ctx, "campguard: camping off after ${waitMs / 60000} min empty, returned $ok, now $now0")
         if (now0 == 0) {   // tell the relay so ZDash can push a notification to the phone
             val base = p.getString("url", "").orEmpty().trimEnd('/'); val token = p.getString("token", "")
-            if (base.isNotEmpty()) try { Net.postJson("$base/cam/campguard/fired", token, org.json.JSONObject().put("min", waitMs / 60000)) } catch (_: Throwable) {}
+            if (base.isNotEmpty()) try { Net.postJson("$base/cam/campguard/fired", token, org.json.JSONObject().put("min", waitMs / 60000).put("lock", true)) } catch (_: Throwable) {}   // lock: the relay re-locks the car so it sleeps (lights off) and Sentry can arm
+            if (base.isNotEmpty()) sentryAfterCamp(ctx, base, token)
         }
+    }
+
+    /** The car will not arm Sentry while Camping is on or right after it goes off (it is still awake). After the relay re-locks it, ask the relay
+     *  to run Auto Sentry again a few times, spaced out, while the car stays locked, empty and out of Camping. The relay arms only where Auto Sentry
+     *  wants it (away from safe zones), checks that the car really turned it on, and does nothing once it is on. */
+    private fun sentryAfterCamp(ctx: Context, base: String, token: String?) {
+        Thread {
+            // Lock retry first, then Sentry: the first lock after Camping off does not always end the car's wake-up (lights seen still on, 2026-11-25),
+            // a second lock a minute later did. Always send it; there is no reliable "car still awake" reading yet (Android's screen-on stays true),
+            // so screen, display, light and A/C readings are logged before and after it to find one.
+            try { Thread.sleep(60_000L) } catch (_: InterruptedException) { return@Thread }
+            if (lockState(ctx) != 1 || anySeated(ctx) == true) { Logger.log(ctx, "campguard: re-lock skipped (car unlocked or occupied)"); return@Thread }
+            Logger.log(ctx, "campguard: before re-lock: " + awakeReadings(ctx))
+            try { Net.postJson("$base/cam/campguard/fired", token, org.json.JSONObject().put("relock", true)) } catch (_: Throwable) {}
+            try { Thread.sleep(30_000L) } catch (_: InterruptedException) { return@Thread }
+            Logger.log(ctx, "campguard: after re-lock: " + awakeReadings(ctx))
+            for ((n, waitS) in listOf(30, 90, 180).withIndex()) {
+                try { Thread.sleep(waitS * 1000L) } catch (_: InterruptedException) { return@Thread }
+                val camping = synchronized(this) { campId?.let { readFn(it) } }
+                if (lockState(ctx) != 1 || anySeated(ctx) == true || camping == 1) { Logger.log(ctx, "campguard: sentry follow-up stopped (car unlocked, occupied or Camping on)"); return@Thread }
+                val r = try { Net.postJson("$base/cam/left", token, org.json.JSONObject().put("locked", true).put("retryArm", true)) } catch (_: Throwable) { null }
+                Logger.log(ctx, "campguard: sentry follow-up ${n + 1}/3 after Camping off: ${r ?: "no answer"}")
+            }
+        }.start()
+    }
+
+    /** Readings at 0, 5, 15, 30, 60, 90, 120, 180 and 300 s after a lock (until unlocked, or until the head unit sleeps: the last line logged is the last moment it was up). */
+    fun traceAfterLock(ctx: Context, tag: String) {
+        if (tracing) return
+        tracing = true
+        Thread {
+            try {
+                var t = 0
+                for (at in listOf(0, 5, 15, 30, 60, 90, 120, 180, 300)) {
+                    Thread.sleep((at - t) * 1000L); t = at
+                    val lk = lockState(ctx)
+                    val camp = synchronized(this) { campId?.let { readFn(it) } }
+                    Logger.log(ctx, "locktrace: $tag +${at}s lock=$lk camping=$camp seats=${anySeated(ctx)} " + awakeReadings(ctx))
+                    if (lk == 0) { Logger.log(ctx, "locktrace: unlocked, stop"); break }
+                }
+            } catch (_: Throwable) {} finally { tracing = false }
+        }.start()
+    }
+
+    /** Signals that may tell whether the car is still awake after locking: Android screen, display states, and every light and A/C function the car API names with its reading. */
+    fun awakeReadings(ctx: Context): String {
+        val pm = ctx.getSystemService(Context.POWER_SERVICE) as android.os.PowerManager
+        val dm = ctx.getSystemService(Context.DISPLAY_SERVICE) as android.hardware.display.DisplayManager
+        val disp = dm.displays.joinToString(" ") { "${it.displayId}:${it.state}" }
+        return "interactive=${pm.isInteractive} displays(id:state)=$disp lights[" + funcReadings(ctx, "ILight") { it.contains("BEAM") || it.contains("HEAD") || it.contains("POSITION") || it.contains("DRL") || it.contains("LIGHT") } +
+            "] ac[" + funcReadings(ctx, "IHvac") { it.contains("POWER") || it.contains("_AC") || it.contains("AUTO") || it.contains("FAN") || it.contains("BLOWER") } + "]"
+    }
+
+    @Synchronized private fun funcReadings(ctx: Context, iface: String, want: (String) -> Boolean): String {
+        if (!connect(ctx.applicationContext)) return "unreadable"
+        val out = ArrayList<String>()
+        for (p in PKGS) try {
+            for (f in Class.forName("com.ecarx.xui.adaptapi.car.$p$iface").fields) {
+                if (!java.lang.reflect.Modifier.isStatic(f.modifiers) || f.type != Int::class.javaPrimitiveType) continue
+                val n = f.name; if (!n.contains("FUNC") || !want(n)) continue
+                val v = readFn(f.getInt(null)); if (v != null) out += "$n=$v"
+                if (out.size >= 25) break
+            }
+        } catch (_: Throwable) {}
+        return if (out.isEmpty()) "none found" else out.joinToString(" ")
     }
 
     private const val PRE_CAMP_ID = 0x20110100

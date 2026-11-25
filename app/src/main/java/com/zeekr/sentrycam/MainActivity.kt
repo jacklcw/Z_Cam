@@ -291,7 +291,7 @@ class MainActivity : AppCompatActivity() {
             isChecked = p.getBoolean("parkCut", true)
             setOnCheckedChangeListener { _, on -> p.edit().putBoolean("parkCut", on).apply(); Park.poke(); syncService() }
         }
-        for ((id, key) in listOf(R.id.flOnlyL to "flOnly_L", R.id.flOnlyR to "flOnly_R", R.id.flBlinkCenter to "flBlinkCenter", R.id.flBlackBg to "flBlackBg", R.id.webFloatAlways to "webFloatAlways"))
+        for ((id, key) in listOf(R.id.flOnlyL to "flOnly_L", R.id.flOnlyR to "flOnly_R", R.id.flGearL to "flLeftGear", R.id.flGearR to "flRightGear", R.id.flGearB to "flRearGear", R.id.flGearF to "flFrontGear", R.id.flBlinkCenter to "flBlinkCenter", R.id.flBlackBg to "flBlackBg", R.id.webFloatAlways to "webFloatAlways"))
             findViewById<CompoundButton>(id).apply {
                 isChecked = p.getBoolean(key, false)
                 setOnCheckedChangeListener { _, on -> p.edit().putBoolean(key, on).apply(); syncService() }
@@ -306,10 +306,11 @@ class MainActivity : AppCompatActivity() {
         }
         run {
             val lbl = findViewById<TextView>(R.id.campMinLabel); val sb = findViewById<SeekBar>(R.id.campMin)
-            val cur = p.getInt("campMin", 15).coerceIn(5, 60)
-            sb.progress = cur - 5; lbl.text = "Wait: $cur min"
+            fun txt(m: Int) = if (m == 0) "Wait: none, right after locking (front seats only: someone in the back is not seen)" else "Wait: $m min"
+            val cur = p.getInt("campMin", 15).coerceIn(0, 60)
+            sb.progress = cur; lbl.text = txt(cur)
             sb.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-                override fun onProgressChanged(s: SeekBar, v: Int, fromUser: Boolean) { lbl.text = "Wait: ${v + 5} min"; if (fromUser) p.edit().putInt("campMin", v + 5).apply() }
+                override fun onProgressChanged(s: SeekBar, v: Int, fromUser: Boolean) { lbl.text = txt(v); if (fromUser) p.edit().putInt("campMin", v).apply() }
                 override fun onStartTrackingTouch(s: SeekBar) {}
                 override fun onStopTrackingTouch(s: SeekBar) {}
             })
@@ -1174,6 +1175,11 @@ class MainActivity : AppCompatActivity() {
                 revRow.addView(cell(q.third, picker(q.first, "$name: ${q.third.lowercase()}", q.second.indices.map { it.toString() }, q.second, DriveProfile.revDef(code, q.first.substringBefore('_'))) { DriveProfile.revEdited(this, code) }),
                     LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply { if (i > 0) marginStart = dp(8) })
             rh.addView(revRow); revViews += revRow
+            val posRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(0, dp(10), 0, 0) }
+            posRow.addView(cell("Position", picker("pfRevPos_$h", "$name: bar position (Custom = free, with a gear number option)", RevBar.POS_NAMES.indices.map { it.toString() }, RevBar.POS_NAMES, DriveProfile.revDef(code, "pfRevPos")) { hudPadReload?.invoke(); DriveProfile.revEdited(this, code) }),
+                LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+            posRow.addView(View(this), LinearLayout.LayoutParams(0, 1, 1f).apply { marginStart = dp(8) })
+            rh.addView(posRow); revViews += posRow
             val rbSw = androidx.appcompat.widget.SwitchCompat(this).apply { tag = "sw"; text = "Regen bar (grows from the other end while regenerating)"; isChecked = p.getBoolean("pfRevRegen_$h", false) }
             val regCol = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
             fun regVis2() { regCol.visibility = if (rbSw.isChecked && p.getString("pfRev_$h", DriveProfile.revDef(code, "pfRev")) == "2") View.VISIBLE else View.GONE }
@@ -1184,6 +1190,53 @@ class MainActivity : AppCompatActivity() {
             rh.addView(regCol); regVis2()
             // bar size and gap are set on the HUD pad (drag the bar, drag a corner dot)
             revVis()
+        }
+        // shared by every drive mode: the free bar's direction, length, segment alignment, revs source, shift flash and the gear number
+        run {
+            fun curMode() = DriveProfile.MODES[p.getInt("revTab", 0).coerceIn(0, DriveProfile.MODES.size - 1)].first
+            fun edited() { hudPadReload?.invoke(); DriveProfile.revEdited(this, curMode()) }
+            fun sw(key: String, text: String, def: Boolean) = androidx.appcompat.widget.SwitchCompat(this).apply {
+                tag = "sw"; this.text = text; isChecked = p.getBoolean(key, def)
+                setOnCheckedChangeListener { _, on -> p.edit().putBoolean(key, on).apply(); edited() }
+            }
+            fun seek(key: String, text: String, min: Int, max: Int, def: Int): View {
+                val box = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(0, dp(8), 0, 0) }
+                val lab = TextView(this).apply { tag = "m"; textSize = 13f; setPadding(0, 0, 0, dp(2)) }
+                box.addView(lab)
+                box.addView(SeekBar(this).apply {
+                    tag = "seek"; this.max = max - min; progress = p.getInt(key, def).coerceIn(min, max) - min
+                    lab.text = text + ": " + (progress + min) + "%"
+                    setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+                        override fun onProgressChanged(sb: SeekBar, v: Int, fromUser: Boolean) { lab.text = text + ": " + (v + min) + "%"; if (fromUser) p.edit().putInt(key, v + min).apply() }
+                        override fun onStartTrackingTouch(sb: SeekBar) {}
+                        override fun onStopTrackingTouch(sb: SeekBar) { edited() }
+                    })
+                }, LinearLayout.LayoutParams(-1, -2))
+                return box
+            }
+            val g = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+            g.addView(label("All drive modes. Custom position: drag the bar and gear number on the pad above; drag a corner dot to resize the bar, pinch to resize the gear.", 14))
+            g.addView(sw("revVert", "Vertical bar (fills upward)", false))
+            g.addView(seek("revLen", "Length (100% = the visible windshield side)", 20, 100, 90))
+            val gr1 = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(0, dp(10), 0, 0) }
+            gr1.addView(picker("revAlign", "Segments stick to", listOf("0", "1", "2"), listOf("Segments: centre", "Segments: top / left edge", "Segments: bottom / right edge"), "0") { edited() }, LinearLayout.LayoutParams(0, -2, 1f))
+            gr1.addView(picker("revSrc", "Bar follows", listOf("0", "1"), listOf("Bar: accelerator pedal", "Bar: engine sound revs (D1 to D8, needs the engine sound)"), "0") { edited() }, LinearLayout.LayoutParams(0, -2, 1f).apply { marginStart = dp(8) })
+            g.addView(gr1)
+            g.addView(sw("revFlash", "Shift flash: the bar blinks when full", true))
+            val gearSw = sw("revGearOn", "Show gear number on the HUD", false)
+            gearSw.setOnCheckedChangeListener { _, on ->
+                val e = p.edit().putBoolean("revGearOn", on)
+                if (on) {   // the gear number is drawn by the free (Custom) layout: switch this mode's bar to it so it shows
+                    val (code, _) = DriveProfile.MODES[p.getInt("revTab", 0).coerceIn(0, DriveProfile.MODES.size - 1)]
+                    e.putString("pfRevPos_" + DriveProfile.hex(code), "3")
+                }
+                e.apply(); edited()
+            }
+            g.addView(gearSw, LinearLayout.LayoutParams(-1, -2))
+            g.addView(seek("revGearSize", "Gear number size", 6, 40, 10))
+            val fonts = listOf("Inter", "JetBrains Mono", "Orbitron", "Barlow Condensed", "Rajdhani")
+            g.addView(picker("revGearFont", "Gear number font", fonts, fonts.map { "Font: $it" }, "Orbitron") { edited() }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(8) })
+            revBody.addView(g)
         }
         run { val t = p.getInt("revTab", 0).coerceIn(0, revPanels.size - 1); revPanels.forEachIndexed { k, v -> v.visibility = if (k == t) View.VISIBLE else View.GONE }; revTabs.forEachIndexed { k, b -> b.isSelected = k == t } }
         run { val t = p.getInt("pfTab", 0).coerceIn(0, panels.size - 1); panels.forEachIndexed { k, v -> v.visibility = if (k == t) View.VISIBLE else View.GONE }; tabBtns.forEachIndexed { k, b -> b.isSelected = k == t } }
@@ -1402,7 +1455,7 @@ class MainActivity : AppCompatActivity() {
     // Kill the whole process (floating windows, HUD, camera hub) and have the system bring the service and the app back.
     // Stops the service and kills the whole process (floating windows, HUD, camera hub). Nothing brings it back; open the app again to start it.
     // The built-in preset (assets/default_settings.json): replaces every backed-up setting except the personal web data (bookmarks, history, tabs), then reloads.
-    private val STRING_PREFS = listOf("pfRev", "pfRevShape", "pfRevScheme", "pfRevPos", "pfSpd", "pfRegen", "pfRegenColor", "pfSteer", "pfLka", "pfEped", "pfSound", "pfColor", "pfSlow", "pfFastC", "pfStart", "pfVoice", "acCirc")
+    private val STRING_PREFS = listOf("pfRev", "pfRevShape", "pfRevScheme", "pfRevPos", "pfSpd", "pfRegen", "pfRegenColor", "pfSteer", "pfLka", "pfEped", "pfSound", "pfColor", "pfSlow", "pfFastC", "pfStart", "pfVoice", "acCirc", "revAlign", "revSrc", "revGearFont")
     /** One pref from a preset or backup; the profile pickers read their keys as strings, so a number there would crash the settings screen. Anything unexpected is skipped, never thrown. */
     private fun putPref(e: android.content.SharedPreferences.Editor, k: String, v: Any?): Boolean {
         try {
@@ -1484,8 +1537,10 @@ class MainActivity : AppCompatActivity() {
     // (the window switches, camera tuning...). Defaults go in first, saved values override them.
     private fun backupDefaults(): Map<String, Any> {
         val m = LinkedHashMap<String, Any>()
-        for (k in listOf("flLeft", "flRight", "flRear", "flFront", "flOnly_L", "flOnly_R", "flBlinkCenter", "flBlackBg", "bsHud", "bsRightPos", "revOn", "slOn", "slBeep", "slLog", "mmOn", "webHudOn", "webFloatOn", "webFloatAlways", "flMedia")) m[k] = false
+        for (k in listOf("flLeft", "flRight", "flRear", "flFront", "flOnly_L", "flOnly_R", "flLeftGear", "flRightGear", "flRearGear", "flFrontGear", "flBlinkCenter", "flBlackBg", "bsHud", "bsRightPos", "revOn", "slOn", "slBeep", "slLog", "mmOn", "webHudOn", "webFloatOn", "webFloatAlways", "flMedia")) m[k] = false
         for (k in listOf("flMaster", "parkCut", "bsSignal", "slGlow")) m[k] = true
+        m["revVert"] = false; m["revGearOn"] = false; m["revFlash"] = true; m["revLen"] = 90; m["revX"] = 55; m["revY"] = 65; m["revGearX"] = 12; m["revGearY"] = 65; m["revGearSize"] = 10
+        m["revAlign"] = "0"; m["revSrc"] = "0"; m["revGearFont"] = "Orbitron"
         m["flHeader"] = 56; m["flCorner"] = 0; m["flFade"] = 0; m["slRing"] = 28; m["slNum"] = 100
         for (c in CamTune.CAMS) {
             for (k in listOf("bsSize", "bsAspect", "bsFov", "bsTilt", "bsYaw", "bsRoll")) if ((k != "bsSize" && k != "bsAspect") || CamTune.side(c)) m["${k}_$c"] = CamTune.def(k, c)
@@ -1690,6 +1745,7 @@ class MainActivity : AppCompatActivity() {
         val arrL = HudPadView.Item("arrL", "", 2, true, 0)
         val arrR = HudPadView.Item("arrR", "", 2, false, 0)
         val rev = HudPadView.Item("rev", "REV BAR", 3, true, 0xFFFF6E6E.toInt())
+        val gear = HudPadView.Item("gear", "GEAR", 7, true, 0xFFFFFFFF.toInt())
         val lim = HudPadView.Item("lim", "LIMIT", 5, true, 0xFFFF4D4D.toInt())
         val mm = HudPadView.Item("mm", "DRIVE MODE", 6, true, 0xFF00E5FF.toInt())
         // guides: where the car's own radar / surround display and speedometer sit by default (measured on the car; user moves are kept in prefs "gd*")
@@ -1734,7 +1790,7 @@ class MainActivity : AppCompatActivity() {
             val sl = pad.sel?.takeIf { it.shown }
             if (sl?.id != lastSelId) {
                 lastSelId = sl?.id
-                val want = when { sl == null -> null; sl.kind == 2 -> R.id.hudSecArrow; sl.id == "rev" -> R.id.hudSecRev; sl.id == "lim" -> R.id.hudSecLimit; sl.kind == 0 -> R.id.hudSecExit; sl.kind == 1 -> R.id.hudSecShow; else -> null }
+                val want = when { sl == null -> null; sl.kind == 2 -> R.id.hudSecArrow; sl.id == "rev" || sl.id == "gear" -> R.id.hudSecRev; sl.id == "lim" -> R.id.hudSecLimit; sl.kind == 0 -> R.id.hudSecExit; sl.kind == 1 -> R.id.hudSecShow; else -> null }
                 if (want != null) for (sid in secIds) setSec(sid, sid == want)
             }
             dot.background = android.graphics.drawable.GradientDrawable().apply {
@@ -1762,7 +1818,9 @@ class MainActivity : AppCompatActivity() {
             run {   // the rev bar of the drive mode picked in the rev bar tabs below
                 val (code, name) = revMode(); val h = DriveProfile.hex(code)
                 rev.label = "REV BAR: " + name.uppercase()
-                rev.pos = (p.getString("pfRevPos_$h", DriveProfile.revDef(code, "pfRevPos"))?.toIntOrNull() ?: 1).coerceIn(0, 2)
+                rev.pos = if (p.getBoolean("revGearOn", false)) 3 else (p.getString("pfRevPos_$h", DriveProfile.revDef(code, "pfRevPos"))?.toIntOrNull() ?: 1).coerceIn(0, 3)
+                rev.x = p.getInt("revX", 55); rev.y = p.getInt("revY", 65); rev.len = p.getInt("revLen", 90).coerceIn(20, 100); rev.vert = p.getBoolean("revVert", false)
+                gear.x = p.getInt("revGearX", 12); gear.y = p.getInt("revGearY", 65); gear.size = p.getInt("revGearSize", 10).coerceIn(6, 40); gear.shown = p.getBoolean("revGearOn", false)
                 rev.size = p.getInt("pfRevSize_$h", DriveProfile.revSizeDef(code)).coerceIn(2, 30); rev.gap = p.getInt("pfRevInset_$h", DriveProfile.REV_GAP).coerceIn(0, 40)
                 if (rev.gap < rev.minGap()) {   // saved outside the visible windshield area (can't be seen or grabbed): bring it back in
                     rev.gap = rev.minGap(); p.edit().putInt("pfRevInset_$h", rev.gap).apply(); DriveProfile.revEdited(this, code)
@@ -1788,23 +1846,24 @@ class MainActivity : AppCompatActivity() {
             if (!loading) {
                 val e = p.edit(); val k = sfx(i.left)
                 when (i.id) {
-                    "rev" -> { val h = DriveProfile.hex(revMode().first); e.putString("pfRevPos_$h", i.pos.toString()).putInt("pfRevSize_$h", i.size).putInt("pfRevInset_$h", i.gap) }
+                    "rev" -> { val h = DriveProfile.hex(revMode().first); e.putString("pfRevPos_$h", i.pos.toString()).putInt("pfRevSize_$h", i.size).putInt("pfRevInset_$h", i.gap); if (i.pos == 3) e.putInt("revX", i.x).putInt("revY", i.y).putInt("revLen", i.len) }
+                    "gear" -> e.putInt("revGearX", i.x).putInt("revGearY", i.y).putInt("revGearSize", i.size)
                     "mm" -> e.putInt("mmX", i.x).putInt("mmY", i.y).putInt("mmSize", i.size)
                     "lim" -> e.putInt("slX", i.x).putInt("slY", i.y).putInt("slSize", i.size)
                     "web" -> e.putInt("webPosX", i.x).putInt("webPosY", i.y).putInt("webSize", i.size)
                     "radar", "speed" -> e.putInt("gdX_${i.id}", i.x).putInt("gdY_${i.id}", i.y).putInt("gdW_${i.id}", i.gw).putInt("gdH_${i.id}", i.gh)
-                    "camL", "camR" -> e.putInt("bsPosX$k", i.x).putInt("bsPosY$k", i.y).putInt("bsSize$k", i.size)
+                    "camL", "camR" -> e.putInt("bsPosX$k", i.x).putInt("bsPosY$k", i.y).putInt("bsSize$k", i.size).putInt("bsAspect$k", i.aspect)
                     else -> e.putInt("bsArrX$k", i.x).putInt("bsArrY$k", i.y).putInt("bsArrSize$k", i.size).putInt("bsArrAsp$k", i.aspect)
                 }
-                e.apply(); if (i.id != "rev") preview(i); gdSync()
+                e.apply(); if (i.id != "rev" && i.id != "gear") preview(i); gdSync()
             }
-        }, onRelease = { i -> if (i.id == "rev") DriveProfile.revEdited(this, revMode().first) else if (i.id == "mm") ModeHud.show(this, "Sport", 0xFFFF2020.toInt()) })   // the bar shows on the HUD once the finger lifts
+        }, onRelease = { i -> if (i.id == "rev" || i.id == "gear") DriveProfile.revEdited(this, revMode().first) else if (i.id == "mm") ModeHud.show(this, "Sport", 0xFFFF2020.toInt()) })   // the bar shows on the HUD once the finger lifts
         // layering: the pad draws in the saved HUD order (back to front); the real HUD windows follow it too (HudLayer)
         val layerInfo = TextView(this).apply { tag = "m"; setPadding(0, dp(8), 0, 0) }
         fun applyZ() {
             pad.items.clear(); pad.items += listOf(radar, speed, mm)   // guides first: they sit underneath
             val ord = HudLayer.order(p)
-            for (id in ord) pad.items += when (id) { "cam" -> listOf(camL, camR); "arr" -> listOf(arrL, arrR); "web" -> listOf(web); "rev" -> listOf(rev); else -> listOf(lim) }
+            for (id in ord) pad.items += when (id) { "cam" -> listOf(camL, camR); "arr" -> listOf(arrL, arrR); "web" -> listOf(web); "rev" -> listOf(rev, gear); else -> listOf(lim) }
             layerInfo.text = "Layers, back to front: " + ord.joinToString(" > ") { HudLayer.NAMES[it] ?: it } + "\nTap an item on the pad, then move it."
             pad.invalidate()
         }
@@ -1813,18 +1872,23 @@ class MainActivity : AppCompatActivity() {
         host.addView(pad, LinearLayout.LayoutParams(-1, -2))
         // eye chips: lit = shown on the pad (editor only, the HUD itself is not affected)
         host.addView(TextView(this).apply { tag = "m"; text = "Show on pad (hide items that are in the way while arranging):"; setPadding(0, dp(10), 0, 0) })
-        val crow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(0, dp(6), 0, 0) }
-        for ((n, pair) in listOf("L cam" to camL, "R cam" to camR, "Web" to web, "Rev bar" to rev, "Limit" to lim, "Mode" to mm, "L arrow" to arrL, "R arrow" to arrR).withIndex()) {
-            val b = Button(this).apply { tag = "seg"; text = pair.first; isAllCaps = false; isSelected = true }
-            b.setOnClickListener {
-                pair.second.shown = !pair.second.shown
-                if (!pair.second.shown && pad.sel === pair.second) pad.sel = null
-                pad.invalidate(); mark()
+        val chipDefs = listOf("L cam" to camL, "R cam" to camR, "Web" to web, "Rev bar" to rev, "Gear" to gear, "Limit" to lim, "Mode" to mm, "L arrow" to arrL, "R arrow" to arrR)
+        for (rowDefs in chipDefs.chunked(5)) {   // two rows of equal-width, one-line chips so nothing wraps out of line
+            val crow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(0, dp(6), 0, 0) }
+            for (n in 0 until 5) {
+                val pair = rowDefs.getOrNull(n)
+                if (pair == null) { crow.addView(View(this), LinearLayout.LayoutParams(0, 1, 1f).apply { marginStart = dp(8) }); continue }
+                val b = Button(this).apply { tag = "seg"; text = pair.first; isAllCaps = false; isSelected = true; maxLines = 1; textSize = 13f; ellipsize = android.text.TextUtils.TruncateAt.END }
+                b.setOnClickListener {
+                    pair.second.shown = !pair.second.shown
+                    if (!pair.second.shown && pad.sel === pair.second) pad.sel = null
+                    pad.invalidate(); mark()
+                }
+                chips += b to pair.second
+                crow.addView(b, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply { if (n > 0) marginStart = dp(8) })
             }
-            chips += b to pair.second
-            crow.addView(b, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply { if (n > 0) marginStart = dp(8) })
+            host.addView(crow)
         }
-        host.addView(crow)
         host.addView(layerInfo, LinearLayout.LayoutParams(-1, -2))
         val zrow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(0, dp(6), 0, 0) }
         for ((n, step) in listOf("Send back" to -1, "Bring forward" to 1).withIndex()) {
@@ -2079,6 +2143,7 @@ class MainActivity : AppCompatActivity() {
         WebHud.appVisible = true
         super.onResume()
         paintTripSync?.invoke()   // the ZDash link may have just changed
+        BootReceiver.startIfWanted(this)   // opening the app (re)starts the service and re-applies every setting, like toggling a switch did by hand
         resumed = true; updateLiveHold()
         startMirror()
         startQueueLoop()

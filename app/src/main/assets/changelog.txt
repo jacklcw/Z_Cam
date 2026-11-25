@@ -1,3 +1,19 @@
+0.119.0
+- New: rev bar styles. Settings > HUD > Rev bar has 10 styles (Centre-out, Shift lights, Wedge, Laser line, Stepped blocks, Type R, Tacho blocks and the old three) and 26 colour sets (F1, Ferrari, Lamborghini, McLaren, Porsche, Bugatti, Civic Type R, NSX, Toyota GR, Supra and more).
+- New: Position > Custom (free). Drag the bar anywhere on the HUD pad and resize it from a corner dot or by pinching. Set Length, Vertical, and which edge the segments stick to. The bar stays inside the windshield area.
+- New: the bar can follow the engine sound revs. It fills to full at every upshift and blinks when full (Shift flash).
+- New: gear number on the HUD (switching it on moves the bar to Custom). Drag it on the pad, set its size and font (Inter, JetBrains Mono, Orbitron, Barlow Condensed, Rajdhani). It shows a sample gear while you set it up.
+- New: every item on the HUD pad (cameras, web page, limit sign, drive mode, gear, rev bar, arrows) resizes by dragging a corner dot. Camera boxes can change shape. The radar and speedo guides stay fixed.
+- New: Camping auto-off wait can be 0 (right after locking, front seats empty). After Camping goes off, the car is locked again twice so the cabin and lights really go off, then Auto Sentry tries to arm (needs the ZDash relay).
+- Fix: the app starts by itself after an update, a reboot or reopening it, even while Sentry is paused by the battery floor.
+- Fix: reopening the app while parked no longer minimizes the floating windows that follow the gear.
+- Fix: the Show on pad chips are two even rows, and the gear number switch matches the other switches.
+- Log: car readings after each lock are written to the log (for a future lights still on check).
+
+0.118.0
+BETA: follow gear is untested in the car.
+- New: floating cameras can follow the gear (Settings > Floating windows, "Open in D, minimize in P" under each camera). D opens the cameras that have it on, P minimizes only those. R and N do nothing, and a gear must hold 1.5 s, so a 3-point turn does not flicker. Opening or minimizing by hand still works until the next P to D. Thanks to Jason for the idea.
+
 0.117.0
 - New: Air circulation at start can also be set from the ZDash Automation tab (Climate). It stays in step both ways with the Air conditioner card here, and ZDash shows when the car has the new setting and the car's current circulation. Needs ZDash 0.137.0.
 - Fix: the phone media buttons snap to the nearest edge when let go near it (each edge zone is a fifth of the screen). In a corner the top or bottom wins, so the bottom right corner is the bottom.

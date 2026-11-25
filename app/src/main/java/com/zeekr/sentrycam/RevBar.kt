@@ -28,7 +28,7 @@ import android.view.WindowManager
 class RevBar(private val ctx: Context) {
     companion object {
         @Volatile var instance: RevBar? = null
-        val POS_NAMES = listOf("Top edge", "Bottom edge", "Right side")
+        val POS_NAMES = listOf("Top edge", "Bottom edge", "Right side", "Custom (free)")
         private const val CAR_CLASS = "com.ecarx.xui.adaptapi.car.Car"
         private const val SENSOR_THROTTLE = 0x00101400
         private const val SENSOR_BRAKE = 0x00101300
@@ -141,7 +141,7 @@ class RevBar(private val ctx: Context) {
         if (!running) return
         val now = System.currentTimeMillis()
         val preview = p.getLong("revPreviewUntil", 0L) > now
-        target = if (preview) (0.5f + 0.5f * Math.sin(now / 450.0).toFloat()) * 100f else readThrottle()
+        target = if (preview) (0.5f + 0.5f * Math.sin(now / 450.0).toFloat()) * 100f else if (p.getString("revSrc", "0") == "1") revsPct() else readThrottle()
         val regenOn = p.getBoolean("revRegen", false)
         regenTarget = if (!regenOn) 0f else if (preview) (0.5f - 0.5f * Math.sin(now / 450.0).toFloat()) * 100f else readRegen(now)
         regenLevel = if (preview) regenLevel + (regenTarget - regenLevel) * 0.3f else regenTarget   // the meter already glides
@@ -149,9 +149,20 @@ class RevBar(private val ctx: Context) {
         // the car reports ~5 times a second: glide to each reading, quick up, slower down
         level += (target - level) * (if (target > level) 0.5f else 0.25f)
         if (level >= peak) { peak = level; peakAt = now } else if (now - peakAt > 1200) peak = maxOf(level, peak - 2.5f)
-        val show = (level > 0.5f || peak > 0.5f || regenLevel > 0.5f || regenOn)   // with the regen bar on, the bar stays on screen like a gauge
+        val show = (level > 0.5f || peak > 0.5f || regenLevel > 0.5f || regenOn || (gearOn() && (com.zeekr.sentrycam.sound.DriveSound.simGear() > 0 || preview)))   // with the regen bar on, the bar stays on screen like a gauge
         main.post { update(show) }
         h.postDelayed(::tick, TICK_MS)
+    }
+
+    /** Engine revs source: the simulated engine's rpm as 0..100 between idle and the shift point. The bar is full at the rpm where the last upshift happened (5500 until the first one) and holds full for a moment as the gear changes, so it tops up at every shift instead of only at top speed. */
+    private var revGear = 0; private var revLastRpm = 0f; private var shiftRpm = 5500f; private var shiftHoldUntil = 0L
+    private fun revsPct(): Float {
+        val r = com.zeekr.sentrycam.sound.DriveSound.simRpm(); val g = com.zeekr.sentrycam.sound.DriveSound.simGear(); val now = System.currentTimeMillis()
+        if (g > revGear && revGear > 0) { shiftRpm = revLastRpm.coerceIn(3000f, 5500f); shiftHoldUntil = now + 250 }   // upshift: the rpm just before it is this gear's top
+        if (g == 0) shiftRpm = 5500f
+        revGear = g; revLastRpm = r
+        if (now < shiftHoldUntil) return 100f
+        return if (r <= 0f) 0f else ((r - 900f) / (shiftRpm - 900f) * 100f).coerceIn(0f, 100f)
     }
 
     private fun findHud(): Display? {
@@ -162,21 +173,33 @@ class RevBar(private val ctx: Context) {
             ?: on.firstOrNull { it.displayId == HUD_FALLBACK_ID && size(it).let { s -> !(s.x == CLUSTER_W && s.y == CLUSTER_H) } }
     }
 
-    private fun pos() = p.getInt("revPos", 0).coerceIn(0, 2)
+    private fun pos() = if (p.getBoolean("revGearOn", false)) 3 else p.getInt("revPos", 0).coerceIn(0, 3)   // the gear number needs the free (Custom) layout
     private fun thick(): Int {
         val base = if (pos() == 2) hudW else hudH
         return (base * p.getInt("revSize", 14).coerceIn(2, 30) / 100).coerceAtLeast(4)
     }
     // the HUD projection may crop its outer rim: the window stays on the edge (as before) and the bar is drawn this far in
-    private fun inset() = (if (pos() == 2) hudW else hudH) * p.getInt("revInset", 8).coerceIn(0, 40) / 100
+    private fun inset() = if (pos() == 3) 0 else (if (pos() == 2) hudW else hudH) * p.getInt("revInset", 8).coerceIn(0, 40) / 100
     private fun lp(type: Int): WindowManager.LayoutParams {
         val t = thick() + inset()
         val r = pos() == 2
-        return WindowManager.LayoutParams(if (r) t else WindowManager.LayoutParams.MATCH_PARENT, if (r) WindowManager.LayoutParams.MATCH_PARENT else t, type,
+        val free = pos() == 3   // Custom: a window over the whole HUD, the bar and the gear number are drawn where they were placed
+        return WindowManager.LayoutParams(if (free) WindowManager.LayoutParams.MATCH_PARENT else if (r) t else WindowManager.LayoutParams.MATCH_PARENT,
+            if (free) WindowManager.LayoutParams.MATCH_PARENT else if (r) WindowManager.LayoutParams.MATCH_PARENT else t, type,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
                 WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED, PixelFormat.TRANSLUCENT
         ).apply {
-            gravity = when (pos()) { 0 -> Gravity.TOP; 1 -> Gravity.BOTTOM; else -> Gravity.RIGHT }
+            gravity = when (pos()) { 0 -> Gravity.TOP; 1 -> Gravity.BOTTOM; 2 -> Gravity.RIGHT; else -> Gravity.TOP or Gravity.LEFT }
+        }
+    }
+
+    private fun gearOn() = p.getBoolean("revGearOn", false)
+    private val fontCache = HashMap<String, android.graphics.Typeface>()
+    private fun gearFace(): android.graphics.Typeface {
+        val name = p.getString("revGearFont", "Orbitron") ?: "Orbitron"
+        return fontCache.getOrPut(name) {
+            val file = when (name) { "JetBrains Mono" -> "jbmono_bold.ttf"; "Orbitron" -> "orbitron.ttf"; "Barlow Condensed" -> "barlow_bold.ttf"; "Rajdhani" -> "rajdhani_bold.ttf"; else -> null }
+            if (file == null) ZFont.bold else try { android.graphics.Typeface.createFromAsset(ctx.assets, "fonts/$file") } catch (_: Throwable) { ZFont.bold }
         }
     }
 
@@ -224,7 +247,16 @@ class RevBar(private val ctx: Context) {
             HudLayer.added(p, "rev")
         }
         v.visibility = View.VISIBLE
-        v.pos = pos(); v.inset = inset().toFloat(); v.vInset = hudH * p.getInt("revInset", 8).coerceIn(0, 40) / 100f; v.shape = p.getInt("revShape", 0).coerceIn(0, 2); v.scheme = p.getInt("revScheme", 0).coerceIn(0, 3)
+        v.pos = pos(); v.inset = inset().toFloat(); v.vInset = hudH * p.getInt("revInset", 8).coerceIn(0, 40) / 100f
+        v.shape = p.getInt("revShape", 0).coerceIn(0, RevStyles.STYLE_NAMES.size - 1); v.scheme = p.getInt("revScheme", 0).coerceIn(0, RevStyles.SCHEME_NAMES.size - 1)
+        v.custom = pos() == 3; v.vert = p.getBoolean("revVert", false); v.salign = (p.getString("revAlign", "0") ?: "0").toIntOrNull() ?: 0
+        v.flash = p.getBoolean("revFlash", true); v.lenPct = p.getInt("revLen", 90).coerceIn(20, 100); v.thkPct = p.getInt("revSize", 14).coerceIn(2, 30)
+        v.barX = p.getInt("revX", 55) / 100f; v.barY = p.getInt("revY", 65) / 100f
+        var sg = if (gearOn()) com.zeekr.sentrycam.sound.DriveSound.simGear() else 0
+        if (gearOn() && sg == 0 && p.getLong("revPreviewUntil", 0L) > System.currentTimeMillis()) sg = 3   // settings preview: show a sample gear while the car is not driving
+        v.gearText = if (sg > 0) "D$sg" else null
+        v.gearX = p.getInt("revGearX", 12) / 100f; v.gearY = p.getInt("revGearY", 65) / 100f; v.gearPct = p.getInt("revGearSize", 10).coerceIn(6, 40)
+        if (gearOn()) v.gearFace = gearFace()
         v.track = p.getBoolean("revRegen", false)
         v.simGear = if (p.getString("engGearShow", "on") == "off") 0 else com.zeekr.sentrycam.sound.DriveSound.simGear()
         v.level = level; v.peak = peak; v.regen = regenLevel; v.regenColor = p.getInt("revRegenColor", Color.rgb(0, 230, 90))
@@ -260,6 +292,11 @@ class RevView(c: Context) : View(c) {
     var shape = 0
     var scheme = 0
     var simGear = 0
+    var custom = false; var vert = false; var salign = 0; var flash = true   // Custom position: free bar (see RevStyles)
+    var lenPct = 90; var thkPct = 14; var barX = 0.55f; var barY = 0.65f
+    var gearText: String? = null; var gearX = 0.12f; var gearY = 0.65f; var gearPct = 10
+    var gearFace: android.graphics.Typeface = android.graphics.Typeface.DEFAULT_BOLD
+    private val gearPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE; textAlign = Paint.Align.CENTER }
     var track = false    // regen bar on: draw a faint track so the bar never vanishes between rev and regen
     private val fill = Paint(Paint.ANTI_ALIAS_FLAG)
     private val glow = Paint(Paint.ANTI_ALIAS_FLAG)
@@ -271,16 +308,11 @@ class RevView(c: Context) : View(c) {
     private val stops = floatArrayOf(0f, 0.6f, 1f)
 
     companion object {
-        val SHAPE_NAMES = listOf("Smooth", "Segments", "Slanted")
-        val SCHEME_NAMES = listOf("Traffic", "Neon", "Ice", "Sport")
-        private val SCHEMES = arrayOf(
-            intArrayOf(Color.rgb(0, 230, 90), Color.rgb(255, 214, 0), Color.rgb(255, 40, 40)),
-            intArrayOf(Color.rgb(0, 229, 255), Color.rgb(90, 80, 255), Color.rgb(255, 0, 200)),
-            intArrayOf(Color.rgb(170, 230, 255), Color.rgb(0, 190, 255), Color.rgb(255, 255, 255)),
-            intArrayOf(Color.rgb(255, 150, 0), Color.rgb(255, 70, 0), Color.rgb(255, 0, 60)))
+        val SHAPE_NAMES = RevStyles.STYLE_NAMES
+        val SCHEME_NAMES = RevStyles.SCHEME_NAMES
     }
 
-    private fun colors() = SCHEMES[scheme.coerceIn(0, SCHEMES.size - 1)]
+    private fun colors() = RevStyles.colors(scheme)
     private fun colorAt(f: Float): Int {
         val c = colors(); val x = f.coerceIn(0f, 1f)
         val (a, b, t) = if (x < 0.6f) Triple(c[0], c[1], x / 0.6f) else Triple(c[1], c[2], (x - 0.6f) / 0.4f)
@@ -301,7 +333,34 @@ class RevView(c: Context) : View(c) {
         glow.color = regenColor; glow.alpha = 50; glow.style = Paint.Style.STROKE; cv.drawPath(seg, glow)
     }
 
+    private fun newBar(cv: Canvas, x: Float, y: Float, w: Float, h: Float, vertical: Boolean) {
+        val off = flash && level >= 96f && (android.os.SystemClock.uptimeMillis() / 80) % 2 == 1L   // the blink at the shift point / redline
+        RevStyles.draw(cv, shape, scheme, x, y, w, h, vertical, salign, level / 100f, peak / 100f, regen / 100f, regenColor, track, off, android.os.SystemClock.uptimeMillis())
+    }
+
     override fun onDraw(cv: Canvas) {
+        if (custom) {
+            // a window over the whole HUD: the bar stays inside the part of it the windshield shows (x 111-1329, y 0-341 of 1440 x 480)
+            val W = width.toFloat(); val H = height.toFloat(); val k = W / 1440f
+            val t = maxOf(4f, H * thkPct / 100f); val len = (if (vert) 341f else 1218f) * k * lenPct / 100f
+            val bw = if (vert) t else len; val bh = if (vert) len else t
+            val bx = (W * barX - bw / 2f).coerceIn(111f * k, maxOf(111f * k, 1329f * k - bw)); val by = (H * barY - bh / 2f).coerceIn(0f, maxOf(0f, 341f * k - bh))
+            newBar(cv, bx, by, bw, bh, vert)
+            gearText?.let { g ->
+                gearPaint.typeface = gearFace; gearPaint.textSize = H * gearPct / 100f; gearPaint.setShadowLayer(6f, 0f, 0f, Color.argb(200, 0, 0, 0))
+                cv.drawText(g, W * gearX, H * gearY - (gearPaint.ascent() + gearPaint.descent()) / 2f, gearPaint)
+            }
+            return
+        }
+        if (shape >= 3) {   // the newer styles on an edge position
+            val wv = width.toFloat(); val hv = height.toFloat()
+            when (pos) {
+                0 -> newBar(cv, 0f, inset, wv, hv - inset, false)
+                1 -> newBar(cv, 0f, 0f, wv, hv - inset, false)
+                else -> newBar(cv, 0f, vInset, wv - inset, hv - 2 * vInset, true)
+            }
+            return
+        }
         val vertical = pos == 2
         val w = width.toFloat() - (if (vertical) inset else 0f); val h = height.toFloat() - (if (vertical) 2 * vInset else inset)
         if (w <= 0f || h <= 0f) return

@@ -11,7 +11,7 @@ import org.json.JSONObject
 object LayoutPresets {
     class Preset(val id: String, var name: String, val created: Long, var edited: Long, var data: JSONObject)
 
-    private val EXACT = setOf("mmX", "mmY", "mmSize", "slX", "slY", "slSize", "webPosX", "webPosY", "webSize", "hudZ", "fmX", "fmY", "fmSize", "webFloatX", "webFloatY", "webFloatW", "webLand", "webAsp", "twX", "twY", "twOrient", "twDetail", "twChart", "twSlots")
+    private val EXACT = setOf("mmX", "mmY", "mmSize", "slX", "slY", "slSize", "webPosX", "webPosY", "webSize", "hudZ", "fmX", "fmY", "fmSize", "webFloatX", "webFloatY", "webFloatW", "webLand", "webAsp", "twX", "twY", "twOrient", "twDetail", "twChart", "twSlots", "revX", "revY", "revLen", "revVert", "revAlign", "revGearX", "revGearY", "revGearSize")
     private val PREFIX = listOf("bsPosX_", "bsPosY_", "bsSize_", "bsAspect_", "bsArr", "pfRevPos_", "pfRevSize_", "pfRevInset_", "twW_", "twH_")
     private val FLOAT = Regex("^fl(Left|Right|Rear|Front)(X|Y|W|H|Size)$")
 
