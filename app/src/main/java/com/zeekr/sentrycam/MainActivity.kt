@@ -330,6 +330,9 @@ class MainActivity : AppCompatActivity() {
             addView(TextView(context).apply { tag = "m"; textSize = 13f; text = "Sets the air circulation mode each time the car is switched on." })
             addView(Button(context).apply {
                 tag = "seg"; isAllCaps = false; show(this)
+                val btn = this
+                acListener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, k -> if (k == "acCirc") runOnUiThread { show(btn) } }
+                p.registerOnSharedPreferenceChangeListener(acListener)
                 setOnClickListener { ZDialog.choose(this@MainActivity, "Circulation at start", names, vals.indexOf(p.getString("acCirc", "0")).coerceAtLeast(0)) { i -> p.edit().putString("acCirc", vals[i]).apply(); show(this); syncService() } }
             }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = (8 * ZScale.density(context)).toInt() })
         }
@@ -807,6 +810,7 @@ class MainActivity : AppCompatActivity() {
     // Driving profiles card: per drive mode an ambient colour (swatches) and an engine-sound style (picker), plus an optional start mode.
     private val pfRefresh = ArrayList<() -> Unit>()
     private var feelListener: android.content.SharedPreferences.OnSharedPreferenceChangeListener? = null   // prefs only hold it weakly
+    private var acListener: android.content.SharedPreferences.OnSharedPreferenceChangeListener? = null   // Air conditioner card follows a change from ZDash
     /** Mascot card: the pixel pet that roams the screen (see Mascot). Every control writes an "mc*" pref and re-sends the start intent. */
     private fun buildMascotCard(sync: () -> Unit) {
         val body = findViewById<LinearLayout>(R.id.mcBody)

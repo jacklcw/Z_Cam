@@ -1,3 +1,7 @@
+0.117.0
+- New: Air circulation at start can also be set from the ZDash Automation tab (Climate). It stays in step both ways with the Air conditioner card here, and ZDash shows when the car has the new setting and the car's current circulation. Needs ZDash 0.137.0.
+- Fix: the phone media buttons snap to the nearest edge when let go near it (each edge zone is a fifth of the screen). In a corner the top or bottom wins, so the bottom right corner is the bottom.
+
 0.116.1
 - Fix: the phone media buttons stay on top of the floating camera, web and trip windows instead of being hidden behind them.
 - Fix: the phone media buttons snap flush to the top, bottom, left and right edges when let go near them (the bottom one sits right on the bottom bar).

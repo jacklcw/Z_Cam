@@ -410,7 +410,7 @@ class CamService : Service() {
                     if (Net.postJson("$base/cam/parked", token, body) != null) { lastParkSent = pk; lastCampSent = camNow; lastSeatSent = seatNow; lastGearSent = gearNow; lastParkAt = pkNow }
                 }
                 val cams = (p.getString("cams", "2") ?: "2").split(",").filter { it.isNotBlank() }
-                val cmd = Net.get("$base/cam/cmd", token)
+                val cmd = Net.get("$base/cam/cmd?v=$myVer&ac=${getSharedPreferences("cfg", MODE_PRIVATE).getLong("acApplied", 0L)}&acNow=${try { DriveProfile.circNow(this) } catch (_: Throwable) { 0 }}", token)
                 // Self-healing: a null result means the poll itself failed (timeout/DNS/refused),
                 // not just an empty response. If that's been going on for a while, the control
                 // socket may be a zombie too (connected but not actually reachable) -- rebuild it
@@ -581,7 +581,7 @@ class CamService : Service() {
             controlWs = controlClient.newWebSocket(req, object : WebSocketListener() {
                 override fun onOpen(ws: WebSocket, r: okhttp3.Response) {
                     try {
-                        val cmd = Net.get("$base/cam/cmd", token)
+                        val cmd = Net.get("$base/cam/cmd?v=$myVer&ac=${getSharedPreferences("cfg", MODE_PRIVATE).getLong("acApplied", 0L)}&acNow=${try { DriveProfile.circNow(this@CamService) } catch (_: Throwable) { 0 }}", token)
                         val until = cmd?.optLong("streamUntilMs", 0L) ?: 0L
                         if (until > System.currentTimeMillis()) { val c = firstCam(); if (c != null) startStreaming(base, token, c) }
                     } catch (_: Throwable) {}
@@ -665,6 +665,8 @@ class CamService : Service() {
     // Camping auto-off setting, kept in step with the dashboard: a newer dashboard change is applied here; a change made
     // in this app is sent to the relay (campMs is the time of the last change, so the two never fight).
     // The car's Camping switch is read on its own thread, so a slow or stuck car API can never stall the relay poll loop.
+    /** Our versionCode, sent with every /cam/cmd poll so the dashboard can tell which settings this car app supports. */
+    private val myVer: Int by lazy { try { val pi = packageManager.getPackageInfo(packageName, 0); if (Build.VERSION.SDK_INT >= 28) pi.longVersionCode.toInt() else @Suppress("DEPRECATION") pi.versionCode } catch (_: Throwable) { 0 } }
     @Volatile private var campRead: Boolean? = null
     @Volatile private var seatRead: Boolean? = null   // any front seat occupied (ZDash holds its app lock open while true)
     private var lastSeatSent: Boolean? = null
@@ -761,6 +763,17 @@ class CamService : Service() {
                 val res = Net.postJson("$base/cam/campguard", token, JSONObject().put("on", lOn).put("min", lMin))
                 val ms = res?.optLong("campMs", 0L) ?: 0L
                 if (ms > 0L) p.edit().putLong("campApplied", ms).apply()
+            }
+            // Air circulation at start, kept in step with the dashboard's Automation tab the same way (acMs = time of the last change).
+            val aMs = cmd.optLong("acMs", 0L); val aR = cmd.optInt("acCirc", 0).coerceIn(0, 4)
+            val aL = (p.getString("acCirc", "0") ?: "0").toIntOrNull()?.coerceIn(0, 4) ?: 0
+            if (aMs > p.getLong("acApplied", 0L)) {
+                p.edit().putString("acCirc", aR.toString()).putLong("acApplied", aMs).apply()
+                if (aR != aL) { Logger.log(this, "circ: setting from dashboard: $aR"); mainH.post { syncCameraFeatures() } }
+            } else if (aL != aR) {
+                val res = Net.postJson("$base/cam/acset", token, JSONObject().put("circ", aL))
+                val ms = res?.optLong("acMs", 0L) ?: 0L
+                if (ms > 0L) p.edit().putLong("acApplied", ms).apply()
             }
         } catch (_: Throwable) {}
     }

@@ -107,32 +107,37 @@ object MediaDock {
         try { c.getSystemService(WindowManager::class.java).updateViewLayout(b, lp) } catch (_: Throwable) {}
     }
 
-    /** Same placement as the minimize dock ([BubbleRow]): near the left / right edge it sticks there upright; near the top it sticks to the top edge. */
+    /**
+     * Where the bar lands when let go: near the top or bottom edge it lies flat along that edge (corners too, so the bottom right corner is the
+     * bottom, not the right edge); otherwise near the left / right edge it stands upright there; anywhere else it stays a row where it was let go.
+     * Every edge is flush (no gap).
+     */
     private fun snap(c: Context, rawX: Float) {
         val b = bar ?: return
         val dm = c.resources.displayMetrics
-        val m = (10 * dm.density).toInt()
         val p = prefs(c)
         val loc = IntArray(2); b.getLocationOnScreen(loc)
         if (inset < 0) inset = 0
-        val yMax = (usableBottom(c) - inset - b.height).coerceAtLeast(0)
-        val y = (loc[1] - inset).coerceIn(0, yMax)
+        val bottom = usableBottom(c)
         val wasVertical = p.getBoolean("flMediaV", false)
+        val rowW = if (wasVertical) b.height else b.width; val rowH = if (wasVertical) b.width else b.height   // its size as a row
+        val colW = rowH; val colH = rowW                                                                         // and standing upright
+        val top = loc[1] - inset
+        // how far each side of the bar is from that screen edge; every edge zone is the same size (a fifth of the screen)
+        val zone = 0.2f * minOf(dm.widthPixels, bottom - inset)
+        val dTop = top; val dBottom = bottom - (loc[1] + b.height); val dLeft = loc[0]; val dRight = dm.widthPixels - (loc[0] + b.width)
         var vertical = false
-        val x: Int
+        var x: Int; var y: Int
         when {
-            rawX < dm.widthPixels * 0.2f || loc[0] < 3 * m -> { vertical = true; x = 0 }   // flush with the edge, like the bottom
-            rawX > dm.widthPixels * 0.8f || loc[0] + b.width > dm.widthPixels - 3 * m -> { vertical = true; x = -1 }   // right edge: placed once its upright size is known
-            else -> x = loc[0].coerceIn(0, (dm.widthPixels - b.width).coerceAtLeast(0))
+            dBottom < zone && dBottom <= dTop -> { x = loc[0].coerceIn(0, (dm.widthPixels - rowW).coerceAtLeast(0)); y = (bottom - inset - rowH).coerceAtLeast(0) }   // bottom (corners included)
+            dTop < zone -> { x = loc[0].coerceIn(0, (dm.widthPixels - rowW).coerceAtLeast(0)); y = 0 }   // top (corners included)
+            dLeft < zone && dLeft <= dRight -> { vertical = true; x = 0; y = top.coerceIn(0, (bottom - inset - colH).coerceAtLeast(0)) }
+            dRight < zone -> { vertical = true; x = -1; y = top.coerceIn(0, (bottom - inset - colH).coerceAtLeast(0)) }   // right edge (gravity right)
+            else -> { x = loc[0].coerceIn(0, (dm.widthPixels - b.width).coerceAtLeast(0)); y = top.coerceIn(0, (bottom - inset - b.height).coerceAtLeast(0)) }
         }
-        val yy = when {
-            !vertical && y < 60 * dm.density -> 0                 // near the top: flush with the top edge
-            !vertical && y > yMax - 60 * dm.density -> yMax       // near the bottom: sits right on the bottom bar
-            else -> y
-        }
-        Logger.log(c, "mediadock: let go at y ${loc[1]}, usable bottom ${usableBottom(c)}, top inset $inset, bar ${b.width}x${b.height}, placed y $yy (max $yMax)")
-        p.edit().putInt("flMediaX", x).putInt("flMediaY", yy).putBoolean("flMediaV", vertical).apply()
-        if (vertical != wasVertical || x < 0) { remove(c); build(c) } else place(c, x, yy)
+        Logger.log(c, "mediadock: let go at ${loc[0]},${loc[1]}, usable bottom $bottom, top inset $inset, bar ${b.width}x${b.height}, placed $x,$y ${if (vertical) "upright" else "row"}")
+        p.edit().putInt("flMediaX", x).putInt("flMediaY", y).putBoolean("flMediaV", vertical).apply()
+        if (vertical != wasVertical || x < 0) { remove(c); build(c) } else place(c, x, y)
     }
 
     /** Screen y where the usable area ends (top of the bottom bar). displayMetrics already leaves both bars out, so it can't be used with the top inset. */

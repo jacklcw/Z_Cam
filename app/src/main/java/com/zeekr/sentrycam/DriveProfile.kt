@@ -48,6 +48,9 @@ object DriveProfile {
 
     fun hex(code: Int) = Integer.toHexString(code)
 
+    /** The car's air circulation right now: 1 recirculation, 2 fresh air, 3 auto, 0 unknown (for the ZDash card). */
+    fun circNow(ctx: Context): Int = read(ctx, FUNC_CIRC)?.let { CIRC_VALUES.indexOf(it).coerceAtLeast(0) } ?: 0
+
     private var thread: HandlerThread? = null
     private var bg: Handler? = null
     @Volatile private var running = false
