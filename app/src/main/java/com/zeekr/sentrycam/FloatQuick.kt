@@ -43,7 +43,7 @@ object FloatQuick {
         Item(APP, "Open Z Cam"))
     private val GROUPS = mapOf(
         HUD to listOf(Item("revOn", "Rev bar"), Item("webHudOn", "Web on HUD"), Item("bsHud", "HUD side cam"), Item("bsSignal", "Turn arrow on HUD"), Item("slOn", "Speed limit on HUD"), Item("slBeep", "Speed limit sound"), Item("slDebug", "Road info text"), Item("mmOn", "Drive mode on HUD")),
-        LIVE to listOf(Item("flLeft", "Left window"), Item("flRight", "Right window"), Item("flRear", "Rear window"), Item("flFront", "Front window"), Item("webFloatOn", "Web window"), Item("twOn", "Trip widget")))
+        LIVE to listOf(Item("flLeft", "Left window"), Item("flRight", "Right window"), Item("flRear", "Rear window"), Item("flFront", "Front window"), Item("webFloatOn", "Web window"), Item("twOn", "Trip widget"), Item("flMedia", "Phone media buttons")))
     private const val IDLE_MS = 7_000L
 
     private val main = Handler(Looper.getMainLooper())
@@ -497,6 +497,11 @@ object FloatQuick {
                     for (a in intArrayOf(210, 270, 330)) { val r = Math.toRadians(a.toDouble()); cv.drawLine(cx + h * 0.72f * Math.cos(r).toFloat(), cy + h * 0.72f * Math.sin(r).toFloat(), cx + h * 0.9f * Math.cos(r).toFloat(), cy + h * 0.9f * Math.sin(r).toFloat(), line) }
                     cv.drawLine(cx, cy + h * 0.15f, cx + h * 0.5f, cy - h * 0.35f, line)
                     cv.drawCircle(cx, cy + h * 0.15f, h * 0.15f, fill)
+                }
+                "flMedia" -> {   // media bar: a rounded box with a play triangle between two skip bars
+                    cv.drawRoundRect(cx - h * 1.1f, cy - h * 0.7f, cx + h * 1.1f, cy + h * 0.7f, 3 * d, 3 * d, line)
+                    val t = Path(); t.moveTo(cx - h * 0.3f, cy - h * 0.4f); t.lineTo(cx + h * 0.35f, cy); t.lineTo(cx - h * 0.3f, cy + h * 0.4f); t.close(); cv.drawPath(t, fill)
+                    cv.drawLine(cx - h * 0.7f, cy - h * 0.35f, cx - h * 0.7f, cy + h * 0.35f, line); cv.drawLine(cx + h * 0.7f, cy - h * 0.35f, cx + h * 0.7f, cy + h * 0.35f, line)
                 }
                 "flLock" -> {   // padlock: body and shackle; the shackle lifts and swings aside while unlocked
                     cv.drawRoundRect(cx - h * 0.7f, cy - h * 0.1f, cx + h * 0.7f, cy + h * 0.95f, 2.5f * d, 2.5f * d, fill)

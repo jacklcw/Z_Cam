@@ -28,7 +28,8 @@ object BubbleRow {
     private var vertical = false
     private var inset = -1   // window y origin below the system bar (screen y minus lp.y), measured on the first drag
 
-    private class DragBar(ctx: Context, val onDrag: (Float, Float) -> Unit, val onEnd: (Float) -> Unit) : LinearLayout(ctx) {
+    /** Also the media dock's bar ([MediaDock]): a drag past 24 dp moves it, a tap still reaches the buttons. */
+    internal class DragBar(ctx: Context, val onDrag: (Float, Float) -> Unit, val onEnd: (Float) -> Unit) : LinearLayout(ctx) {
         private var dx = 0f; private var dy = 0f; private var drag = false
         override fun onInterceptTouchEvent(e: android.view.MotionEvent): Boolean {
             when (e.actionMasked) {

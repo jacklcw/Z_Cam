@@ -29,6 +29,13 @@
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28"/>
     <uses-feature android:name="android.hardware.camera" android:required="false"/>
 
+    <!-- finds the car's Bluetooth music player, to press play on it (PhoneMusic) -->
+    <queries>
+        <intent>
+            <action android:name="android.media.browse.MediaBrowserService"/>
+        </intent>
+    </queries>
+
     <application
         android:name=".ZApp"
         android:allowBackup="false"

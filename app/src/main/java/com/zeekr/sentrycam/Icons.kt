@@ -10,9 +10,9 @@ import android.view.View
 
 /** Small drawn icon button for the floating windows (no text, no emoji): a dark rounded chip with a stroked glyph. */
 class IconButton(c: Context, private val kind: Kind, chip: Int = 0xFF2C2C2E.toInt(), private val halo: Boolean = false) : View(c) {
-    enum class Kind { BACK, FORWARD, RELOAD, RESET, HIDE, GLOBE, STAR, LIST, ROTATE, FULL, UNFULL, UP, DOWN, HOME, TABS, CAM_L, CAM_R, CAM_REAR, CAM_FRONT, TRIP, EDIT, MORE, DOWNLOAD, HISTORY, DESKTOP, PIN, GUIDE, ADJUST }
+    enum class Kind { BACK, FORWARD, RELOAD, RESET, HIDE, GLOBE, STAR, LIST, ROTATE, FULL, UNFULL, UP, DOWN, HOME, TABS, CAM_L, CAM_R, CAM_REAR, CAM_FRONT, TRIP, EDIT, MORE, DOWNLOAD, HISTORY, DESKTOP, PIN, GUIDE, ADJUST, PREV, NEXT, PLAY }
 
-    /** STAR: filled when the page is bookmarked; EDIT / LIST / TABS: lit while that mode or page is open. */
+    /** PLAY: shows pause bars while [on] (the phone is playing). STAR: filled when the page is bookmarked; EDIT / LIST / TABS: lit while that mode or page is open. */
     var on = false
         set(v) { field = v; invalidate() }
 
@@ -105,6 +105,14 @@ class IconButton(c: Context, private val kind: Kind, chip: Int = 0xFF2C2C2E.toIn
                 cv.drawText(badge, cx, cy + txt.textSize * 0.35f, txt)
             }
             Kind.RELOAD -> arrowArc(cv, cx, cy, h, -50f, 280f, h * 0.55f)   // circle arrow: open ring with a chevron head
+            Kind.PLAY -> if (on) {
+                cv.drawRoundRect(cx - h * 0.75f, cy - h, cx - h * 0.2f, cy + h, 2 * d, 2 * d, fill); cv.drawRoundRect(cx + h * 0.2f, cy - h, cx + h * 0.75f, cy + h, 2 * d, 2 * d, fill)
+            } else { p.moveTo(cx - h * 0.6f, cy - h); p.lineTo(cx + h, cy); p.lineTo(cx - h * 0.6f, cy + h); p.close(); cv.drawPath(p, fill) }
+            Kind.PREV, Kind.NEXT -> {   // a solid triangle against a bar: skip back / skip forward
+                val o = if (kind == Kind.NEXT) 1f else -1f
+                p.moveTo(cx - o * h * 0.8f, cy - h * 0.85f); p.lineTo(cx + o * h * 0.45f, cy); p.lineTo(cx - o * h * 0.8f, cy + h * 0.85f); p.close(); cv.drawPath(p, fill)
+                cv.drawRoundRect(cx + o * h * 0.55f - h * 0.17f, cy - h * 0.85f, cx + o * h * 0.55f + h * 0.17f, cy + h * 0.85f, 2 * d, 2 * d, fill)
+            }
             Kind.RESET -> cv.drawRoundRect(cx - h, cy - h, cx + h, cy + h, 3 * d, 3 * d, line)
             Kind.GUIDE -> {   // a road in perspective: two slanted rails with cross lines
                 p.moveTo(cx - h * 0.4f, cy - h); p.lineTo(cx - h, cy + h); p.moveTo(cx + h * 0.4f, cy - h); p.lineTo(cx + h, cy + h); cv.drawPath(p, line)

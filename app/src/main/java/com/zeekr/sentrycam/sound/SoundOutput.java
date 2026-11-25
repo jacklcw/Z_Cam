@@ -34,7 +34,10 @@ final class SoundOutput {
 
     /** Tracks of ours that are playing right now (AudioWake tells our own players from other apps' by this). */
     static final java.util.concurrent.atomic.AtomicInteger LIVE = new java.util.concurrent.atomic.AtomicInteger();
+    /** The ones of LIVE that use USAGE_MEDIA (the phone media buttons tell our cabin engine sound from phone music by this). */
+    public static final java.util.concurrent.atomic.AtomicInteger LIVE_MEDIA = new java.util.concurrent.atomic.AtomicInteger();
     private boolean counted;
+    private boolean media;
     private final AudioTrack track;
     private final String address;
     private final int capacityFrames;
@@ -115,6 +118,7 @@ final class SoundOutput {
             throw new IllegalStateException("setPreferredDevice refused " + address);
         }
         SoundOutput out = new SoundOutput(track, address, bytes / FRAME_BYTES);
+        out.media = usage == AudioAttributes.USAGE_MEDIA;
         out.bufferFrames = track.setBufferSizeInFrames(Math.min(out.capacityFrames,
                 Math.max(RATE * startMs / 1000, Math.min(learnedFrames, RATE * CARRY_MAX_MS / 1000))));
         if (play) {
@@ -130,6 +134,9 @@ final class SoundOutput {
             if (!counted) {
                 counted = true;
                 LIVE.incrementAndGet();
+                if (media) {
+                    LIVE_MEDIA.incrementAndGet();
+                }
             }
         } catch (IllegalStateException e) {
             track.release();
@@ -220,6 +227,9 @@ final class SoundOutput {
         if (counted) {
             counted = false;
             LIVE.decrementAndGet();
+            if (media) {
+                LIVE_MEDIA.decrementAndGet();
+            }
         }
     }
 

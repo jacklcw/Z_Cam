@@ -25,7 +25,7 @@ class BootReceiver : BroadcastReceiver() {
         /** Starts [CamService] when something in the app needs it. A refused start (Android may block a camera service from the background) is retried by [ServiceWatchdog]. */
         fun startIfWanted(ctx: Context) {
             val p = ctx.getSharedPreferences("cfg", Context.MODE_PRIVATE)
-            val featureOn = listOf("bsHud", "revOn", "webHudOn", "webFloatOn", "flLeft", "flRight", "flRear", "flFront", "twOn", "pfOn").any { p.getBoolean(it, false) } || p.getBoolean("flMaster", true)
+            val featureOn = listOf("bsHud", "revOn", "webHudOn", "webFloatOn", "flLeft", "flRight", "flRear", "flFront", "twOn", "pfOn", "flMedia").any { p.getBoolean(it, false) } || p.getBoolean("flMaster", true)
             if (p.getString("token", "").isNullOrEmpty() && !p.getBoolean("standalone", false) && !featureOn) return
             if (p.getBoolean("suspended", false)) return   // relay suspended it (battery floor)
             try {

@@ -83,6 +83,11 @@ public final class AudioWake {
     private AudioWake() {
     }
 
+    /** Our engine sound's media tracks playing right now (the phone media buttons tell it from phone music). */
+    public static int ourMediaTracks() {
+        return SoundOutput.LIVE_MEDIA.get();
+    }
+
     /**
      * A web page in our own browser says its video/audio ended or paused. YouTube leaves a silent player open for ~10 s after a video ends (the "up next"
      * countdown), which the player count above reads as "someone is still playing", so the focus was only taken back when that player finally closed

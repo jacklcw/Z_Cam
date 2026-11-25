@@ -414,6 +414,10 @@ class MainActivity : AppCompatActivity() {
             isChecked = p.getBoolean("flMaster", true)
             setOnCheckedChangeListener { _, on -> p.edit().putBoolean("flMaster", on).apply(); if (on) needOverlay(); syncService() }
         }
+        findViewById<CompoundButton>(R.id.flMedia).apply {
+            isChecked = p.getBoolean("flMedia", false)
+            setOnCheckedChangeListener { _, on -> p.edit().putBoolean("flMedia", on).apply(); if (on) needOverlay(); syncService() }
+        }
         for ((id, key) in listOf(R.id.flLeft to "flLeft", R.id.flRight to "flRight", R.id.flRear to "flRear", R.id.flFront to "flFront"))
             findViewById<CompoundButton>(id).apply {
                 isChecked = p.getBoolean(key, false)
@@ -1476,7 +1480,7 @@ class MainActivity : AppCompatActivity() {
     // (the window switches, camera tuning...). Defaults go in first, saved values override them.
     private fun backupDefaults(): Map<String, Any> {
         val m = LinkedHashMap<String, Any>()
-        for (k in listOf("flLeft", "flRight", "flRear", "flFront", "flOnly_L", "flOnly_R", "flBlinkCenter", "flBlackBg", "bsHud", "bsRightPos", "revOn", "slOn", "slBeep", "slLog", "mmOn", "webHudOn", "webFloatOn", "webFloatAlways")) m[k] = false
+        for (k in listOf("flLeft", "flRight", "flRear", "flFront", "flOnly_L", "flOnly_R", "flBlinkCenter", "flBlackBg", "bsHud", "bsRightPos", "revOn", "slOn", "slBeep", "slLog", "mmOn", "webHudOn", "webFloatOn", "webFloatAlways", "flMedia")) m[k] = false
         for (k in listOf("flMaster", "parkCut", "bsSignal", "slGlow")) m[k] = true
         m["flHeader"] = 56; m["flCorner"] = 0; m["flFade"] = 0; m["slRing"] = 28; m["slNum"] = 100
         for (c in CamTune.CAMS) {

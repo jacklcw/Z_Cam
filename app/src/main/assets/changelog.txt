@@ -1,3 +1,8 @@
+0.116.0
+- New: phone media buttons (Settings > Floating windows, or the floating button's quick ring): a separate floating bar with previous, play / pause and next for phone Bluetooth music, shown while a phone is connected. The play / pause button follows the phone. Drag it anywhere; it snaps to the edges like the minimize bar and keeps its place.
+- New: after a Z Cam browser video stops, a card explains that the car paused your phone music, with a Play phone music button. After a car app plays sound, the car pauses music started from the phone itself; play it from Z Cam or the car instead.
+- Fix: phone music over Bluetooth no longer gets paused again by the engine sound after a browser video. The engine sound only takes the car audio back when you pause the video yourself or it ends.
+
 0.115.0
 - New: Browser > Downloads: Clear button deletes all downloaded files (tap twice), including the copies Z Cam put in the public Downloads folder.
 - Change: with the Trip widget camera background on, the header and section titles are outlined text instead of solid panels, so more of the camera shows.

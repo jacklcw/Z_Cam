@@ -385,6 +385,11 @@
                     <androidx.appcompat.widget.SwitchCompat android:id="@+id/flMaster" android:tag="sw"
                         android:layout_width="match_parent" android:layout_height="wrap_content"
                         android:text="Quick-hide button (hide / show all windows, pinch to resize)"/>
+                    <androidx.appcompat.widget.SwitchCompat android:id="@+id/flMedia" android:tag="sw"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:text="Phone media buttons (previous / play / next for phone Bluetooth music; drag to move)"/>
+                    <TextView android:tag="m" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:text="Shown while a phone is connected over Bluetooth. After the browser or another car app played sound, press play here or on the car: play on the phone itself gets paused by the car."/>
                     <androidx.appcompat.widget.SwitchCompat android:id="@+id/flBlackBg" android:tag="sw"
                         android:layout_width="match_parent" android:layout_height="wrap_content"
                         android:text="Solid background behind windows (black, white on Light theme)"/>

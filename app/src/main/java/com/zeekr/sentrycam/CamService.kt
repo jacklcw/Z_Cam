@@ -355,6 +355,7 @@ class CamService : Service() {
         if (on) floatCam?.sync() else { floatCam?.stop(); floatCam = null }
         // floating button: whenever its switch is on, even with no window on (its quick ring also holds the other switches)
         if (p.getBoolean("flMaster", true)) FloatMaster.start(this) else FloatMaster.stop()
+        if (p.getBoolean("flMedia", false)) MediaDock.start(this) else MediaDock.stop()   // phone media buttons
     }
 
     override fun onDestroy() {
@@ -367,7 +368,7 @@ class CamService : Service() {
         revBar?.stop(); revBar = null
         floatCam?.stop(); floatCam = null
         tripWidget?.stop(); tripWidget = null
-        FloatMaster.stop(); Mascot.stop()
+        FloatMaster.stop(); Mascot.stop(); MediaDock.stop()
         try { netCallback?.let { connMgr?.unregisterNetworkCallback(it) } } catch (_: Throwable) {}
         netCallback = null
         usbVideoWatcher?.stop(); usbVideoWatcher = null
